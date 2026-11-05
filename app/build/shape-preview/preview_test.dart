@@ -42,8 +42,16 @@ void main() {
     });
     final settings = WorkspaceSettings(File('${output.path}/settings.json'));
     final boundary = GlobalKey();
+    // 缩略图在后台异步解码素材，界面上有持续的加载动画，用固定轮数的真实等待代替 pumpAndSettle。
+    Future<void> settle() async {
+      for (var i = 0; i < 8; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 60)));
+        await tester.pump(const Duration(milliseconds: 30));
+      }
+    }
+
     Future<void> capture(String name) async {
-      await tester.pumpAndSettle();
+      await settle();
       await tester.runAsync(() async {
         final img = await (boundary.currentContext!.findRenderObject()
                 as RenderRepaintBoundary)
@@ -102,24 +110,24 @@ void main() {
                 presets: store,
                 metadata: (_) async => {},
                 apply: (_, __) async {}))));
-    await tester.pumpAndSettle();
+    await settle();
     await tester
         .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 80)));
-    await tester.pumpAndSettle();
+    await settle();
     expect(tester.takeException(), null);
     await capture('all-shapes');
     await tester.tap(find.text('梯形').first);
-    await tester.pumpAndSettle();
+    await settle();
     await capture('trapezoid-selected');
     await tester.tap(find.text('三角形').first);
-    await tester.pumpAndSettle();
+    await settle();
     await capture('triangle-selected');
     // 形状选择器：展开后的 4×2 图标网格。
     await tester.tap(find.byType(ShapePicker));
-    await tester.pumpAndSettle();
+    await settle();
     await capture('shape-picker-open');
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
+    await settle();
     // 坐标取自上一张截图：逻辑坐标 = 截图坐标 / 1024 * 1400。
     Offset at(double x, double y) => Offset(x / 1024 * 1400, y / 702 * 960);
     Future<void> drag(Offset from, Offset to, String name) async {
@@ -131,7 +139,7 @@ void main() {
       }
       if (name.isNotEmpty) await capture('$name-during');
       await g.up();
-      await tester.pumpAndSettle();
+      await settle();
       if (name.isNotEmpty) await capture(name);
     }
 
@@ -140,18 +148,18 @@ void main() {
     await drag(at(437, 344), at(395, 344), 'triangle-rounded');
     // 三角形：上方旋转抓点。
     await tester.tap(find.text('三角形').first);
-    await tester.pumpAndSettle();
+    await settle();
     await capture('triangle-before-rotate');
     await drag(at(383, 239), at(470, 270), 'triangle-rotated');
     // 梯形：金色圆点调上边收窄。
     await tester.tap(find.text('梯形').first);
-    await tester.pumpAndSettle();
+    await settle();
     await drag(at(559, 262), at(585, 258), 'trapezoid-adjusted');
     await tester.tap(find.text('分隔线').first);
-    await tester.pumpAndSettle();
+    await settle();
     await capture('line-selected');
     expect(tester.takeException(), null);
     await tester.pumpWidget(const SizedBox());
-    await tester.pumpAndSettle();
+    await settle();
   });
 }

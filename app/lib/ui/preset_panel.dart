@@ -406,6 +406,12 @@ class _PresetPanelState extends State<PresetPanel> {
                                   size: 22)))
                     ]),
                   ])),
+          if (store.libraryFolder == 'builtin:phone')
+            Padding(
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+                child: Text(
+                    '版式参考，与任何手机或相机品牌无关，不提供品牌 Logo。如需使用品牌标识，请用“图片标识”自行导入，并确认你拥有使用权。',
+                    style: EditorTypography.hint(context))),
           Expanded(
               child: SmoothScroll(
                   controller: scroll,

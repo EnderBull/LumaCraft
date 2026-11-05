@@ -85,6 +85,14 @@ extension ImagePanel on _PresetEditorState {
                 min: 4 / node.image.ratio, max: 2000 / node.image.ratio)),
         Text('锁定原始比例。支持透明 PNG；导入素材最长边保留至 2048 px，随样式保存。',
             style: EditorTypography.hint(context)),
+        const SizedBox(height: 8),
+        Text('本软件不提供品牌 Logo。请只使用你拥有使用权的标识。',
+            style: EditorTypography.hint(context)),
+        if (node.image.filename == 'logo-placeholder.png') ...[
+          const SizedBox(height: 8),
+          Text('当前是灰色占位图：导出前请点“替换图片”换成自己的标识，或隐藏、删除该图层，否则占位图会印在成片上。',
+              style: EditorTypography.hint(context)),
+        ],
         const SizedBox(height: 14),
         opacityControl([node]),
       ]);

@@ -47,8 +47,16 @@ void main() {
     });
     final settings = WorkspaceSettings(File('${output.path}/settings.json'));
     final boundary = GlobalKey();
+    // 缩略图在后台异步解码素材，界面上有持续的加载动画，用固定轮数的真实等待代替 pumpAndSettle。
+    Future<void> settle() async {
+      for (var i = 0; i < 8; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 60)));
+        await tester.pump(const Duration(milliseconds: 30));
+      }
+    }
+
     Future<void> capture(String name) async {
-      await tester.pumpAndSettle();
+      await settle();
       await tester.runAsync(() async {
         final img = await (boundary.currentContext!.findRenderObject()
                 as RenderRepaintBoundary)
@@ -77,15 +85,15 @@ void main() {
                                         .copyWith(
                                             color: const Color(0xffbcaa8c),
                                             fontSize: 22)))))))));
-    await tester.pumpAndSettle();
+    await settle();
     expect(tester.takeException(), null);
     await capture('manager');
     await tester.tap(find.text('新建分组'));
-    await tester.pumpAndSettle();
+    await settle();
     expect(find.text('分组名称'), findsOneWidget);
     await capture('new-group');
     await tester.tap(find.text('取消'));
-    await tester.pumpAndSettle();
+    await settle();
     final entry = store.entries.first;
     await tester.pumpWidget(const SizedBox());
     await tester.pumpWidget(RepaintBoundary(
@@ -104,21 +112,21 @@ void main() {
                 presets: store,
                 metadata: (_) async => {},
                 apply: (_, __) async {}))));
-    await tester.pumpAndSettle();
+    await settle();
     await tester
         .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 80)));
-    await tester.pumpAndSettle();
+    await settle();
     expect(tester.takeException(), null);
     await tester.tap(find.text('题签').first);
-    await tester.pumpAndSettle();
+    await settle();
     await capture('editor');
     await tester.tap(find.text('Playfair Display'));
-    await tester.pumpAndSettle();
+    await settle();
     await capture('font-menu');
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
+    await settle();
     await tester.tap(find.text('保存预设'));
-    await tester.pumpAndSettle();
+    await settle();
     expect(find.text('保存内置预设'), findsOneWidget);
     await capture('save-builtin');
     final name = find.byWidgetPredicate(
@@ -131,10 +139,10 @@ void main() {
           () => Future<void>.delayed(const Duration(milliseconds: 30)));
       await tester.pump();
     }
-    await tester.pumpAndSettle();
+    await settle();
     expect(store.entries.first.style.name, '手工维护样式');
     expect(tester.takeException(), null);
     await tester.pumpWidget(const SizedBox());
-    await tester.pumpAndSettle();
+    await settle();
   });
 }
