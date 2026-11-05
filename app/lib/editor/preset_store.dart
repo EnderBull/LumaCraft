@@ -86,6 +86,16 @@ class PresetStore extends ChangeNotifier {
     return saveBuiltin(id, original.style, original.folder);
   }
 
+  /// 没有设置样式的照片默认使用的样式：内置预设“画廊签名”（id 为 gallery）。
+  /// 取当前内置库里的这一款，所以制作版里对它的修改会同步生效；
+  /// 万一库里没有它，退回库里的第一款。返回副本，调用方可随意修改。
+  StyleDocument defaultStyle() => (builtinLibrary.entries
+              .where((p) => p.id == 'gallery')
+              .firstOrNull ??
+          builtinLibrary.entries.first)
+      .style
+      .copy();
+
   /// 此版本封包时的默认样式（不受本机维护修改影响）。
   BuiltinEntry? builtinOriginal(String id) =>
       _originalBuiltins.entries.where((p) => p.id == id).firstOrNull;

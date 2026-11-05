@@ -1,0 +1,1184 @@
+{
+  "format": "LumaCraftBuiltinLibrary",
+  "version": 1,
+  "folders": [
+    {
+      "id": "classic",
+      "name": "创意边框"
+    }
+  ],
+  "presets": [
+    {
+      "id": "blur-center",
+      "folder": "classic",
+      "style": {
+        "version": 1,
+        "adaptive": true,
+        "suitability": "universal",
+        "layouts": {
+          "landscape": {
+            "borders": {
+              "bottom": 15.0
+            }
+          },
+          "portrait": {}
+        },
+        "name": "模糊相框·居中",
+        "background": 4280032284,
+        "fill": {
+          "mode": "blur",
+          "gradientType": "linear",
+          "centerX": 50.0,
+          "centerY": 50.0,
+          "radius": 70.0,
+          "secondColor": 4290300880,
+          "angle": 90.0,
+          "blur": 40.0,
+          "brightness": -8.0,
+          "contrast": 104.0,
+          "saturation": 118.0
+        },
+        "film": {
+          "enabled": false,
+          "orientation": "vertical",
+          "color": 4293847776,
+          "width": 14.0,
+          "height": 20.0,
+          "gap": 14.0,
+          "radius": 3.0,
+          "inset": 5.0
+        },
+        "shadow": {
+          "enabled": true,
+          "color": 4278190080,
+          "angle": 90.0,
+          "distance": 20.0,
+          "size": 4.0,
+          "opacity": 45.0,
+          "feather": 48.0
+        },
+        "linked": false,
+        "borders": {
+          "top": 9.0,
+          "right": 9.0,
+          "bottom": 17.0,
+          "left": 9.0
+        },
+        "nodes": [
+          {
+            "id": "camera",
+            "type": "camera",
+            "name": "机型",
+            "text": "",
+            "anchor": "bottom",
+            "x": 50.0,
+            "y": 36.0,
+            "fontSize": 34.0,
+            "spacing": 2.0,
+            "opacity": 100.0,
+            "color": 4294243572,
+            "font": "jost",
+            "align": "center",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "params",
+            "type": "params",
+            "name": "拍摄参数",
+            "text": "",
+            "anchor": "bottom",
+            "x": 50.0,
+            "y": 70.0,
+            "fontSize": 22.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4292664540,
+            "font": "manrope",
+            "align": "center",
+            "visible": true,
+            "locked": false
+          }
+        ],
+        "groups": [],
+        "order": [
+          "camera",
+          "params"
+        ]
+      }
+    },
+    {
+      "id": "blur-bar",
+      "folder": "classic",
+      "style": {
+        "version": 1,
+        "adaptive": true,
+        "suitability": "universal",
+        "layouts": {
+          "landscape": {
+            "borders": {
+              "bottom": 15.0
+            },
+            "nodes": {
+              "camera": {
+                "x": 3.7037037037037033
+              },
+              "place": {
+                "x": 3.7037037037037033
+              },
+              "params": {
+                "x": 96.29629629629629
+              },
+              "time": {
+                "x": 96.29629629629629
+              }
+            }
+          },
+          "portrait": {}
+        },
+        "name": "模糊相框·底栏",
+        "background": 4280032284,
+        "fill": {
+          "mode": "blur",
+          "gradientType": "linear",
+          "centerX": 50.0,
+          "centerY": 50.0,
+          "radius": 70.0,
+          "secondColor": 4290300880,
+          "angle": 90.0,
+          "blur": 34.0,
+          "brightness": -20.0,
+          "contrast": 108.0,
+          "saturation": 118.0
+        },
+        "film": {
+          "enabled": false,
+          "orientation": "vertical",
+          "color": 4293847776,
+          "width": 14.0,
+          "height": 20.0,
+          "gap": 14.0,
+          "radius": 3.0,
+          "inset": 5.0
+        },
+        "shadow": {
+          "enabled": true,
+          "color": 4278190080,
+          "angle": 90.0,
+          "distance": 16.0,
+          "size": 2.0,
+          "opacity": 40.0,
+          "feather": 44.0
+        },
+        "linked": false,
+        "borders": {
+          "top": 6.0,
+          "right": 6.0,
+          "bottom": 17.0,
+          "left": 6.0
+        },
+        "nodes": [
+          {
+            "id": "camera",
+            "type": "camera",
+            "name": "机型",
+            "text": "",
+            "anchor": "bottom",
+            "x": 5.357142857142857,
+            "y": 36.0,
+            "fontSize": 36.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4294375158,
+            "font": "manrope",
+            "align": "left",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "place",
+            "type": "place",
+            "name": "地点",
+            "text": "",
+            "anchor": "bottom",
+            "x": 5.357142857142857,
+            "y": 72.0,
+            "fontSize": 23.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4292138196,
+            "font": "manrope",
+            "align": "left",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "params",
+            "type": "params",
+            "name": "拍摄参数",
+            "text": "",
+            "anchor": "bottom",
+            "x": 94.64285714285714,
+            "y": 36.0,
+            "fontSize": 27.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4294375158,
+            "font": "manrope",
+            "align": "right",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "time",
+            "type": "time",
+            "name": "拍摄时间",
+            "text": "",
+            "anchor": "bottom",
+            "x": 94.64285714285714,
+            "y": 72.0,
+            "fontSize": 23.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4292138196,
+            "font": "manrope",
+            "align": "right",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "rule",
+            "type": "shape",
+            "name": "分隔线",
+            "text": "",
+            "anchor": "bottom",
+            "x": 50.0,
+            "y": 54.0,
+            "fontSize": 24.0,
+            "spacing": 0.0,
+            "opacity": 45.0,
+            "color": 4283714625,
+            "font": "sans",
+            "align": "center",
+            "visible": false,
+            "locked": false,
+            "shape": {
+              "kind": "line",
+              "width": 46.0,
+              "height": 2.0,
+              "rotation": 90.0,
+              "radius": 0.0,
+              "skew": 0.25,
+              "inset": 0.25,
+              "fill": true,
+              "split": false,
+              "stroke": false,
+              "pointy": false,
+              "round": false,
+              "dashed": false,
+              "fillColor": 4294967295,
+              "fillColor2": 4290288490,
+              "strokeColor": 4283714625,
+              "fillOpacity": 100.0,
+              "strokeOpacity": 100.0,
+              "strokeWidth": 2.0
+            }
+          }
+        ],
+        "groups": [],
+        "order": [
+          "camera",
+          "place",
+          "params",
+          "time",
+          "rule"
+        ]
+      }
+    },
+    {
+      "id": "polaroid",
+      "folder": "classic",
+      "style": {
+        "version": 1,
+        "adaptive": true,
+        "suitability": "universal",
+        "layouts": {
+          "landscape": {
+            "borders": {
+              "bottom": 17.0
+            }
+          },
+          "portrait": {}
+        },
+        "name": "宝丽来",
+        "background": 4294439914,
+        "fill": {
+          "mode": "solid",
+          "gradientType": "linear",
+          "centerX": 50.0,
+          "centerY": 50.0,
+          "radius": 70.0,
+          "secondColor": 4290300880,
+          "angle": 90.0,
+          "blur": 24.0,
+          "brightness": 0.0,
+          "contrast": 100.0,
+          "saturation": 100.0
+        },
+        "film": {
+          "enabled": false,
+          "orientation": "vertical",
+          "color": 4293847776,
+          "width": 14.0,
+          "height": 20.0,
+          "gap": 14.0,
+          "radius": 3.0,
+          "inset": 5.0
+        },
+        "shadow": {
+          "enabled": true,
+          "color": 4282004006,
+          "angle": 90.0,
+          "distance": 4.0,
+          "size": 0.0,
+          "opacity": 22.0,
+          "feather": 22.0
+        },
+        "linked": false,
+        "borders": {
+          "top": 5.0,
+          "right": 5.0,
+          "bottom": 20.0,
+          "left": 5.0
+        },
+        "nodes": [
+          {
+            "id": "note",
+            "type": "text",
+            "name": "手写一句",
+            "text": "Golden hour",
+            "anchor": "bottom",
+            "x": 50.0,
+            "y": 40.0,
+            "fontSize": 70.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4283056952,
+            "font": "caveat",
+            "align": "center",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "time",
+            "type": "time",
+            "name": "拍摄时间",
+            "text": "",
+            "anchor": "bottom",
+            "x": 50.0,
+            "y": 78.0,
+            "fontSize": 24.0,
+            "spacing": 3.0,
+            "opacity": 100.0,
+            "color": 4288320133,
+            "font": "jost",
+            "align": "center",
+            "visible": true,
+            "locked": false
+          }
+        ],
+        "groups": [],
+        "order": [
+          "note",
+          "time"
+        ]
+      }
+    },
+    {
+      "id": "film-strip",
+      "folder": "classic",
+      "style": {
+        "version": 1,
+        "adaptive": true,
+        "suitability": "universal",
+        "layouts": {
+          "landscape": {
+            "nodes": {
+              "frame": {
+                "x": 3.2
+              },
+              "params": {
+                "x": 96.8
+              }
+            }
+          },
+          "portrait": {}
+        },
+        "name": "底片孔洞",
+        "background": 4279111182,
+        "fill": {
+          "mode": "solid",
+          "gradientType": "linear",
+          "centerX": 50.0,
+          "centerY": 50.0,
+          "radius": 70.0,
+          "secondColor": 4290300880,
+          "angle": 90.0,
+          "blur": 24.0,
+          "brightness": 0.0,
+          "contrast": 100.0,
+          "saturation": 100.0
+        },
+        "film": {
+          "enabled": true,
+          "orientation": "horizontal",
+          "color": 4292465603,
+          "width": 30.0,
+          "height": 20.0,
+          "gap": 24.0,
+          "radius": 5.0,
+          "inset": 20.0
+        },
+        "shadow": {
+          "enabled": false,
+          "color": 4278190080,
+          "angle": 135.0,
+          "distance": 14.0,
+          "size": 0.0,
+          "opacity": 30.0,
+          "feather": 35.0
+        },
+        "linked": false,
+        "borders": {
+          "top": 9.0,
+          "right": 0.0,
+          "bottom": 9.0,
+          "left": 0.0
+        },
+        "nodes": [
+          {
+            "id": "frame",
+            "type": "text",
+            "name": "帧号",
+            "text": "▶  24A",
+            "anchor": "bottom",
+            "x": 4.8,
+            "y": 28.0,
+            "fontSize": 24.0,
+            "spacing": 1.0,
+            "opacity": 100.0,
+            "color": 4292911168,
+            "font": "jost",
+            "align": "left",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "camera",
+            "type": "camera",
+            "name": "机型",
+            "text": "",
+            "anchor": "bottom",
+            "x": 50.0,
+            "y": 28.0,
+            "fontSize": 22.0,
+            "spacing": 3.0,
+            "opacity": 100.0,
+            "color": 4291807933,
+            "font": "jost",
+            "align": "center",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "params",
+            "type": "params",
+            "name": "拍摄参数",
+            "text": "",
+            "anchor": "bottom",
+            "x": 95.19999999999999,
+            "y": 28.0,
+            "fontSize": 20.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4292911168,
+            "font": "manrope",
+            "align": "right",
+            "visible": true,
+            "locked": false
+          }
+        ],
+        "groups": [],
+        "order": [
+          "frame",
+          "camera",
+          "params"
+        ]
+      }
+    },
+    {
+      "id": "gallery-label",
+      "folder": "classic",
+      "style": {
+        "version": 1,
+        "adaptive": true,
+        "suitability": "universal",
+        "layouts": {
+          "landscape": {
+            "borders": {
+              "bottom": 21.0
+            },
+            "nodes": {
+              "title": {
+                "x": 5.357142857142857
+              },
+              "sub": {
+                "x": 5.357142857142857
+              },
+              "rule": {
+                "x": 7.142857142857142
+              },
+              "params": {
+                "x": 94.64285714285714
+              },
+              "place": {
+                "x": 94.64285714285714
+              }
+            }
+          },
+          "portrait": {}
+        },
+        "name": "展览标牌",
+        "background": 4294835449,
+        "fill": {
+          "mode": "solid",
+          "gradientType": "linear",
+          "centerX": 50.0,
+          "centerY": 50.0,
+          "radius": 70.0,
+          "secondColor": 4290300880,
+          "angle": 90.0,
+          "blur": 24.0,
+          "brightness": 0.0,
+          "contrast": 100.0,
+          "saturation": 100.0
+        },
+        "film": {
+          "enabled": false,
+          "orientation": "vertical",
+          "color": 4293847776,
+          "width": 14.0,
+          "height": 20.0,
+          "gap": 14.0,
+          "radius": 3.0,
+          "inset": 5.0
+        },
+        "shadow": {
+          "enabled": true,
+          "color": 4282004006,
+          "angle": 90.0,
+          "distance": 8.0,
+          "size": 0.0,
+          "opacity": 16.0,
+          "feather": 30.0
+        },
+        "linked": false,
+        "borders": {
+          "top": 9.0,
+          "right": 9.0,
+          "bottom": 24.0,
+          "left": 9.0
+        },
+        "nodes": [
+          {
+            "id": "title",
+            "type": "text",
+            "name": "作品名称",
+            "text": "Untitled",
+            "anchor": "bottom",
+            "x": 7.627118644067797,
+            "y": 24.0,
+            "fontSize": 42.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4280228888,
+            "font": "sourceSerif",
+            "align": "left",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "sub",
+            "type": "text",
+            "name": "副标题",
+            "text": "摄影  2026",
+            "anchor": "bottom",
+            "x": 7.627118644067797,
+            "y": 64.0,
+            "fontSize": 22.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4286018411,
+            "font": "manrope",
+            "align": "left",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "rule",
+            "type": "shape",
+            "name": "短线",
+            "text": "",
+            "anchor": "bottom",
+            "x": 10.16949152542373,
+            "y": 47.0,
+            "fontSize": 24.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4283714625,
+            "font": "sans",
+            "align": "center",
+            "visible": true,
+            "locked": false,
+            "shape": {
+              "kind": "line",
+              "width": 60.0,
+              "height": 2.0,
+              "rotation": 0.0,
+              "radius": 0.0,
+              "skew": 0.25,
+              "inset": 0.25,
+              "fill": true,
+              "split": false,
+              "stroke": false,
+              "pointy": false,
+              "round": false,
+              "dashed": false,
+              "fillColor": 4291807419,
+              "fillColor2": 4290288490,
+              "strokeColor": 4283714625,
+              "fillOpacity": 100.0,
+              "strokeOpacity": 100.0,
+              "strokeWidth": 2.0
+            }
+          },
+          {
+            "id": "params",
+            "type": "params",
+            "name": "拍摄参数",
+            "text": "",
+            "anchor": "bottom",
+            "x": 92.37288135593221,
+            "y": 24.0,
+            "fontSize": 22.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4281019179,
+            "font": "manrope",
+            "align": "right",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "place",
+            "type": "place",
+            "name": "地点",
+            "text": "",
+            "anchor": "bottom",
+            "x": 92.37288135593221,
+            "y": 64.0,
+            "fontSize": 22.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4286018411,
+            "font": "manrope",
+            "align": "right",
+            "visible": true,
+            "locked": false
+          }
+        ],
+        "groups": [],
+        "order": [
+          "title",
+          "sub",
+          "rule",
+          "params",
+          "place"
+        ]
+      }
+    },
+    {
+      "id": "palette-strip",
+      "folder": "classic",
+      "style": {
+        "version": 1,
+        "adaptive": true,
+        "suitability": "universal",
+        "layouts": {
+          "landscape": {
+            "borders": {
+              "bottom": 16.0
+            },
+            "nodes": {
+              "palette": {
+                "x": 13.5625
+              },
+              "camera": {
+                "x": 96.875
+              },
+              "params": {
+                "x": 96.875
+              }
+            }
+          },
+          "portrait": {}
+        },
+        "name": "色板边框",
+        "background": 4294703863,
+        "fill": {
+          "mode": "solid",
+          "gradientType": "linear",
+          "centerX": 50.0,
+          "centerY": 50.0,
+          "radius": 70.0,
+          "secondColor": 4290300880,
+          "angle": 90.0,
+          "blur": 24.0,
+          "brightness": 0.0,
+          "contrast": 100.0,
+          "saturation": 100.0
+        },
+        "film": {
+          "enabled": false,
+          "orientation": "vertical",
+          "color": 4293847776,
+          "width": 14.0,
+          "height": 20.0,
+          "gap": 14.0,
+          "radius": 3.0,
+          "inset": 5.0
+        },
+        "shadow": {
+          "enabled": false,
+          "color": 4278190080,
+          "angle": 135.0,
+          "distance": 14.0,
+          "size": 0.0,
+          "opacity": 30.0,
+          "feather": 35.0
+        },
+        "linked": false,
+        "borders": {
+          "top": 5.0,
+          "right": 5.0,
+          "bottom": 19.0,
+          "left": 5.0
+        },
+        "nodes": [
+          {
+            "id": "palette",
+            "type": "palette",
+            "name": "照片色卡",
+            "text": "新的文字",
+            "anchor": "bottom",
+            "x": 19.727272727272727,
+            "y": 50.0,
+            "fontSize": 24.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4283714625,
+            "font": "sans",
+            "align": "center",
+            "visible": true,
+            "locked": false,
+            "palette": {
+              "mode": "blocks",
+              "shape": "circle",
+              "size": 44.0,
+              "height": 34.0,
+              "gap": 14.0,
+              "radius": 6.0,
+              "stroke": false,
+              "strokeMode": "outer",
+              "strokeWidth": 1.0,
+              "strokeGap": 0.0,
+              "strokeColor": 4293848814,
+              "reversed": false,
+              "scale": 1.0
+            }
+          },
+          {
+            "id": "camera",
+            "type": "camera",
+            "name": "机型",
+            "text": "",
+            "anchor": "bottom",
+            "x": 95.45454545454545,
+            "y": 36.0,
+            "fontSize": 34.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4281019179,
+            "font": "manrope",
+            "align": "right",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "params",
+            "type": "params",
+            "name": "拍摄参数",
+            "text": "",
+            "anchor": "bottom",
+            "x": 95.45454545454545,
+            "y": 70.0,
+            "fontSize": 22.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4286018411,
+            "font": "manrope",
+            "align": "right",
+            "visible": true,
+            "locked": false
+          }
+        ],
+        "groups": [],
+        "order": [
+          "palette",
+          "camera",
+          "params"
+        ]
+      }
+    },
+    {
+      "id": "black-minimal",
+      "folder": "classic",
+      "style": {
+        "version": 1,
+        "adaptive": true,
+        "suitability": "universal",
+        "layouts": {
+          "landscape": {},
+          "portrait": {}
+        },
+        "name": "极简黑框",
+        "background": 4278848010,
+        "fill": {
+          "mode": "solid",
+          "gradientType": "linear",
+          "centerX": 50.0,
+          "centerY": 50.0,
+          "radius": 70.0,
+          "secondColor": 4290300880,
+          "angle": 90.0,
+          "blur": 24.0,
+          "brightness": 0.0,
+          "contrast": 100.0,
+          "saturation": 100.0
+        },
+        "film": {
+          "enabled": false,
+          "orientation": "vertical",
+          "color": 4293847776,
+          "width": 14.0,
+          "height": 20.0,
+          "gap": 14.0,
+          "radius": 3.0,
+          "inset": 5.0
+        },
+        "shadow": {
+          "enabled": false,
+          "color": 4278190080,
+          "angle": 135.0,
+          "distance": 14.0,
+          "size": 0.0,
+          "opacity": 30.0,
+          "feather": 35.0
+        },
+        "linked": false,
+        "borders": {
+          "top": 3.0,
+          "right": 3.0,
+          "bottom": 9.0,
+          "left": 3.0
+        },
+        "nodes": [
+          {
+            "id": "params",
+            "type": "params",
+            "name": "拍摄参数",
+            "text": "",
+            "anchor": "bottom",
+            "x": 50.0,
+            "y": 50.0,
+            "fontSize": 22.0,
+            "spacing": 4.0,
+            "opacity": 100.0,
+            "color": 4290624178,
+            "font": "jost",
+            "align": "center",
+            "visible": true,
+            "locked": false
+          }
+        ],
+        "groups": [],
+        "order": [
+          "params"
+        ]
+      }
+    },
+    {
+      "id": "dusk-gradient",
+      "folder": "classic",
+      "style": {
+        "version": 1,
+        "adaptive": true,
+        "suitability": "universal",
+        "layouts": {
+          "landscape": {
+            "borders": {
+              "bottom": 16.0
+            }
+          },
+          "portrait": {}
+        },
+        "name": "暮色渐变",
+        "background": 4279903814,
+        "fill": {
+          "mode": "gradient",
+          "gradientType": "linear",
+          "centerX": 50.0,
+          "centerY": 50.0,
+          "radius": 70.0,
+          "secondColor": 4293495387,
+          "angle": 90.0,
+          "blur": 24.0,
+          "brightness": 0.0,
+          "contrast": 100.0,
+          "saturation": 100.0
+        },
+        "film": {
+          "enabled": false,
+          "orientation": "vertical",
+          "color": 4293847776,
+          "width": 14.0,
+          "height": 20.0,
+          "gap": 14.0,
+          "radius": 3.0,
+          "inset": 5.0
+        },
+        "shadow": {
+          "enabled": true,
+          "color": 4278190080,
+          "angle": 90.0,
+          "distance": 16.0,
+          "size": 0.0,
+          "opacity": 38.0,
+          "feather": 46.0
+        },
+        "linked": false,
+        "borders": {
+          "top": 8.0,
+          "right": 8.0,
+          "bottom": 18.0,
+          "left": 8.0
+        },
+        "nodes": [
+          {
+            "id": "camera",
+            "type": "camera",
+            "name": "机型",
+            "text": "",
+            "anchor": "bottom",
+            "x": 50.0,
+            "y": 36.0,
+            "fontSize": 36.0,
+            "spacing": 2.0,
+            "opacity": 100.0,
+            "color": 4294635750,
+            "font": "sourceSerif",
+            "align": "center",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "params",
+            "type": "params",
+            "name": "拍摄参数",
+            "text": "",
+            "anchor": "bottom",
+            "x": 50.0,
+            "y": 72.0,
+            "fontSize": 22.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4294173140,
+            "font": "manrope",
+            "align": "center",
+            "visible": true,
+            "locked": false
+          }
+        ],
+        "groups": [],
+        "order": [
+          "camera",
+          "params"
+        ]
+      }
+    },
+    {
+      "id": "double-frame",
+      "folder": "classic",
+      "style": {
+        "version": 1,
+        "adaptive": true,
+        "suitability": "universal",
+        "layouts": {
+          "landscape": {
+            "borders": {
+              "bottom": 15.0
+            },
+            "nodes": {
+              "frame": {
+                "shape": {
+                  "width": 1576.0,
+                  "height": 1166.0
+                }
+              }
+            }
+          },
+          "portrait": {
+            "nodes": {
+              "frame": {
+                "shape": {
+                  "height": 1686.0
+                }
+              }
+            }
+          }
+        },
+        "name": "双线相框",
+        "background": 4294637811,
+        "fill": {
+          "mode": "solid",
+          "gradientType": "linear",
+          "centerX": 50.0,
+          "centerY": 50.0,
+          "radius": 70.0,
+          "secondColor": 4290300880,
+          "angle": 90.0,
+          "blur": 24.0,
+          "brightness": 0.0,
+          "contrast": 100.0,
+          "saturation": 100.0
+        },
+        "film": {
+          "enabled": false,
+          "orientation": "vertical",
+          "color": 4293847776,
+          "width": 14.0,
+          "height": 20.0,
+          "gap": 14.0,
+          "radius": 3.0,
+          "inset": 5.0
+        },
+        "shadow": {
+          "enabled": true,
+          "color": 4282004006,
+          "angle": 90.0,
+          "distance": 6.0,
+          "size": 0.0,
+          "opacity": 14.0,
+          "feather": 26.0
+        },
+        "linked": false,
+        "borders": {
+          "top": 6.0,
+          "right": 6.0,
+          "bottom": 17.0,
+          "left": 6.0
+        },
+        "nodes": [
+          {
+            "id": "frame",
+            "type": "shape",
+            "name": "外框线",
+            "text": "",
+            "anchor": "canvas",
+            "x": 50.0,
+            "y": 50.0,
+            "fontSize": 24.0,
+            "spacing": 0.0,
+            "opacity": 100.0,
+            "color": 4283714625,
+            "font": "sans",
+            "align": "center",
+            "visible": true,
+            "locked": false,
+            "shape": {
+              "kind": "rect",
+              "width": 1076.0,
+              "height": 1186.0,
+              "rotation": 0.0,
+              "radius": 0.0,
+              "skew": 0.25,
+              "inset": 0.25,
+              "fill": false,
+              "split": false,
+              "stroke": true,
+              "pointy": false,
+              "round": false,
+              "dashed": false,
+              "fillColor": 4283714625,
+              "fillColor2": 4290288490,
+              "strokeColor": 4291412660,
+              "fillOpacity": 100.0,
+              "strokeOpacity": 100.0,
+              "strokeWidth": 2.5
+            }
+          },
+          {
+            "id": "camera",
+            "type": "camera",
+            "name": "机型",
+            "text": "",
+            "anchor": "bottom",
+            "x": 50.0,
+            "y": 38.0,
+            "fontSize": 26.0,
+            "spacing": 7.0,
+            "opacity": 100.0,
+            "color": 4282005039,
+            "font": "jost",
+            "align": "center",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "params",
+            "type": "params",
+            "name": "拍摄参数",
+            "text": "",
+            "anchor": "bottom",
+            "x": 50.0,
+            "y": 72.0,
+            "fontSize": 20.0,
+            "spacing": 1.0,
+            "opacity": 100.0,
+            "color": 4287267960,
+            "font": "manrope",
+            "align": "center",
+            "visible": true,
+            "locked": false
+          }
+        ],
+        "groups": [],
+        "order": [
+          "frame",
+          "camera",
+          "params"
+        ]
+      }
+    }
+  ]
+}

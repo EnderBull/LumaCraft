@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:ui' as ui;
 import 'dart:math' as math;
-import 'package:image/image.dart' as img;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -345,7 +343,7 @@ class _WorkshopState extends State<Workshop> {
                     initial: blank
                         ? StyleDocument(name: '空白样式')
                         : (store.state(files[index].path).style?.copy() ??
-                            StyleDocument.template(film)),
+                            presetStore.defaultStyle()),
                     settings: workspaceSettings,
                     presets: presetStore,
                     metadata: (file) async =>
@@ -687,7 +685,6 @@ class _WorkshopState extends State<Workshop> {
 
   String status = '从左侧目录树选择照片目录';
   final previews = <String, ui.Image>{};
-  final labels = <bool, Uint8List>{};
   ui.Image? current;
   String? previewError;
   int generation = 0;
@@ -757,50 +754,18 @@ class _WorkshopState extends State<Workshop> {
     if (photo == null)
       return Center(
           child: Text(previewError ?? (files.isEmpty ? '请选择照片目录' : '正在生成预览…')));
-    final style = store.state(files[index].path).style;
-    if (style != null) {
-      final file = files[index];
-      return FutureBuilder<Map<String, String>>(
-          future: capture(file),
-          builder: (context, snapshot) => StylePreview(
-              photoPath: file.path,
-              photo: photo,
-              workspaceCanvas: true,
-              document: style,
-              fields: store.state(file.path).effective(snapshot.data ?? {})));
-    }
-    final (short, side, top, bottom) = layout(photo.width, photo.height, film);
-    final width = photo.width + side * 2;
-    final height = math.max(1, (short * .042).round());
-    final label =
-        labels.putIfAbsent(film, () => img.encodePng(captionImage(film)));
-    return FittedBox(
-        fit: BoxFit.contain,
-        child: WorkspaceCanvas(
-            child: SizedBox(
-                width: width.toDouble(),
-                height: (photo.height + top + bottom).toDouble(),
-                child: ColoredBox(
-                    color: film
-                        ? const Color(0xff0c0c0c)
-                        : const Color(0xfff7f2ea),
-                    child: Stack(children: [
-                      Positioned(
-                          left: side.toDouble(),
-                          top: top.toDouble(),
-                          child: RawImage(image: photo)),
-                      Positioned(
-                          left: film ? side.toDouble() : 0,
-                          right: 0,
-                          top: (top + photo.height + (bottom - height) ~/ 2)
-                              .toDouble(),
-                          child: Align(
-                              alignment: film
-                                  ? Alignment.centerLeft
-                                  : Alignment.center,
-                              child: Image.memory(label,
-                                  height: height.toDouble()))),
-                    ])))));
+    // 没有设置样式的照片显示内置预设“画廊签名”，与导出、编辑页的默认样式一致。
+    final style =
+        store.state(files[index].path).style ?? presetStore.defaultStyle();
+    final file = files[index];
+    return FutureBuilder<Map<String, String>>(
+        future: capture(file),
+        builder: (context, snapshot) => StylePreview(
+            photoPath: file.path,
+            photo: photo,
+            workspaceCanvas: true,
+            document: style,
+            fields: store.state(file.path).effective(snapshot.data ?? {})));
   }
 
   Future<void> open() async {
@@ -907,7 +872,7 @@ class _WorkshopState extends State<Workshop> {
           }
           jobs.add(ExportJob(
               file,
-              state.style?.copy(),
+              (state.style ?? presetStore.defaultStyle()).copy(),
               state.film,
               Map.of(info),
               name.stem,
