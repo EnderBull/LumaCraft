@@ -1,6 +1,14 @@
-# LumaCraft 0.9.0 · 形状组件（制作版）
+# LumaCraft 0.9.0 / 0.9.1 · 形状组件（制作版）
 
-2026-11-05，版本0.9.0+32。此交付为制作版，开启内置预设维护入口，沿用0.8.0的全部功能。
+2026-11-05，版本0.9.0+32，随后0.9.1+33。此交付为制作版，开启内置预设维护入口，沿用0.8.0的全部功能。
+
+## 0.9.1 更新：形状选择器
+
+“形状”下拉改为图标选择器：点击后弹出 4 列 × 2 行的网格，8 个形状各有示意图标，图标下方是小字名称；当前形状用强调色描边和淡底色标出，收起时显示当前形状的小图标和名称。图标统一 24 px 网格、同线宽与圆角，细节用柔和金色。与其他下拉一致：直接打开和关闭、无动画，点击外部或按 Esc 关闭，点选后立即切换。
+
+验证：新增选择器测试1项（8个图标、两行四列对齐、带名称、点选切换、Esc 不改变形状），`shape_test.dart` 共8项；完整 Flutter 测试共38项通过；真实界面截图核对排版与图标；制作版 Windows 编译成功并能启动。
+
+新增 D:/AI Agent/LumaCraft/app/lib/ui/editor/shape_picker.dart；修改 D:/AI Agent/LumaCraft/app/lib/ui/editor/shape_panel.dart、D:/AI Agent/LumaCraft/app/lib/ui/editor/editor_page.dart、D:/AI Agent/LumaCraft/app/test/shape_test.dart、D:/AI Agent/LumaCraft/app/build/shape-preview/preview_test.dart、D:/AI Agent/LumaCraft/app/pubspec.yaml。交付目录：D:/AI Agent/LumaCraft/app/dist/LumaCraft-0.9.1-Authoring/（0.9.0 目录保留未动）。以下为 0.9.0 的形状组件说明，仍然有效。
 
 ## 新增：形状组件
 

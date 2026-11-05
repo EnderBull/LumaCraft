@@ -10,6 +10,9 @@ import 'package:lumacraft/editor/shape_render.dart';
 import 'package:lumacraft/editor/shape_style.dart';
 import 'package:lumacraft/editor/style_document.dart';
 import 'package:lumacraft/editor/style_render.dart';
+import 'package:lumacraft/ui/app_theme.dart';
+import 'package:lumacraft/ui/editor/shape_picker.dart';
+import 'package:flutter/services.dart';
 
 Future<img.Image> paintToImage(ShapeStyle s, {double opacity = 100}) async {
   final recorder = ui.PictureRecorder();
@@ -244,6 +247,59 @@ void main() {
     expect(() => decodeLmp(jsonEncode(old)), throwsFormatException,
         reason: '未知能力一律拒绝');
     c.dispose();
+  });
+
+  testWidgets('形状选择器：8 个图标 4×2 排列，带名称，点选切换', (tester) async {
+    tester.view.physicalSize = const Size(900, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var kind = 'rect';
+    final changes = <String>[];
+    await tester.pumpWidget(MaterialApp(
+        theme: workspaceTheme(true),
+        home: Scaffold(
+            body: Center(
+                child: SizedBox(
+                    width: 264,
+                    child: StatefulBuilder(
+                        builder: (context, set) => ShapePicker(
+                            value: kind,
+                            onChanged: (v) {
+                              changes.add(v);
+                              set(() => kind = v);
+                            })))))));
+    expect(find.byType(ShapeKindIcon), findsOneWidget, reason: '收起时只显示当前形状图标');
+    await tester.tap(find.byType(ShapePicker));
+    await tester.pumpAndSettle();
+    expect(find.byType(ShapeKindIcon), findsNWidgets(9), reason: '触发器 1 个加网格 8 个');
+    for (final name in shapeKindNames.values) {
+      expect(find.text(name), findsWidgets);
+    }
+    final grid = shapeKindNames.keys
+        .map((k) => tester
+            .getTopLeft(find.descendant(
+                of: find.byType(InkWell), matching: find.byType(ShapeKindIcon)).at(
+                    shapeKindNames.keys.toList().indexOf(k) + 1)))
+        .toList();
+    for (var i = 0; i < 4; i++) {
+      expect(grid[i].dy, closeTo(grid[0].dy, .5), reason: '第一行 4 个图标等高');
+      expect(grid[i + 4].dy, closeTo(grid[4].dy, .5), reason: '第二行 4 个图标等高');
+      expect(grid[i].dx, closeTo(grid[i + 4].dx, .5), reason: '两行的列对齐');
+    }
+    expect(grid[4].dy, greaterThan(grid[0].dy + 40), reason: '共两行');
+    expect(grid[1].dx, greaterThan(grid[0].dx));
+    expect(tester.takeException(), null);
+    await tester.tap(find.text('菱形'));
+    await tester.pumpAndSettle();
+    expect(changes, ['diamond']);
+    expect(find.byType(ShapeKindIcon), findsOneWidget, reason: '点选后立即关闭');
+    await tester.tap(find.byType(ShapePicker));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(ShapeKindIcon), findsOneWidget, reason: 'Esc 关闭且不改变形状');
+    expect(changes.length, 1);
   });
 
   test('导出渲染包含形状，位置随锚点和旋转生效', () async {

@@ -17,6 +17,7 @@ import '../../editor/style_render.dart';
 import '../../editor/photo_palette.dart';
 import '../../editor/image_mark.dart';
 import '../../editor/shape_style.dart';
+import 'shape_picker.dart';
 import '../../workspace_settings.dart';
 import '../../window_controls.dart';
 import '../workspace_layout.dart';

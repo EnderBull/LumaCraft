@@ -89,7 +89,18 @@ extension ShapePanel on _PresetEditorState {
     final hasFillChoice = !line;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       section('形状外观', [
-        _shapeSelect('形状', s.kind, shapeKindNames, (v) => s.applyKind(v)),
+        Padding(
+            padding: const EdgeInsets.only(bottom: 15),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text('形状', style: EditorTypography.label(context))),
+                  ShapePicker(
+                      value: s.kind,
+                      onChanged: (v) => c.edit(() => s.applyKind(v)))
+                ])),
         pair(
             numeric(line ? '长度 px' : '宽度 px', s.width, (v) => s.width = v,
                 min: shapeLimits['width']!.$1,

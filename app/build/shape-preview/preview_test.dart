@@ -9,6 +9,7 @@ import 'package:lumacraft/editor/preset_store.dart';
 import 'package:lumacraft/editor/shape_style.dart';
 import 'package:lumacraft/editor/style_document.dart';
 import 'package:lumacraft/ui/editor/editor_page.dart';
+import 'package:lumacraft/ui/editor/shape_picker.dart';
 import 'package:lumacraft/ui/app_theme.dart';
 import 'package:lumacraft/workspace_settings.dart';
 
@@ -113,6 +114,12 @@ void main() {
     await tester.tap(find.text('三角形').first);
     await tester.pumpAndSettle();
     await capture('triangle-selected');
+    // 形状选择器：展开后的 4×2 图标网格。
+    await tester.tap(find.byType(ShapePicker));
+    await tester.pumpAndSettle();
+    await capture('shape-picker-open');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
     // 坐标取自上一张截图：逻辑坐标 = 截图坐标 / 1024 * 1400。
     Offset at(double x, double y) => Offset(x / 1024 * 1400, y / 702 * 960);
     Future<void> drag(Offset from, Offset to, String name) async {
