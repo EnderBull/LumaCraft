@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'style_document.dart';
+import 'background_style.dart';
 import 'shape_style.dart';
 import '../fonts/font_catalog.dart';
 import 'preset_store.dart';
@@ -27,8 +28,20 @@ const _features = [
   'radialGradient',
   'bundledFontsV1',
   'adaptiveLayout',
-  'shapeV1'
+  'shapeV1',
+  'filmLongEdge',
+  'textureV1'
 ];
+// 旧版本不认识这些标记，会明确拒绝导入，而不是悄悄画错。
+final _usage = <String, bool Function(StyleDocument)>{
+  'bundledFontsV1': (s) => s.nodes.any((n) => !legacyFontNames.containsKey(n.font)),
+  'shapeV1': (s) => s.nodes.any((n) => n.type == 'shape'),
+  'adaptiveLayout': (s) => s.adaptive || s.layouts.isNotEmpty,
+  'radialGradient': (s) =>
+      s.fill.mode == 'gradient' && s.fill.gradientType == 'radial',
+  'filmLongEdge': (s) => s.film.orientation == 'long',
+  'textureV1': (s) => s.fill.hasTexture,
+};
 String encodeLmp(List<SharedPreset> presets) {
   if (presets.isEmpty || presets.length > 200)
     throw const FormatException('一次可分享 1～200 个预设');
@@ -36,18 +49,8 @@ String encodeLmp(List<SharedPreset> presets) {
     'format': 'LumaCraftPreset',
     'version': 1,
     'requires': _features
-        .where((f) => f == 'bundledFontsV1'
-            ? presets.any((p) =>
-                p.style.nodes.any((n) => !legacyFontNames.containsKey(n.font)))
-            : f == 'shapeV1'
-                ? presets.any((p) => p.style.nodes.any((n) => n.type == 'shape'))
-                : f == 'adaptiveLayout'
-                ? presets
-                    .any((p) => p.style.adaptive || p.style.layouts.isNotEmpty)
-                : f != 'radialGradient' ||
-                    presets.any((p) =>
-                        p.style.fill.mode == 'gradient' &&
-                        p.style.fill.gradientType == 'radial'))
+        .where((f) =>
+            _usage[f] == null || presets.any((p) => _usage[f]!(p.style)))
         .toList(),
     'presets': [
       for (final p in presets)
@@ -200,8 +203,12 @@ SharedPreset _readPreset(dynamic item) {
       !['solid', 'gradient', 'blur'].contains(j['fill']['mode']))
     throw const FormatException('不支持的背景类型');
   if (j['film'] is Map &&
-      !['vertical', 'horizontal'].contains(j['film']['orientation']))
+      !filmOrientations.contains(j['film']['orientation']))
     throw const FormatException('不支持的胶片排列');
+  if (j['fill'] is Map &&
+      j['fill']['texture'] != null &&
+      !textureKindNames.containsKey(j['fill']['texture']))
+    throw const FormatException('不支持的边框纹理');
   if (j['fill'] is Map &&
       j['fill']['gradientType'] != null &&
       !['linear', 'radial'].contains(j['fill']['gradientType']))

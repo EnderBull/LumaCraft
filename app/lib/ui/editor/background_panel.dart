@@ -193,12 +193,42 @@ extension BackgroundPanel on _PresetEditorState {
     ]);
   }
 
+  Widget textureProperties() {
+    final fill = c.doc.fill, group = textureGroupOf(fill.texture);
+    return section('边框纹理', [
+      pair(
+          propertySelect(
+              '纹理风格',
+              group,
+              {
+                'none': '无',
+                for (final e in textureGroups.entries) e.key: e.value.$1
+              },
+              (v) => fill.texture =
+                  v == 'none' ? 'none' : textureGroups[v]!.$2.keys.first),
+          group == 'none'
+              ? const SizedBox.shrink()
+              : propertySelect('纹理', fill.texture,
+                  textureGroups[group]!.$2, (v) => fill.texture = v)),
+      if (fill.hasTexture) ...[
+        shadowSlider('不透明度', fill.textureOpacity,
+            (v) => fill.textureOpacity = v),
+        const SizedBox(height: 14),
+        pair(
+            numeric('大小 %', fill.textureScale, (v) => fill.textureScale = v,
+                min: 50, max: 300),
+            colorField('纹理颜色', fill.textureColor,
+                (v) => fill.textureColor = v)),
+        Text('纹理只铺在边框上，不影响照片。', style: EditorTypography.hint(context)),
+      ]
+    ]);
+  }
+
   Widget filmProperties() {
     final f = c.doc.film, g = StyleGeometry(c.doc, ratio);
-    final required =
-        (f.orientation == 'vertical' ? f.width : f.height) + f.inset;
-    final available =
-        f.orientation == 'vertical' ? [g.left, g.right] : [g.top, g.bottom];
+    final vertical = f.verticalFor(g.photo), hole = f.holeFor(g.photo);
+    final required = (vertical ? hole.width : hole.height) + f.inset;
+    final available = vertical ? [g.left, g.right] : [g.top, g.bottom];
     return section('胶片打孔', [
       compactToggle(
           '启用装饰', f.enabled, () => c.edit(() => f.enabled = !f.enabled)),
@@ -207,8 +237,17 @@ extension BackgroundPanel on _PresetEditorState {
         propertySelect(
             '排列位置',
             f.orientation,
-            const {'vertical': '左右双侧', 'horizontal': '上下双侧'},
+            const {
+              'vertical': '左右双侧',
+              'horizontal': '上下双侧',
+              'long': '沿长边'
+            },
             (v) => f.orientation = v),
+        if (f.orientation == 'long')
+          Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text('横图、方图排在上下，竖图排在左右。孔宽、孔高按横图填写，竖图自动转向。',
+                  style: EditorTypography.hint(context))),
         triple(
             numeric('孔宽 px', f.width, (v) => f.width = v,
                 min: 2, max: 100, step: .1),

@@ -10,6 +10,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../editor/style_document.dart';
+import '../../editor/background_style.dart';
 import '../../fonts/font_catalog.dart';
 import '../../editor/editor_controller.dart';
 import '../../editor/preset_store.dart';

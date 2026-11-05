@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 import 'style_document.dart';
+import 'texture_render.dart';
 
 List<double> backgroundColorMatrix(
     double brightness, double contrast, double saturation) {
@@ -110,33 +111,37 @@ void paintStyleBackground(
     canvas.restore();
   }
   if (clipped) canvas.restore();
+  if (fill.hasTexture && (g.top > 0 || g.bottom > 0 || g.left > 0 || g.right > 0)) {
+    canvas.save();
+    canvas.clipPath(_borderArea(g));
+    paintTexture(canvas, fill, rect, g.photo);
+    canvas.restore();
+  }
 }
 
 List<RRect> filmHoles(StyleDocument d, StyleGeometry g) {
   final f = d.film;
   if (!f.enabled) return [];
-  final vertical = f.orientation == 'vertical';
-  final step = (vertical ? f.height : f.width) + f.gap;
+  final vertical = f.verticalFor(g.photo), hole = f.holeFor(g.photo);
+  final w = hole.width, h = hole.height;
+  final step = (vertical ? h : w) + f.gap;
   final length = vertical ? g.size.height : g.size.width;
   final out = <RRect>[];
   // First centre is on the edge: partial holes are an intentional film detail.
   for (double p = 0;
-      p < length + (vertical ? f.height : f.width) / 2;
+      p < length + (vertical ? h : w) / 2;
       p += math.max(2, step)) {
     for (final near in [true, false]) {
       final available =
           vertical ? (near ? g.left : g.right) : (near ? g.top : g.bottom);
       if (available <= 0) continue;
-      final cross = vertical ? f.width : f.height;
+      final cross = vertical ? w : h;
       if (f.inset + cross > available) continue;
       final rect = vertical
-          ? Rect.fromLTWH(near ? f.inset : g.size.width - f.inset - f.width,
-              p - f.height / 2, f.width, f.height)
+          ? Rect.fromLTWH(near ? f.inset : g.size.width - f.inset - w,
+              p - h / 2, w, h)
           : Rect.fromLTWH(
-              p - f.width / 2,
-              near ? f.inset : g.size.height - f.inset - f.height,
-              f.width,
-              f.height);
+              p - w / 2, near ? f.inset : g.size.height - f.inset - h, w, h);
       out.add(RRect.fromRectAndRadius(rect, Radius.circular(f.radius)));
     }
   }

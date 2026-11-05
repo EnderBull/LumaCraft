@@ -13,7 +13,7 @@ import 'package:lumacraft/editor/style_document.dart';
 import 'package:lumacraft/editor/style_render.dart';
 import 'package:lumacraft/fonts/font_catalog.dart';
 
-// 新增 9 款创意边框草案：生成 drafts.json（内置库格式）与横/竖/方效果图。
+// 新增创意边框草案（1–9 号首批，10–27 号文艺 / 纹理 / 色卡）：生成 drafts.json（内置库格式）与横/竖/方效果图。
 // 只写 build/new-presets，不改正式内置库。
 
 class P {
@@ -114,7 +114,7 @@ List<P> presets() {
       d.shadow = PhotoShadowStyle(
           enabled: true, color: 0xff3a3226, angle: 90, distance: 4, opacity: 22, feather: 22);
     }),
-    // 4 底片孔洞
+    // 4 底片孔洞：孔洞沿长边；竖图只留左右孔洞边，文字直接叠在照片底部。
     P('film-strip', '底片孔洞', 0xff0e0e0e, [
       t('frame', 'text', '帧号',
           font: 'jost', size: 24, color: 0xffe0a040, text: '▶  24A', spacing: 1),
@@ -122,17 +122,26 @@ List<P> presets() {
           font: 'jost', size: 22, color: 0xffcfcabd, align: 'center', spacing: 3),
       t('params', 'params', '拍摄参数',
           size: 20, color: 0xffe0a040, align: 'right'),
-    ], (o) => sides(90, 0, 90, 0), (o) {
+    ], (o) => o.key == 'portrait' ? sides(0, 90, 0, 90) : sides(90, 0, 90, 0),
+        (o) {
+      if (o.key == 'portrait') {
+        final y = px(o.h - 46, o.h);
+        return {
+          'frame': {'anchor': 'photo', 'x': px(44, o.w), 'y': y, 'fs': 24},
+          'camera': {'anchor': 'photo', 'x': 50, 'y': y, 'fs': 22},
+          'params': {'anchor': 'photo', 'x': px(o.w - 44, o.w), 'y': y, 'fs': 20},
+        };
+      }
       final b = sides(90, 0, 90, 0), w = canvasW(o, b);
       return {
-        'frame': {'x': px(48, w), 'y': 28, 'fs': 24},
-        'camera': {'x': 50, 'y': 28, 'fs': 22},
-        'params': {'x': px(w - 48, w), 'y': 28, 'fs': 20},
+        'frame': {'anchor': 'bottom', 'x': px(48, w), 'y': 28, 'fs': 24},
+        'camera': {'anchor': 'bottom', 'x': 50, 'y': 28, 'fs': 22},
+        'params': {'anchor': 'bottom', 'x': px(w - 48, w), 'y': 28, 'fs': 20},
       };
     }, (d) {
       d.film = FilmStyle(
           enabled: true,
-          orientation: 'horizontal',
+          orientation: 'long',
           color: 0xffd9d3c3,
           width: 30,
           height: 20,
@@ -236,7 +245,394 @@ List<P> presets() {
       d.shadow = PhotoShadowStyle(
           enabled: true, color: 0xff3a3226, angle: 90, distance: 6, opacity: 14, feather: 26);
     }),
+    ...texturePresets(),
   ];
+}
+
+StyleNode box(String id, String name,
+        {String anchor = 'bottom',
+        double w = 100,
+        double h = 100,
+        double radius = 0,
+        double rotation = 0,
+        int? fill,
+        double fillOpacity = 100,
+        int? stroke,
+        double strokeWidth = 2,
+        double opacity = 100}) =>
+    StyleNode(
+        id: id,
+        type: 'shape',
+        name: name,
+        text: '',
+        anchor: anchor,
+        opacity: opacity,
+        shape: ShapeStyle(
+            kind: 'rect',
+            width: w,
+            height: h,
+            radius: radius,
+            rotation: rotation,
+            fill: fill != null,
+            fillColor: fill ?? 0xff000000,
+            fillOpacity: fillOpacity,
+            stroke: stroke != null,
+            strokeColor: stroke ?? 0xff000000,
+            strokeWidth: strokeWidth));
+
+StyleNode pal(String id, PaletteStyle p, {double opacity = 100}) => StyleNode(
+    id: id, type: 'palette', name: '照片色卡', anchor: 'bottom', opacity: opacity, palette: p);
+
+BackgroundStyle textured(String kind, int color, double opacity,
+        {double scale = 100}) =>
+    BackgroundStyle(
+        texture: kind,
+        textureColor: color,
+        textureOpacity: opacity,
+        textureScale: scale);
+
+/// 竖图底边比横图、方图略高，给文字留足呼吸感。
+double tall(O o, double landscapeValue, double portraitValue) =>
+    o.key == 'portrait' ? portraitValue : landscapeValue;
+
+List<P> texturePresets() => [
+      // 10 宣纸题印
+      P('xuan-seal', '宣纸题印', 0xfff3ecdc, [
+        t('title', 'text', '题字',
+            font: 'wenkai', size: 42, color: 0xff3a332a, spacing: 4, text: '山色有无中'),
+        t('place', 'place', '地点', font: 'wenkai', size: 22, color: 0xff8a7f6d),
+        t('params', 'params', '拍摄参数',
+            font: 'sourceSerif', size: 20, color: 0xff8a7f6d, align: 'right'),
+        t('time', 'time', '拍摄时间',
+            font: 'sourceSerif', size: 20, color: 0xff8a7f6d, align: 'right'),
+        box('seal', '印章', w: 56, h: 56, radius: 6, fill: 0xffb3362c),
+        t('sealText', 'text', '印文',
+            font: 'sourceSerif', size: 28, color: 0xfff6e9dc, align: 'center', text: '光'),
+      ], (o) => sides(70, 70, tall(o, 190, 220), 70), (o) {
+        final w = canvasW(o, sides(70, 70, 0, 70)), seal = w - 70 - 28;
+        return {
+          'title': {'x': px(70, w), 'y': 38},
+          'place': {'x': px(70, w), 'y': 70},
+          'params': {'x': px(seal - 28 - 26, w), 'y': 38},
+          'time': {'x': px(seal - 28 - 26, w), 'y': 70},
+          'seal': {'x': px(seal, w), 'y': 54},
+          'sealText': {'x': px(seal, w), 'y': 54},
+        };
+      }, (d) => d.fill = textured('xuan', 0xff8a7350, 34)),
+      // 11 牛皮纸信笺
+      P('kraft-letter', '牛皮纸信笺', 0xffc9a57a, [
+        t('note', 'text', '手写一句',
+            font: 'caveat', size: 66, color: 0xff3b2a1a, text: 'Dear summer,'),
+        StyleNode(
+            id: 'rule',
+            type: 'shape',
+            name: '虚线',
+            text: '',
+            anchor: 'bottom',
+            opacity: 55,
+            shape: ShapeStyle(
+                kind: 'line', width: 360, height: 2, dashed: true, fillColor: 0xff5a3d22)),
+        t('params', 'params', '拍摄参数',
+            font: 'jost', size: 20, color: 0xff3b2a1a, align: 'right', spacing: 1),
+        t('place', 'place', '地点', size: 20, color: 0xff6b4c2e, align: 'right'),
+        box('stamp', '邮戳框', w: 104, h: 76, radius: 4, stroke: 0xff5a3d22),
+        t('stampText', 'text', '邮戳文字',
+            font: 'jost', size: 15, color: 0xff5a3d22, align: 'center', spacing: 2, text: 'PAR AVION'),
+      ], (o) => sides(60, 60, tall(o, 180, 210), 60), (o) {
+        final w = canvasW(o, sides(60, 60, 0, 60)), stamp = w - 60 - 52;
+        return {
+          'note': {'x': px(60, w), 'y': 40},
+          'rule': {'x': px(60 + 180, w), 'y': 74, 'w': 360, 'h': 2},
+          'stamp': {'x': px(stamp, w), 'y': 50},
+          'stampText': {'x': px(stamp, w), 'y': 50},
+          'params': {'x': px(stamp - 52 - 28, w), 'y': 36},
+          'place': {'x': px(stamp - 52 - 28, w), 'y': 66},
+        };
+      }, (d) => d.fill = textured('kraft', 0xff5a3d22, 38)),
+      // 12 水彩手账
+      P('watercolor-journal', '水彩手账', 0xfffbf8f2, [
+        t('title', 'text', '手写标题',
+            font: 'wenkai', size: 40, color: 0xff4a4338, text: '今天的风很温柔'),
+        t('time', 'time', '拍摄时间', font: 'wenkai', size: 22, color: 0xff9a9285),
+        pal('palette', PaletteStyle(shape: 'circle', size: 42, gap: 12), opacity: 88),
+      ], (o) => sides(60, 60, tall(o, 190, 220), 60), (o) {
+        final w = canvasW(o, sides(60, 60, 0, 60));
+        return {
+          'title': {'x': px(60, w), 'y': 38},
+          'time': {'x': px(60, w), 'y': 70},
+          'palette': {'x': px(w - 60 - 156, w), 'y': 52},
+        };
+      }, (d) => d.fill = textured('watercolor', 0xff7a6a55, 40)),
+      // 13 亚麻画布
+      P('linen-canvas', '亚麻画布', 0xffe8e1d3, [
+        t('title', 'text', '作品名称',
+            font: 'playfair', size: 42, color: 0xff2e2a24, align: 'center', text: 'Still Life'),
+        t('params', 'params', '拍摄参数',
+            font: 'sourceSans', size: 19, color: 0xff7a6f5c, align: 'center', spacing: 2),
+      ], (o) => sides(100, 100, tall(o, 210, 240), 100), (o) => {
+            'title': {'x': 50, 'y': 40},
+            'params': {'x': 50, 'y': 72},
+          }, (d) {
+        d.fill = textured('linen', 0xff6a5d48, 32);
+        d.shadow = PhotoShadowStyle(
+            enabled: true, color: 0xff3a3226, angle: 90, distance: 10, opacity: 22, feather: 30);
+      }),
+      // 14 诗集扉页
+      P('poetry-page', '诗集扉页', 0xfffdfbf6, [
+        t('chapter', 'text', '章节',
+            font: 'jost', size: 17, color: 0xff9a9285, align: 'center', spacing: 6, text: 'CHAPTER  I'),
+        t('poem', 'text', '诗句',
+            font: 'sourceSerif', size: 34, color: 0xff2b2722, align: 'center', spacing: 3, text: '我们在光里走了很远'),
+        line('rule', '短线', 0xffc9c0ae),
+        t('params', 'params', '拍摄参数',
+            font: 'jost', size: 17, color: 0xff9a9285, align: 'center', spacing: 2),
+      ], (o) => sides(120, 120, tall(o, 290, 330), 120), (o) => {
+            'chapter': {'x': 50, 'y': 18},
+            'poem': {'x': 50, 'y': 40},
+            'rule': {'x': 50, 'y': 60, 'w': 40, 'h': 2},
+            'params': {'x': 50, 'y': 77},
+          }, (d) => d.fill = textured('finePaper', 0xff6b5a40, 28)),
+      // 15 色带边框：照片下方一条通栏色带
+      P('palette-band', '色带边框', 0xffffffff, [
+        pal('palette', PaletteStyle(mode: 'strip', size: 250, height: 14, radius: 0)),
+        t('camera', 'camera', '机型', size: 30, color: 0xff2b2b2b),
+        t('params', 'params', '拍摄参数', size: 21, color: 0xff77736b, align: 'right'),
+      ], (o) => sides(40, 40, tall(o, 150, 170), 40), (o) {
+        final w = canvasW(o, sides(40, 40, 0, 40)), bottom = tall(o, 150, 170);
+        return {
+          'palette': {'x': 50, 'y': px(26, bottom), 'ps': o.w / 6},
+          'camera': {'x': px(40, w), 'y': 62},
+          'params': {'x': px(w - 40, w), 'y': 62},
+        };
+      }, (d) {}),
+      // 16 色卡标签
+      P('palette-card', '色卡标签', 0xfff7f5f0, [
+        pal('palette',
+            PaletteStyle(shape: 'roundedRect', size: 58, height: 82, radius: 6, gap: 8)),
+        t('label', 'text', '色卡编号',
+            font: 'jost', size: 15, color: 0xff8a8478, spacing: 3, text: 'COLOR  No.06'),
+        t('camera', 'camera', '机型', font: 'jost', size: 30, color: 0xff2b2b2b, align: 'right'),
+        t('params', 'params', '拍摄参数',
+            font: 'sourceSans', size: 20, color: 0xff77736b, align: 'right'),
+      ], (o) => sides(50, 50, tall(o, 230, 260), 50), (o) {
+        final w = canvasW(o, sides(50, 50, 0, 50));
+        return {
+          'palette': {'x': px(50 + 194, w), 'y': 40},
+          'label': {'x': px(50, w), 'y': 80},
+          'camera': {'x': px(w - 50, w), 'y': 38},
+          'params': {'x': px(w - 50, w), 'y': 60},
+        };
+      }, (d) => d.fill = textured('dots', 0xff2b2b2b, 14)),
+      // 17 模糊色卡
+      P('blur-palette', '模糊色卡', 0xff1c1c1c, [
+        pal('palette',
+            PaletteStyle(
+                shape: 'circle',
+                size: 34,
+                gap: 16,
+                stroke: true,
+                strokeColor: 0xffffffff,
+                strokeWidth: 1.5,
+                strokeGap: 3)),
+        t('params', 'params', '拍摄参数',
+            size: 21, color: 0xfff2f2f2, align: 'center', spacing: 1),
+      ], (o) => sides(70, 70, tall(o, 180, 210), 70), (o) => {
+            'palette': {'x': 50, 'y': 40},
+            'params': {'x': 50, 'y': 74},
+          }, (d) {
+        d.fill = BackgroundStyle(
+            mode: 'blur', blur: 38, brightness: -12, contrast: 104, saturation: 115);
+        d.shadow = PhotoShadowStyle(
+            enabled: true, angle: 90, distance: 18, size: 2, opacity: 40, feather: 46);
+      }),
+      // 18 波点糖果：照片外一圈白色贴纸边
+      P('candy-polka', '波点糖果', 0xfff9d8d6, [
+        box('ring', '白色贴纸边', anchor: 'photo', stroke: 0xffffffff, strokeWidth: 16),
+        t('title', 'text', '一句话',
+            font: 'smiley', size: 46, color: 0xffd9576a, align: 'center', text: '今天也要开心呀'),
+        t('time', 'time', '拍摄时间',
+            font: 'smiley', size: 22, color: 0xffd98a95, align: 'center', spacing: 1),
+      ], (o) => sides(70, 70, tall(o, 190, 220), 70), (o) => {
+            'ring': {'x': 50, 'y': 50, 'w': o.w + 16, 'h': o.h + 16},
+            'title': {'x': 50, 'y': 42},
+            'time': {'x': 50, 'y': 73},
+          }, (d) => d.fill = textured('polka', 0xffffffff, 70)),
+      // 19 星星便签：照片上角贴两条和纸胶带
+      P('star-note', '星星便签', 0xffcfe3f5, [
+        box('tapeLeft', '胶带·左',
+            anchor: 'photo', w: 170, h: 46, rotation: 315, fill: 0xfffff4d6, fillOpacity: 80),
+        box('tapeRight', '胶带·右',
+            anchor: 'photo', w: 170, h: 46, rotation: 45, fill: 0xfffff4d6, fillOpacity: 80),
+        t('note', 'text', '手写一句',
+            font: 'caveat', size: 62, color: 0xff3b5a80, text: 'little stars'),
+        t('camera', 'camera', '机型',
+            font: 'jost', size: 24, color: 0xff3b5a80, align: 'right', spacing: 2),
+        t('params', 'params', '拍摄参数',
+            font: 'jost', size: 18, color: 0xff6a87aa, align: 'right'),
+      ], (o) => sides(60, 60, tall(o, 180, 210), 60), (o) {
+        final w = canvasW(o, sides(60, 60, 0, 60));
+        return {
+          'tapeLeft': {'x': px(12, o.w), 'y': px(12, o.h)},
+          'tapeRight': {'x': px(o.w - 12, o.w), 'y': px(12, o.h)},
+          'note': {'x': px(60, w), 'y': 48},
+          'camera': {'x': px(w - 60, w), 'y': 38},
+          'params': {'x': px(w - 60, w), 'y': 66},
+        };
+      }, (d) => d.fill = textured('stars', 0xffffffff, 85)),
+      // 20 蜂窝科技
+      P('tech-honeycomb', '蜂窝科技', 0xff111418, [
+        box('accent', '强调条', w: 5, h: 64, radius: 2.5, fill: 0xff6aa8ff),
+        t('camera', 'camera', '机型',
+            font: 'jost', size: 32, color: 0xffe8f1ff, spacing: 3),
+        t('params', 'params', '拍摄参数',
+            font: 'jost', size: 19, color: 0xff6aa8ff, spacing: 2),
+        t('time', 'time', '拍摄时间',
+            font: 'jost', size: 18, color: 0xff7f8ea3, align: 'right', spacing: 1),
+        t('place', 'place', '地点',
+            font: 'sourceSans', size: 18, color: 0xff7f8ea3, align: 'right'),
+      ], (o) => sides(50, 50, tall(o, 170, 200), 50), (o) {
+        final w = canvasW(o, sides(50, 50, 0, 50));
+        return {
+          'accent': {'x': px(52.5, w), 'y': 51},
+          'camera': {'x': px(72, w), 'y': 36},
+          'params': {'x': px(72, w), 'y': 66},
+          'time': {'x': px(w - 50, w), 'y': 36},
+          'place': {'x': px(w - 50, w), 'y': 66},
+        };
+      }, (d) => d.fill = textured('honeycomb', 0xff6aa8ff, 30)),
+      // 21 扫描线 HUD：照片内一圈细取景框 + REC 标记
+      P('scanline-hud', '扫描线 HUD', 0xff0b0f14, [
+        box('viewfinder', '取景框',
+            anchor: 'photo', stroke: 0xff7cf0ff, strokeWidth: 2, opacity: 55),
+        t('rec', 'text', '录制标记',
+            font: 'jost', size: 20, color: 0xffff4d5e, spacing: 2, text: '● REC'),
+        t('params', 'params', '拍摄参数',
+            font: 'manrope', size: 22, color: 0xff7cf0ff, spacing: 3),
+        t('place', 'place', '地点',
+            font: 'sourceSans', size: 17, color: 0xff4f8a96),
+        t('camera', 'camera', '机型',
+            font: 'jost', size: 24, color: 0xffe6fbff, align: 'right', spacing: 4),
+        t('time', 'time', '拍摄时间',
+            font: 'manrope', size: 17, color: 0xff4f8a96, align: 'right', spacing: 2),
+      ], (o) => sides(40, 40, tall(o, 150, 170), 40), (o) {
+        final w = canvasW(o, sides(40, 40, 0, 40));
+        return {
+          'viewfinder': {'x': 50, 'y': 50, 'w': o.w - 60, 'h': o.h - 60},
+          'rec': {'anchor': 'photo', 'x': px(56, o.w), 'y': px(58, o.h)},
+          'params': {'x': px(40, w), 'y': 38},
+          'place': {'x': px(40, w), 'y': 66},
+          'camera': {'x': px(w - 40, w), 'y': 38},
+          'time': {'x': px(w - 40, w), 'y': 66},
+        };
+      }, (d) => d.fill = textured('scanlines', 0xff7cf0ff, 12)),
+      // 22 大理石画廊：照片外一圈金色细框
+      P('marble-gallery', '大理石画廊', 0xfff4f2ef, [
+        box('goldFrame', '金色细框', anchor: 'photo', stroke: 0xffb89b5e, strokeWidth: 2),
+        t('title', 'text', '作品名称',
+            font: 'playfair', size: 40, color: 0xff2b2722, align: 'center', spacing: 2, text: 'Marble Hall'),
+        line('rule', '金色短线', 0xffb89b5e),
+        t('params', 'params', '拍摄参数',
+            font: 'sourceSans', size: 18, color: 0xff8a8478, align: 'center', spacing: 3),
+      ], (o) => sides(90, 90, tall(o, 220, 250), 90), (o) => {
+            'goldFrame': {'x': 50, 'y': 50, 'w': o.w + 36, 'h': o.h + 36},
+            'title': {'x': 50, 'y': 42},
+            'rule': {'x': 50, 'y': 61, 'w': 56, 'h': 2},
+            'params': {'x': 50, 'y': 77},
+          }, (d) {
+        d.fill = textured('marble', 0xff5b5650, 45, scale: 150);
+        d.shadow = PhotoShadowStyle(
+            enabled: true, color: 0xff3a3226, angle: 90, distance: 8, opacity: 18, feather: 30);
+      }),
+      // 23 网格极简
+      P('grid-minimal', '网格极简', 0xfffbfbfa, [
+        t('camera', 'camera', '机型', font: 'manrope', size: 30, color: 0xff2b2b2b),
+        t('params', 'params', '拍摄参数', font: 'manrope', size: 20, color: 0xff8a8a8a),
+        pal('palette', PaletteStyle(mode: 'strip', size: 30, height: 10, radius: 5)),
+        t('time', 'time', '拍摄时间',
+            font: 'manrope', size: 18, color: 0xff8a8a8a, align: 'right'),
+      ], (o) => sides(60, 60, tall(o, 170, 190), 60), (o) {
+        final w = canvasW(o, sides(60, 60, 0, 60));
+        return {
+          'camera': {'x': px(60, w), 'y': 38},
+          'params': {'x': px(60, w), 'y': 66},
+          'palette': {'x': px(w - 60 - 90, w), 'y': 38},
+          'time': {'x': px(w - 60, w), 'y': 66},
+        };
+      }, (d) => d.fill = textured('grid', 0xff2b2b2b, 9)),
+      // 24 野餐格纹：格纹上放一张白色标签卡
+      P('picnic-gingham', '野餐格纹', 0xfffdfbf6, [
+        box('card', '标签卡', w: 520, h: 124, radius: 14, fill: 0xfffffdf8),
+        t('note', 'text', '手写一句',
+            font: 'caveat', size: 52, color: 0xffb24a4a, align: 'center', text: 'Picnic day'),
+        t('time', 'time', '拍摄时间',
+            font: 'jost', size: 16, color: 0xffb98a7a, align: 'center', spacing: 2),
+      ], (o) => sides(60, 60, tall(o, 200, 230), 60), (o) {
+        final bottom = tall(o, 200, 230), center = bottom / 2;
+        return {
+          'card': {'x': 50, 'y': 50},
+          'note': {'x': 50, 'y': px(center - 22, bottom)},
+          'time': {'x': 50, 'y': px(center + 34, bottom)},
+        };
+      }, (d) {
+        d.fill = textured('gingham', 0xffd96c6c, 26);
+        d.shadow = PhotoShadowStyle(
+            enabled: true, color: 0xff6a2a2a, angle: 90, distance: 6, opacity: 16, feather: 24);
+      }),
+      // 25 电路板
+      P('circuit-board', '电路板', 0xff0d1b2a, [
+        t('camera', 'camera', '机型',
+            font: 'jost', size: 30, color: 0xffe6fffb, spacing: 3),
+        t('params', 'params', '拍摄参数',
+            font: 'jost', size: 19, color: 0xff3ad1c7, spacing: 2),
+        pal('palette', PaletteStyle(shape: 'hexagon', size: 16, gap: 8, radius: 2)),
+      ], (o) => sides(50, 50, tall(o, 170, 200), 50), (o) {
+        final w = canvasW(o, sides(50, 50, 0, 50));
+        final width = 6 * math.sqrt(3) * 16 + 5 * 8;
+        return {
+          'camera': {'x': px(50, w), 'y': 38},
+          'params': {'x': px(50, w), 'y': 66},
+          'palette': {'x': px(w - 50 - width / 2, w), 'y': 52},
+        };
+      }, (d) => d.fill = textured('circuit', 0xff3ad1c7, 40)),
+      // 26 拉丝金属
+      P('brushed-metal', '拉丝金属', 0xffb9bcc0, [
+        t('camera', 'camera', '机型',
+            font: 'jost', size: 30, color: 0xff1f2226, spacing: 5),
+        t('params', 'params', '拍摄参数',
+            font: 'manrope', size: 20, color: 0xff2f3236, align: 'right'),
+      ], (o) => sides(50, 50, tall(o, 140, 160), 50), (o) {
+        final w = canvasW(o, sides(50, 50, 0, 50));
+        return {
+          'camera': {'x': px(50, w), 'y': 50},
+          'params': {'x': px(w - 50, w), 'y': 50},
+        };
+      }, (d) {
+        d.fill = textured('brushed', 0xff3a3d42, 30);
+        d.shadow = PhotoShadowStyle(
+            enabled: true, angle: 90, distance: 10, size: 1, opacity: 30, feather: 30);
+      }),
+      // 27 磨砂黑卡
+      P('frosted-black', '磨砂黑卡', 0xff1b1b1d, [
+        t('title', 'text', '标题',
+            font: 'sourceSerif', size: 36, color: 0xfff1ede4, align: 'center', spacing: 8, text: '夜 归'),
+        line('rule', '金色短线', 0xffb89b5e),
+        t('params', 'params', '拍摄参数',
+            font: 'jost', size: 17, color: 0xff9b978e, align: 'center', spacing: 3),
+      ], (o) => sides(70, 70, tall(o, 200, 230), 70), (o) => {
+            'title': {'x': 50, 'y': 38},
+            'rule': {'x': 50, 'y': 60, 'w': 36, 'h': 2},
+            'params': {'x': 50, 'y': 76},
+          }, (d) => d.fill = textured('grain', 0xffffffff, 18)),
+    ];
+
+void applyMore(StyleDocument d, Spec spec) {
+  apply(d, spec);
+  for (final n in d.nodes) {
+    final v = spec[n.id];
+    if (v == null) continue;
+    if (v['anchor'] != null) n.anchor = v['anchor'];
+    if (v['ps'] != null) n.palette.size = (v['ps'] as num).toDouble();
+  }
 }
 
 StyleDocument build(P p) {
@@ -249,12 +645,12 @@ StyleDocument build(P p) {
       nodes: p.nodes.map((n) => n.copy()).toList());
   d.order = d.nodes.map((n) => n.id).toList();
   p.look(d);
-  apply(d, p.spec(square));
+  applyMore(d, p.spec(square));
   d.setAdaptive(true);
   for (final o in [landscape, portrait]) {
     d.switchLayout(o.key);
     d.borders = pct(o);
-    apply(d, p.spec(o));
+    applyMore(d, p.spec(o));
   }
   d.switchLayout('general');
   return d;
@@ -288,7 +684,7 @@ img.Image warmPhoto(int w, int h) {
 }
 
 void main() {
-  testWidgets('新增创意边框 9 款草案效果图', (tester) async {
+  testWidgets('新增创意边框草案效果图', (tester) async {
     await tester.runAsync(() async {
       for (final f in artworkFonts) {
         await (FontLoader(f.family)..addFont(rootBundle.load(f.asset))).load();
@@ -321,18 +717,26 @@ void main() {
           (sheets[o.key] ??= []).add(img.decodePng(png)!);
         }
       }
+      // 联系表：每 9 款一张（3×3），第 1 张是 1–9 号，第 2 张 10–18 号，第 3 张 19–27 号。
       for (final entry in sheets.entries) {
         final cellW = entry.key == 'portrait' ? 380 : 520;
-        final cells = [for (final i in entry.value) img.copyResize(i, width: cellW, interpolation: img.Interpolation.cubic)];
-        final cellH = cells.map((c) => c.height).reduce(math.max);
-        const gap = 24;
-        final sheet = img.Image(width: cellW * 3 + gap * 4, height: cellH * 3 + gap * 4);
-        img.fill(sheet, color: img.ColorRgb8(40, 40, 40));
-        for (var i = 0; i < cells.length; i++) {
-          img.compositeImage(sheet, cells[i],
-              dstX: gap + (i % 3) * (cellW + gap), dstY: gap + (i ~/ 3) * (cellH + gap));
+        for (var page = 0; page * 9 < entry.value.length; page++) {
+          final cells = [
+            for (final i in entry.value.skip(page * 9).take(9))
+              img.copyResize(i, width: cellW, interpolation: img.Interpolation.cubic)
+          ];
+          final cellH = cells.map((c) => c.height).reduce(math.max);
+          const gap = 24;
+          final rows = (cells.length / 3).ceil();
+          final sheet = img.Image(width: cellW * 3 + gap * 4, height: cellH * rows + gap * (rows + 1));
+          img.fill(sheet, color: img.ColorRgb8(40, 40, 40));
+          for (var i = 0; i < cells.length; i++) {
+            img.compositeImage(sheet, cells[i],
+                dstX: gap + (i % 3) * (cellW + gap), dstY: gap + (i ~/ 3) * (cellH + gap));
+          }
+          await File('${out.path}/sheet-${entry.key}-${page + 1}.png')
+              .writeAsBytes(img.encodePng(sheet));
         }
-        await File('${out.path}/sheet-${entry.key}.png').writeAsBytes(img.encodePng(sheet));
       }
       // ignore: avoid_print
       print('RESULT drafts=${decoded.entries.length} json=${text.length} bytes');

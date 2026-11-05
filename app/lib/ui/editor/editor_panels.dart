@@ -762,6 +762,7 @@ extension EditorPanels on _PresetEditorState {
               style: TextStyle(fontSize: 12, height: 1.8))
         ]),
         backgroundProperties(),
+        textureProperties(),
         shadowProperties(),
         filmProperties(),
       ]);

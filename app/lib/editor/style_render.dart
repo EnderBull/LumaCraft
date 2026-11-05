@@ -12,6 +12,7 @@ import 'shape_render.dart';
 import 'shape_style.dart';
 import 'image_mark.dart';
 import 'background_render.dart';
+import 'texture_render.dart';
 import '../export/export_options.dart';
 
 class StyleScene {
@@ -261,7 +262,8 @@ class StylePainter extends CustomPainter {
       {this.hiddenId,
       this.ratioOverride,
       this.resolveLayout = true,
-      this.showMissingInfo = false});
+      this.showMissingInfo = false})
+      : super(repaint: textureTiles);
   @override
   void paint(Canvas canvas, Size size) {
     final scene = StyleScene(document, photo, fields,
@@ -311,6 +313,7 @@ Future<Uint8List> renderStyledPhoto(
         style.nodes.where((n) => n.type == 'image').map((n) => n.image));
     if (style.nodes.any((n) => n.type == 'image' && n.image.data.isEmpty))
       throw StateError('图片标识缺少素材，请替换后导出');
+    await ensureTexture(style.fill.texture);
     scene = StyleScene(style, photo, fields);
     final g = scene.geometry;
     var scale = math.min(photo.width, photo.height) / 1000;
