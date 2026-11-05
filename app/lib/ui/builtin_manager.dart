@@ -151,8 +151,18 @@ class _BuiltinManagerState extends State<BuiltinManager> {
       true;
   Future<void> restore(BuiltinEntry p) async {
     if (await confirm(
-        '恢复封包原稿', '将“${p.style.name}”恢复为此版本封包时的样式，本机对此预设的维护修改将被替换。'))
+        '恢复默认', '将“${p.style.name}”恢复为此版本的默认样式，本机对此预设的维护修改将被替换。'))
       await store.restoreBuiltin(p.id);
+  }
+
+  Future<void> restoreAll() async {
+    if (await confirm('全部恢复默认',
+        '将整个内置库恢复为此版本的默认状态：所有内置预设的维护修改都会被替换，你在本机新建的内置预设和分组会被删除。此操作不可撤销。')) {
+      await store.restoreAllBuiltins();
+      group = 'all';
+      selected = store.builtinLibrary.entries.first.id;
+      if (mounted) setState(() => message = '已全部恢复默认。');
+    }
   }
 
   Future<void> exportLibrary() async {
@@ -367,7 +377,7 @@ class _BuiltinManagerState extends State<BuiltinManager> {
                                                 .hasBuiltinOriginal(current.id)
                                         ? null
                                         : () => run(() => restore(current)),
-                                    child: const Text('恢复原稿')),
+                                    child: const Text('恢复默认')),
                                 const Spacer(),
                                 FilledButton(
                                     onPressed: busy || current == null
@@ -386,6 +396,12 @@ class _BuiltinManagerState extends State<BuiltinManager> {
                                     '${store.builtinLibrary.entries.length} 个内置预设',
                                     style: EditorTypography.hint(context)),
                                 const Spacer(),
+                                TextButton(
+                                    style: neutral,
+                                    onPressed:
+                                        busy ? null : () => run(restoreAll),
+                                    child: const Text('全部恢复默认')),
+                                const SizedBox(width: 8),
                                 TextButton(
                                     style: neutral,
                                     onPressed:

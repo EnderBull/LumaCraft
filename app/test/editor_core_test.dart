@@ -380,7 +380,7 @@ void main() {
         .widgetList<TextField>(find.byType(TextField))
         .map((field) => field.controller?.text)
         .toList();
-    await tester.tap(find.text('衬线 · Georgia'));
+    await tester.tap(find.text('Georgia'));
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);

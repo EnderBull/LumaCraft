@@ -157,8 +157,8 @@
             "id": "gallery-params"
           },
           {
-            "type": "author",
-            "name": "作者签名",
+            "type": "text",
+            "name": "签名",
             "text": "Alex Chen",
             "anchor": "bottom",
             "x": 94,
@@ -511,8 +511,8 @@
             "id": "film-params"
           },
           {
-            "type": "author",
-            "name": "作者签名",
+            "type": "text",
+            "name": "签名",
             "text": "Alex Chen",
             "anchor": "bottom",
             "x": 97,
@@ -1406,8 +1406,8 @@
         "nodes": [
           {
             "id": "author",
-            "type": "author",
-            "name": "作者签名",
+            "type": "text",
+            "name": "签名",
             "text": "Alex Chen",
             "anchor": "bottom",
             "x": 5.6000000000000005,

@@ -317,6 +317,36 @@ extension EditorCanvas on _PresetEditorState {
     });
   }
 
+  /// 画布上方的状态提示：布局名（淡色）｜状态词（有颜色）。
+  /// 只用一条细竖线分隔，不用圆点；鼠标悬停显示完整说明。
+  Widget styleStatus() {
+    final scheme = Theme.of(context).colorScheme;
+    final applied = files.isNotEmpty &&
+        styleEquals(appliedSnapshots[files[index].path], c.doc);
+    final layout =
+        c.doc.adaptive ? StyleDocument.layoutNames[c.doc.editingLayout] : null;
+    return Tooltip(
+        message: applied ? '当前照片已应用此样式' : '草稿预览，尚未应用到照片',
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (layout != null) ...[
+            Text(layout,
+                style: TextStyle(
+                    fontSize: 14,
+                    color: scheme.onSurface.withValues(alpha: .62))),
+            Container(
+                width: 1,
+                height: 14,
+                margin: const EdgeInsets.symmetric(horizontal: 11),
+                color: scheme.onSurface.withValues(alpha: .22)),
+          ],
+          Text(applied ? '已应用' : '草稿',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: applied ? const Color(0xff86c58a) : scheme.primary))
+        ]));
+  }
+
   Widget canvasPanel() => Column(children: [
         SizedBox(
             height: 45,
@@ -339,7 +369,9 @@ extension EditorCanvas on _PresetEditorState {
                       c.canUndo ? c.undo : null),
                   action(Icons.redo_rounded, '重做 Ctrl+Shift+Z',
                       c.canRedo ? c.redo : null),
-                  neutral('添加组件', addMenu, icon: Icons.add),
+                  Builder(
+                      builder: (button) => neutral('添加组件', () => addMenu(button),
+                          icon: Icons.add)),
                   Padding(
                       padding: const EdgeInsets.only(left: 6),
                       child: Tooltip(
@@ -371,6 +403,13 @@ extension EditorCanvas on _PresetEditorState {
                                   icon: PrototypeIcon('snap', size: 18),
                                   label: Text(c.snap ? '吸附：开' : '吸附：关',
                                       style: const TextStyle(fontSize: 12)))))),
+                  if (widget.presets.authoring &&
+                      builtinTarget != null &&
+                      widget.presets.hasBuiltinOriginal(builtinTarget!))
+                    Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: neutral('恢复默认', restoreBuiltinDefault,
+                            icon: Icons.restart_alt)),
                   action(
                       Icons.restart_alt,
                       '恢复编辑前样式',
@@ -385,9 +424,7 @@ extension EditorCanvas on _PresetEditorState {
             decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(7)),
-            child: Text(
-                '${c.doc.adaptive ? '${StyleDocument.layoutNames[c.doc.editingLayout]} · ' : ''}${files.isNotEmpty && styleEquals(appliedSnapshots[files[index].path], c.doc) ? '● 当前照片已应用此样式' : '● 草稿预览 · 尚未应用'}',
-                style: TextStyle(fontSize: 14))),
+            child: styleStatus()),
         Expanded(
             child: photo == null || marksLoading
                 ? Center(

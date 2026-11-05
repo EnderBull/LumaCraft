@@ -413,6 +413,31 @@ extension PresetActions on _PresetPanelState {
     if (entry != null) await widget.onEditBuiltin!(entry);
   }
 
+  Future<void> restoreDefaults(List<PresetEntry> list) => run(() async {
+        final names = list.map((e) => '“${e.style.name}”').join('、');
+        final yes = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => WorkspaceDialog(
+                    title: const Text('恢复默认'),
+                    content: SizedBox(
+                        width: 430,
+                        child: Text(
+                            '将$names恢复为此版本的默认样式，本机对这些内置预设的维护修改将被替换，此操作不可撤销。')),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('取消')),
+                      FilledButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('恢复默认'))
+                    ]));
+        if (yes != true || !mounted) return;
+        for (final e in list) {
+          await store.restoreBuiltin(e.id);
+        }
+        if (mounted) update(() => message = '已恢复默认：${list.length} 款内置预设');
+      });
+
   Future<void> cardMenu(PresetEntry e, Offset p) async {
     if (!usable) return;
     focus.requestFocus();
@@ -424,8 +449,14 @@ extension PresetActions on _PresetPanelState {
         store.selection.anchor = e.id;
       });
     final list = selected, editable = list.every((e) => !e.builtIn);
+    // 制作版：选中的全是内置预设时，可直接恢复为此版本的默认样式。
+    final restorable = store.authoring &&
+        list.isNotEmpty &&
+        list.every((e) => e.builtIn && store.hasBuiltinOriginal(e.id));
     final action = await menu(p, {
       if (list.length == 1 && editable) 'rename': '重命名',
+      if (restorable)
+        'restoreDefault': list.length == 1 ? '恢复默认' : '恢复默认（${list.length} 款）',
       'copy': '复制',
       if (editable) 'move': '移动至分组',
       'export': '导出 .lmp',
@@ -433,6 +464,7 @@ extension PresetActions on _PresetPanelState {
     });
     if (!mounted) return;
     if (action == 'rename') await rename(list.single);
+    if (action == 'restoreDefault') await restoreDefaults(list);
     if (action == 'copy') await copySelected();
     if (action == 'move') await moveSelected();
     if (action == 'export') await exportEntries(list);

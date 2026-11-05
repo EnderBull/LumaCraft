@@ -110,11 +110,7 @@ class EditorController extends ChangeNotifier {
       final n = StyleNode(
           type: type,
           name: componentNames[type]!,
-          text: type == 'author'
-              ? '作者签名'
-              : type == 'text'
-                  ? '新的文字'
-                  : '',
+          text: type == 'text' ? '新的文字' : '',
           anchor: doc.borders['bottom'] == 0 ? 'photo' : 'bottom');
       doc.nodes.add(n);
       doc.order.add(n.id);

@@ -86,7 +86,9 @@ extension EditorPanels on _PresetEditorState {
           onSelect: (i) => update(() => directoryTab = i == 1),
           trailing: directoryTab
               ? null
-              : action(Icons.add_box_outlined, '添加组件', addMenu)),
+              : Builder(
+                  builder: (button) => action(Icons.add_box_outlined, '添加组件',
+                      () => addMenu(button)))),
       if (directoryTab)
         Expanded(child: directoryContents())
       else ...[
@@ -411,20 +413,50 @@ extension EditorPanels on _PresetEditorState {
     });
   }
 
-  void addMenu() async {
-    final type = await modal<String>(
-        (ctx) => SimpleDialog(title: const Text('添加组件'), children: [
-              for (final e in componentNames.entries)
-                SimpleDialogOption(
-                    onPressed: () => Navigator.pop(ctx, e.key),
-                    child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(children: [
-                          PrototypeIcon(componentSymbol(e.key), size: 21),
-                          const SizedBox(width: 15),
-                          Text(e.value)
-                        ])))
+  /// 编辑内置预设（制作版）时：把当前画布恢复为此版本的默认样式。
+  /// 可撤销；点“保存预设”后才会写入制作版工作库。
+  Future<void> restoreBuiltinDefault() async {
+    final id = builtinTarget;
+    final original = id == null ? null : widget.presets.builtinOriginal(id);
+    if (original == null) return;
+    finishInline();
+    c.end();
+    final yes = await modal<bool>((ctx) => WorkspaceDialog(
+            title: const Text('恢复默认'),
+            content: SizedBox(
+                width: 400,
+                child: Text(
+                    '将“${original.style.name}”恢复为此版本的默认样式。当前未保存的修改会被替换，可用撤销找回；点“保存预设”后才会写入制作版工作库。')),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('取消')),
+              FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('恢复默认'))
             ]));
+    if (yes != true || !mounted) return;
+    c.edit(() {
+      c.doc = original.style.copy();
+      c.doc.switchLayout(StyleDocument.orientation(ratio));
+      c.selection.clear();
+    });
+    update(() => status = '已恢复默认：${original.style.name}（保存后生效）');
+  }
+
+  /// [anchor] 是触发按钮的上下文，菜单贴着它展开。
+  void addMenu(BuildContext anchor) async {
+    if (dialogOpen) return;
+    dialogOpen = true;
+    String? type;
+    try {
+      type = await showComponentPicker(anchor, [
+        for (final e in componentNames.entries)
+          ComponentChoice(e.key, e.value, componentSymbol(e.key))
+      ]);
+    } finally {
+      dialogOpen = false;
+    }
     if (type == 'image') {
       await addImageMark();
       return;
@@ -780,7 +812,7 @@ extension EditorPanels on _PresetEditorState {
                   if (single != null)
                     section(componentNames[single.type]!, [
                       valueField('图层名称', single.name, (v) => single.name = v),
-                      if (['text', 'author'].contains(single.type))
+                      if (single.type == 'text')
                         valueField('内容', single.text, (v) => single.text = v,
                             multiline: true)
                       else if (!['palette', 'image', 'shape']

@@ -86,6 +86,13 @@ class PresetStore extends ChangeNotifier {
     return saveBuiltin(id, original.style, original.folder);
   }
 
+  /// 此版本封包时的默认样式（不受本机维护修改影响）。
+  BuiltinEntry? builtinOriginal(String id) =>
+      _originalBuiltins.entries.where((p) => p.id == id).firstOrNull;
+
+  /// 整个内置库恢复为此版本封包时的默认状态（包括删除本机新建的内置预设和分组）。
+  Future<void> restoreAllBuiltins() => writeBuiltinLibrary(_originalBuiltins);
+
   bool hasBuiltinOriginal(String id) =>
       _originalBuiltins.entries.any((p) => p.id == id);
   StyleDocument? draft;

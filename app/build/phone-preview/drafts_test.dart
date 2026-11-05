@@ -196,7 +196,7 @@ List<Def> definitions(String lightLogo, String darkLogo) {
           'params': {'x': 50, 'y': 77, 'fs': 25},
         }),
     Def('phone-signature', '签名边框', 0xffffffff, [
-      txt('author', 'author', '作者签名',
+      txt('author', 'text', '签名',
           font: 'caveat', size: 76, text: 'Alex Chen'),
       txt('camera', 'camera', '机型',
           font: 'jost', size: 30, align: 'right', color: 0xff2b2b2b),

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,7 +35,7 @@ void main() {
       await (FontLoader('MaterialIcons')
             ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf')))
           .load();
-      store = PresetStore(File('${output.path}/users.json'));
+      store = PresetStore(File('${output.path}/users.json'), authoring: true);
       await store.load();
     });
     store.libraryFolder = 'builtin:phone';
@@ -73,6 +74,7 @@ void main() {
                 current: 0,
                 selected: const {},
                 initial: entry.style,
+                initialBuiltinId: entry.id,
                 sourceKey: 'phone-ui',
                 settings: settings,
                 presets: store,
@@ -93,6 +95,51 @@ void main() {
     await settle();
     expect(find.textContaining('灰色占位图'), findsOneWidget);
     await capture('image-panel-note');
+    // 状态提示：布局名｜状态词，一条细竖线分隔，没有圆点和“·”。
+    expect(find.text('横图布局'), findsOneWidget);
+    expect(find.text('草稿'), findsOneWidget);
+    final pill = find.byWidgetPredicate(
+        (w) => w is Tooltip && w.message == '草稿预览，尚未应用到照片');
+    expect(pill, findsOneWidget);
+    for (final symbol in ['●', '·', '草稿预览', '尚未应用']) {
+      expect(find.descendant(of: pill, matching: find.textContaining(symbol)),
+          findsNothing,
+          reason: '提示框里不应再有 $symbol');
+    }
+    await capture('status-pill');
+    // 添加组件：轻量下拉菜单，3×3 图标平铺。
+    await tester.tap(find.text('添加组件').first);
+    await settle();
+    for (final name in ['自由文字', '拍摄参数', '相机型号', '镜头型号', '拍摄时间', '拍摄地点', '照片色卡', '图片标识', '形状']) {
+      expect(find.text(name), findsWidgets, reason: name);
+    }
+    expect(find.text('作者签名'), findsNothing);
+    await capture('add-component-menu');
+    await tester.tap(find.text('形状').last);
+    await settle();
+    expect(find.text('7 个组件'), findsOneWidget);
+    // 编辑内置预设：工具条上的“恢复默认”按钮。
+    expect(find.text('恢复默认'), findsOneWidget);
+    await tester.tap(find.text('恢复默认'));
+    await settle();
+    await capture('restore-default-dialog');
+    await tester.tap(find.widgetWithText(FilledButton, '恢复默认'));
+    await settle();
+    expect(find.text('6 个组件'), findsOneWidget, reason: '恢复默认后去掉了新加的形状');
+    expect(find.textContaining('已恢复默认'), findsOneWidget);
+    // 预设卡片右键菜单：内置预设可“恢复默认”。
+    await tester.tap(find.text('预设').first);
+    await settle();
+    await tester.tap(find.text('底栏参数条·白').first, buttons: kSecondaryButton);
+    await settle();
+    expect(
+        find.descendant(
+            of: find.byType(PopupMenuItem<String>),
+            matching: find.text('恢复默认')),
+        findsOneWidget);
+    await capture('card-menu');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle();
     expect(tester.takeException(), null);
     await tester.pumpWidget(const SizedBox());
     await tester.pump();

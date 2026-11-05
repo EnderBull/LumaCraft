@@ -57,7 +57,7 @@ class StyleScene {
       var text = n.content(fields);
       if (showMissingInfo &&
           text.trim().isEmpty &&
-          !['text', 'author', 'image', 'palette'].contains(n.type))
+          !['text', 'image', 'palette'].contains(n.type))
         text = '缺少${componentNames[n.type] ?? '拍摄'}信息';
       if (text.isEmpty) continue;
       final painter = TextPainter(

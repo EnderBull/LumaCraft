@@ -28,9 +28,9 @@ const artworkFonts = <ArtworkFont>[
       latinOnly: true),
 ];
 const legacyFontNames = {
-  'sans': '无衬线 · 微软雅黑',
-  'serif': '衬线 · Georgia',
-  'signature': '手写感 · Georgia Italic'
+  'sans': '微软雅黑',
+  'serif': 'Georgia',
+  'signature': 'Georgia Italic'
 };
 ArtworkFont? artworkFont(String id) =>
     artworkFonts.where((f) => f.id == id).firstOrNull;

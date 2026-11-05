@@ -10,7 +10,6 @@ String newObjectId() =>
 int _serial = 0;
 const componentNames = {
   'text': '自由文字',
-  'author': '作者签名',
   'params': '拍摄参数',
   'camera': '相机型号',
   'lens': '镜头型号',
@@ -74,7 +73,8 @@ class StyleNode {
       };
   factory StyleNode.fromJson(Map<String, dynamic> j) => StyleNode(
       id: j['id'],
-      type: j['type'] ?? 'text',
+      // 已移除的“作者签名”组件与自由文字完全一样，旧数据读入时自动按自由文字处理。
+      type: j['type'] == 'author' ? 'text' : j['type'] ?? 'text',
       name: j['name'] ?? '组件',
       text: j['text'] ?? '',
       anchor: j['anchor'] ?? 'bottom',
@@ -97,7 +97,7 @@ class StyleNode {
           PaletteStyle.fromJson(Map<String, dynamic>.from(j['palette'] ?? {})));
   StyleNode copy() => StyleNode.fromJson(toJson());
   String content(Map<String, String> fields) {
-    if (type == 'text' || type == 'author') return text;
+    if (type == 'text') return text;
     if (type == 'params')
       return [
         if ((fields['focal'] ?? '').isNotEmpty) '${fields['focal']} mm',
@@ -363,8 +363,7 @@ class StyleDocument {
           y: 76,
           color: 0xff77736b),
       StyleNode(
-          type: 'author',
-          name: '作者签名',
+          name: '签名',
           text: '作者签名',
           font: 'signature',
           fontSize: 26,

@@ -18,6 +18,7 @@ import '../../editor/photo_palette.dart';
 import '../../editor/image_mark.dart';
 import '../../editor/shape_style.dart';
 import 'shape_picker.dart';
+import 'component_picker.dart';
 import '../../workspace_settings.dart';
 import '../../window_controls.dart';
 import '../workspace_layout.dart';
@@ -626,7 +627,7 @@ class _PresetEditorState extends State<PresetEditor> {
     if (n == null) return;
     c.select(id);
     update(() => panel = 2);
-    if (c.doc.locked(id) || !['text', 'author'].contains(n.type)) return;
+    if (c.doc.locked(id) || n.type != 'text') return;
     update(() {
       inlineId = id;
       inlineInput.text = n.text;

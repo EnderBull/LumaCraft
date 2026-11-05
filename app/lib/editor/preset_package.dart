@@ -128,6 +128,10 @@ SharedPreset _readPreset(dynamic item) {
       groups is! List ||
       groups.length > 200 ||
       order is! List) throw const FormatException('图层数量或结构无效');
+  // 已移除的“作者签名”与自由文字一致：旧 .lmp 导入时自动当作自由文字。
+  for (final n in nodes) {
+    if (n is Map && n['type'] == 'author') n['type'] = 'text';
+  }
   final ids = <String>{};
   for (final obj in [...nodes, ...groups]) {
     if (obj is! Map || obj['id'] is! String || !ids.add(obj['id']))
@@ -360,7 +364,7 @@ PresetImportResult mergeLmp(
 Map<String, dynamic> _exportStyle(StyleDocument style) {
   final j = style.toJson();
   for (final n in j['nodes']) {
-    if (!['text', 'author'].contains(n['type'])) n['text'] = '';
+    if (n['type'] != 'text') n['text'] = '';
     if (n['type'] == 'image') {
       final image = n['image'];
       image['filename'] =
