@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1280" viewBox="0 0 1280 1280">
+  <title>LumaCraft 框印工坊应用图标</title>
+  <desc>青蓝圆角背景、柔和晕影、白色照片框、渐变山形、暖色太阳和右下长阴影。</desc>
+  <defs>
+    <linearGradient id="tile-color" x1="110" y1="100" x2="1200" y2="1220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B6DCE3"/>
+      <stop offset="0.48" stop-color="#96C7D2"/>
+      <stop offset="1" stop-color="#74ACBE"/>
+    </linearGradient>
+    <radialGradient id="vignette" cx="565" cy="500" r="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#286074" stop-opacity="0"/>
+      <stop offset="0.36" stop-color="#286074" stop-opacity="0"/>
+      <stop offset="0.55" stop-color="#286074" stop-opacity="0.025"/>
+      <stop offset="0.72" stop-color="#286074" stop-opacity="0.075"/>
+      <stop offset="0.87" stop-color="#286074" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#286074" stop-opacity="0.25"/>
+    </radialGradient>
+    <linearGradient id="long-shadow" x1="635" y1="640" x2="1140" y2="1240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#24596D" stop-opacity="0.42"/>
+      <stop offset="0.48" stop-color="#24596D" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#24596D" stop-opacity="0.09"/>
+    </linearGradient>
+    <linearGradient id="porcelain" x1="270" y1="290" x2="1000" y2="960" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="0.55" stop-color="#FAFBFB"/>
+      <stop offset="1" stop-color="#F3F6F7"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="360" y1="350" x2="910" y2="880" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A9DFE9"/>
+      <stop offset="0.48" stop-color="#BCE8EF"/>
+      <stop offset="1" stop-color="#A8D9E4"/>
+    </linearGradient>
+    <radialGradient id="sky-light" cx="540" cy="645" r="485" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E4F7F9" stop-opacity="0.33"/>
+      <stop offset="1" stop-color="#E4F7F9" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sun-color" x1="725" y1="440" x2="830" y2="575" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFC88F"/>
+      <stop offset="1" stop-color="#FFD996"/>
+    </linearGradient>
+    <linearGradient id="front-mountain" x1="325" y1="730" x2="850" y2="880" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#62C2BE"/>
+      <stop offset="0.45" stop-color="#65AFBE"/>
+      <stop offset="1" stop-color="#5B92B4"/>
+    </linearGradient>
+    <linearGradient id="back-mountain" x1="720" y1="690" x2="955" y2="880" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#88BECC"/>
+      <stop offset="0.6" stop-color="#A8C3C9"/>
+      <stop offset="1" stop-color="#C7BCA9"/>
+    </linearGradient>
+    <clipPath id="tile-clip">
+      <rect x="48" y="48" width="1184" height="1184" rx="216"/>
+    </clipPath>
+    <clipPath id="photo-clip">
+      <rect x="300" y="342" width="656" height="552" rx="48"/>
+    </clipPath>
+    <filter id="frame-contact" x="-12%" y="-12%" width="135%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="7" stdDeviation="7" flood-color="#24586C" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <g clip-path="url(#tile-clip)">
+    <rect x="48" y="48" width="1184" height="1184" fill="url(#tile-color)"/>
+    <rect x="48" y="48" width="1184" height="1184" fill="url(#vignette)"/>
+    <!-- 45° 长阴影从圆角的切点出发，与相框半径 100 的圆弧相切。 -->
+    <path fill="url(#long-shadow)" d="M348 288H908A100 100 0 0 1 978.710678 317.289322L1298.710678 637.289322A100 100 0 0 1 1328 708V1172A100 100 0 0 1 1228 1272H668A100 100 0 0 1 597.289322 1242.710678L277.289322 922.710678A100 100 0 0 1 248 852V388A100 100 0 0 1 348 288Z"/>
+    <rect x="248" y="288" width="760" height="664" rx="100" fill="url(#porcelain)" filter="url(#frame-contact)"/>
+    <g clip-path="url(#photo-clip)">
+      <rect x="300" y="342" width="656" height="552" fill="url(#sky)"/>
+      <rect x="300" y="342" width="656" height="552" fill="url(#sky-light)"/>
+      <circle cx="778" cy="504" r="84" fill="url(#sun-color)"/>
+      <path d="M665 747L738 681Q777 642 813 680L956 823V894H665Z" fill="url(#back-mountain)"/>
+      <path d="M300 831L500 631Q543 588 586 631L850 894H300Z" fill="url(#front-mountain)"/>
+    </g>
+    <rect x="300" y="342" width="656" height="552" rx="48" fill="none" stroke="#769EAB" stroke-opacity="0.21" stroke-width="2"/>
+    <rect x="249" y="289" width="758" height="662" rx="99" fill="none" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="2"/>
+  </g>
+</svg>

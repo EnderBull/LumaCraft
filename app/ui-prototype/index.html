@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>框印工坊 · 桌面 UI 原型</title>
+<style>
+:root{color-scheme:dark;--bg:#1c1b1a;--panel:#262523;--raised:#32302d;--line:#45413b;--text:#ece8e2;--muted:#aaa49a;--accent:#dfa653;--ink:#2a1d0d;--stage:#191817}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:13px/1.55 'Segoe UI','Microsoft YaHei',sans-serif}button,input,select{font:inherit}button{cursor:pointer;color:inherit;border:1px solid transparent;background:transparent;border-radius:6px;padding:7px 11px}button:hover{background:var(--raised)}button:disabled{opacity:.4;cursor:default}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:3px}input,select{color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:8px;width:100%}input[type=range]{accent-color:var(--accent);padding:0}input[type=color]{height:34px;padding:4px}input[type=checkbox],input[type=radio]{width:auto;accent-color:var(--accent)}.muted{color:var(--muted)}.tiny{font-size:11px}.primary{background:var(--accent);color:var(--ink);font-weight:600}.primary:hover{background:#ebba76}.outline{border-color:var(--line)}.active{color:var(--accent);background:#dfa65312}.app{height:100vh;min-height:680px;min-width:1060px;display:flex;flex-direction:column}header{height:54px;flex:none;display:flex;align-items:center;padding:0 22px;gap:14px;border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:11px;width:185px}.mark{font-size:23px;color:var(--accent);border:1px solid var(--accent);height:32px;width:32px;text-align:center;line-height:28px;font-family:Georgia,serif}.brand b{display:block;line-height:1.15;letter-spacing:.8px}.brand small{font-size:10px;color:var(--muted);letter-spacing:2px}header nav{display:flex;gap:6px}.spacer{flex:1}.badge{font-size:11px;padding:3px 8px;border:1px solid var(--line);border-radius:20px;color:var(--muted)}.shell{flex:1;min-height:0;display:grid;grid-template-columns:204px minmax(430px,1fr) 302px;grid-template-rows:minmax(240px,1fr) 168px}.library{grid-column:1;grid-row:1/3;background:var(--panel);border-right:1px solid var(--line);padding:22px 12px;overflow:auto}.section-label{font-size:11px;letter-spacing:1px;color:var(--muted);padding:0 10px;margin:0 0 12px}.library button{width:100%;text-align:left;display:flex;align-items:center;gap:9px;margin-bottom:3px}.folder-count{margin-left:auto;color:var(--muted);font-size:11px}.divider{height:1px;background:var(--line);margin:21px 9px}.library .file-path{padding:8px 10px;color:var(--muted);word-break:break-all;font-size:11px}.library-note{margin:32px 10px 0;font-size:11px;color:var(--muted);line-height:1.9}.stage{grid-column:2;grid-row:1;min-height:0;background:var(--stage);display:flex;flex-direction:column}.stagebar{height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex:none}.stagebar strong{font-size:12px;font-weight:500}.stagebar .muted{font-size:11px}.preview-space{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:10px 40px 28px;overflow:auto}.artboard{background:#f3f0e8;padding:18px 18px 0;box-shadow:0 15px 45px #0004;width:min(100%,760px);flex-shrink:0}.scene{display:block;width:100%;aspect-ratio:487/314;overflow:hidden;background:#334b60}.scene svg,.scene img{width:100%;height:100%;display:block;object-fit:cover}.artboard .caption{height:77px;display:flex;flex-direction:column;justify-content:center;align-items:center;color:#292925;gap:8px}.caption .title{font:15px Georgia,'SimSun',serif;letter-spacing:4px}.caption .sub{font-size:8px;letter-spacing:1px;opacity:.75}.signature{font:italic 16px Georgia,serif;letter-spacing:0}.artboard.film{background:#111;padding:18px 9px 0}.artboard.film .caption{color:#d1ad65;height:55px;align-items:flex-start;padding-left:5px}.artboard.film .title{font:11px 'Segoe UI',sans-serif;letter-spacing:2px}.artboard.black{background:#111;padding:0}.artboard.black .caption{color:#eee;height:55px}.artboard.white{background:white;padding:0}.artboard.white .caption{height:55px}.artboard.travel{background:#fafafa;padding:0}.artboard.travel .caption{align-items:flex-start;padding-left:20px;height:75px}.artboard.travel .title{letter-spacing:1px;font-family:'Microsoft YaHei',sans-serif}.artboard.overlay{position:relative;padding:0;background:transparent}.artboard.overlay .caption{position:absolute;bottom:10px;left:20px;height:50px;color:white;align-items:flex-start;text-shadow:0 1px 4px #000}.preview-bottom{height:39px;display:flex;justify-content:center;align-items:center;gap:10px;flex:none;color:var(--muted);font-size:11px}.preview-bottom button{font-size:11px;padding:4px 9px}.filmstrip{grid-column:2;grid-row:2;border-top:1px solid var(--line);min-width:0;background:var(--panel)}.film-tools{height:37px;padding:0 15px;display:flex;align-items:center;gap:10px;font-size:11px}.film-tools button{font-size:11px;padding:3px 6px}.thumbs{display:flex;gap:9px;overflow:auto;padding:3px 16px 12px;height:130px}.thumb{width:122px;flex:none;text-align:left;padding:5px;border:1px solid transparent;border-radius:5px;position:relative;height:111px}.thumb.selected{border-color:#dfa65366;background:#dfa65315}.thumb.current{outline:1px solid var(--accent);outline-offset:-2px}.thumb .scene{height:69px;aspect-ratio:auto}.thumb .name{font-size:10px;margin-top:5px;display:flex;align-items:center;justify-content:space-between;color:var(--muted)}.thumb .dot{width:5px;height:5px;border-radius:100%;background:var(--accent)}.right{grid-column:3;grid-row:1/3;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}.right-tabs{height:49px;display:flex;align-items:end;padding:0 18px;gap:20px;border-bottom:1px solid var(--line);flex:none}.right-tabs button{padding:12px 4px;border-radius:0}.right-tabs button.active{border-bottom:2px solid var(--accent);background:none}.right-content{overflow:auto;padding:20px 18px;flex:1;min-height:0}.scope{display:flex;align-items:center;gap:7px;background:#dfa6530b;border:1px solid #dfa65328;border-radius:5px;padding:9px 11px;color:var(--accent);font-size:11px;margin-bottom:18px}.scope span{width:5px;height:5px;border-radius:100%;background:var(--accent)}.search{font-size:11px;margin-bottom:12px}.filters{display:flex;gap:6px;margin-bottom:17px}.filters button{padding:4px 9px;font-size:11px;border:1px solid var(--line);border-radius:15px}.preset-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px 12px}.preset{padding:0;text-align:left;position:relative}.preset:hover{background:none}.preset .sample{height:91px;padding:6px 6px 17px;background:#f5f2ec;border-radius:3px;position:relative}.preset .sample:after{content:'MOUNTAIN SILENCE';position:absolute;bottom:5px;left:0;width:100%;font:5px Georgia;text-align:center;color:#444;letter-spacing:1px}.preset.picked .sample{outline:2px solid var(--accent);outline-offset:3px}.preset .scene{height:100%;aspect-ratio:auto}.preset .pname{display:block;margin-top:9px;font-size:12px}.preset .adapt{font-size:10px;color:var(--muted)}.preset.film .sample,.preset.black .sample{background:#111}.preset.film .sample:after,.preset.black .sample:after{color:#d4b271}.preset.overlay .sample{padding:0}.preset.travel .sample{padding:0 0 18px}.new-preset{width:100%;border:1px dashed var(--line);margin-top:21px;color:var(--muted);font-size:11px}.panel-title{display:flex;justify-content:space-between;align-items:center;margin:24px 0 12px;font-weight:500;font-size:12px}.photo-info{font-size:11px;margin-top:26px;padding-top:18px;border-top:1px solid var(--line)}.photo-info h3{font-size:12px;margin:0 0 10px;font-weight:500}.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}.meta-grid span{color:var(--muted);font-size:10px;display:block;margin-bottom:2px}.photo-info .missing{color:#d4b271}.info-button{width:100%;margin-top:15px;font-size:11px;border:1px solid var(--line)}.export-dock{padding:16px 18px;border-top:1px solid var(--line);flex:none}.export-dock button{width:100%;display:flex;justify-content:space-between}.export-dock p{margin:9px 0 0;font-size:10px;color:var(--muted);text-align:center}footer{height:26px;padding:0 16px;display:flex;align-items:center;gap:20px;border-top:1px solid var(--line);font-size:10px;color:var(--muted)}.control{margin:18px 0}.control label{display:flex;justify-content:space-between;margin-bottom:8px;font-size:11px}.control small{color:var(--muted)}.row{display:flex;align-items:center;gap:9px}.row>*{flex:1}.note{font-size:11px;color:var(--muted);line-height:1.8}.modal{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text);padding:0;width:540px;box-shadow:0 25px 100px #0008;max-height:85vh}.modal::backdrop{background:#080c0da6;backdrop-filter:blur(3px)}.modal-head{padding:22px 26px 17px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.modal-head h2{font-size:17px;margin:0;font-weight:500}.modal-body{padding:20px 26px;max-height:55vh;overflow:auto}.modal-foot{padding:16px 26px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}.field{margin:0 0 16px}.field label{display:block;margin-bottom:6px;font-size:12px}.field .help{font-size:10px;color:var(--muted);margin-top:5px}.toggle{display:flex;align-items:center;gap:9px;font-size:12px}.scope-options{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}.scope-options label{display:flex;gap:5px;align-items:center;font-size:12px}.toast{position:fixed;bottom:207px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:11px 21px;border-radius:8px;box-shadow:0 6px 30px #0005;z-index:10;font-size:12px}.hidden,[hidden]{display:none!important}.light{color-scheme:light;--bg:#ece8e2;--panel:#f6f3ed;--raised:#e9e2d7;--line:#d7cec0;--text:#393127;--muted:#7c7061;--accent:#9b5e14;--ink:#ffffff;--stage:#e4ded5}.light .primary:hover{background:#865014}.light .artboard{box-shadow:0 15px 40px #0002}progress{width:100%;accent-color:var(--accent)}@media(min-width:1600px){.shell{grid-template-columns:225px minmax(430px,1fr) 330px}.right-content{padding:24px}.preset .sample{height:105px}}@media(max-height:790px){.artboard{max-width:600px}.preview-space{padding:8px 50px}.artboard .caption{height:54px}.shell{grid-template-rows:minmax(200px,1fr) 153px}.photo-info{margin-top:20px}.preset .sample{height:78px}}
+ .artboard{width:min(100%,760px,calc((100vh - 385px)*1.35))}
+/* 面板层级由局部阴影表达，保留输入框和选择状态的边界。 */
+:root{--left:216px;--right:312px;--bottom:172px;--top:54px}
+header{position:relative;height:var(--top);background:var(--panel);border:0;box-shadow:0 9px 24px #00000060,0 3px 8px #00000040;z-index:5}
+.shell{position:relative;grid-template-columns:var(--left) minmax(430px,1fr) var(--right);grid-template-rows:minmax(240px,1fr) var(--bottom)}
+.library{grid-row:1;border:0;box-shadow:7px 0 22px -10px #0009;z-index:2}
+.right{grid-row:1;border:0;box-shadow:-7px 0 22px -10px #0009;z-index:2}
+.filmstrip{grid-column:1/4;grid-row:2;border:0;position:relative;z-index:3;box-shadow:0 -8px 24px -11px #000b;display:flex;flex-direction:column}
+.shell.side-first .library,.shell.side-first .right{grid-row:1/3;z-index:4}
+.shell.side-first .filmstrip{grid-column:2}
+.film-tools{flex:none;height:37px}
+.thumbs{flex:1;min-height:0;height:auto;padding:5px 18px 13px;align-items:stretch}
+.thumb{height:100%;min-height:76px;width:auto;aspect-ratio:1.15;display:flex;flex-direction:column}
+.thumb .scene{flex:1;min-height:0;height:auto}
+.thumb .name{flex:none;gap:10px}
+.right-tabs{border:0;box-shadow:0 5px 13px -8px #0009;position:relative;z-index:1}
+.divider{background:none;height:0;margin:23px 9px}
+.photo-info{border:0;box-shadow:0 -10px 18px -18px #000c;padding-top:23px}
+.export-dock{border:0;box-shadow:0 -8px 18px -15px #000b}
+footer{border:0;background:var(--panel)}
+.scope{border:0;background:#dfa65312}
+.outline,.info-button,.new-preset,.filters button{border-color:transparent;background:var(--raised)}
+.active{background:#dfa65315}
+.filters button.active{color:var(--accent);background:#dfa6531b}
+.artboard{width:min(100%,760px,calc((100vh - var(--top) - var(--bottom) - 150px)*1.35))}
+.resize{position:absolute;z-index:12;touch-action:none;outline-offset:-2px}
+.resize:after{content:'';position:absolute;opacity:0;background:var(--accent);border-radius:5px;transition:opacity .15s}
+.resize:hover:after,.resize:focus-visible:after,.resize.dragging:after{opacity:.8}
+.resize-left{left:calc(var(--left) - 4px);top:0;width:8px;height:calc(100% - var(--bottom));cursor:col-resize}
+.resize-right{right:calc(var(--right) - 4px);top:0;width:8px;height:calc(100% - var(--bottom));cursor:col-resize}
+.resize-left:after,.resize-right:after{width:2px;height:44px;left:3px;top:calc(50% - 22px)}
+.resize-bottom{left:0;right:0;bottom:calc(var(--bottom) - 4px);height:8px;cursor:row-resize}
+.resize-bottom:after{height:2px;width:44px;top:3px;left:calc(50% - 22px)}
+
+.shell.side-first .resize-left,.shell.side-first .resize-right{height:100%}
+.shell.side-first .resize-bottom{left:var(--left);right:var(--right)}
+.light .library{box-shadow:7px 0 22px -10px #6a503b40}
+.light .right{box-shadow:-7px 0 22px -10px #6a503b40}
+.light .filmstrip{box-shadow:0 -8px 24px -11px #6a503b55}
+@media(max-height:790px){.shell{grid-template-rows:minmax(240px,1fr) var(--bottom)}}
+
+.source-heading{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:19px}
+.source-heading .section-label{margin:0;padding:0 0 0 8px;white-space:nowrap}
+.subfolder-toggle{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);cursor:pointer;white-space:nowrap;position:relative}
+.subfolder-toggle input{position:absolute;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.switch-track{display:block;width:24px;height:14px;border-radius:10px;background:var(--line);padding:2px;transition:background .15s}
+.switch-track:after{content:'';display:block;width:10px;height:10px;border-radius:50%;background:var(--text);transition:transform .15s}
+.subfolder-toggle input:checked+.switch-track{background:var(--accent)}
+.subfolder-toggle input:checked+.switch-track:after{transform:translateX(10px);background:var(--ink)}
+.subfolder-toggle input:focus-visible+.switch-track{outline:2px solid var(--accent);outline-offset:3px}
+.subfolder-toggle:has(input:checked){color:var(--accent)}
+.tree-row{display:flex;align-items:center;min-height:32px;border-radius:5px;margin:2px 0;gap:0}
+.tree-row.chosen{background:#dfa65315;color:var(--accent)}
+.library .tree-row button{margin:0;border-radius:4px;min-width:0;padding:5px 3px}
+.library .tree-row .tree-expander{flex:0 0 21px;width:21px;justify-content:center;font-size:14px;color:var(--muted)}
+.library .tree-row .tree-name{flex:1;width:auto;gap:7px;overflow:hidden;text-align:left;white-space:nowrap}
+.tree-name .node-label{overflow:hidden;text-overflow:ellipsis}
+.tree-symbol{font-size:13px;flex:none;color:var(--muted)}
+.tree-empty-arrow{flex:0 0 21px}
+.tree-count{color:var(--muted);font-size:10px;margin-left:auto;padding-right:5px}
+.tree-status{font-size:10px;line-height:1.9;padding:0 10px;color:var(--muted)}
+.library .local-folder-button{color:var(--muted);font-size:11px;padding:6px 9px}
+.empty-preview{color:var(--muted);font-size:13px;align-self:center;text-align:center;line-height:2}
+.light header{box-shadow:0 9px 24px #6a503b33,0 3px 8px #6a503b26}
+
+header{height:54px}
+.layout-switch{position:relative;display:flex;flex:none;gap:2px;padding:3px;width:84px;height:34px;background:var(--bg);border-radius:9px}
+.layout-switch:before{content:'';position:absolute;left:3px;top:3px;width:38px;height:28px;background:var(--raised);border-radius:6px;box-shadow:0 2px 5px #0002;transition:transform .18s ease;pointer-events:none}
+.layout-switch[data-mode=sides]:before{transform:translateX(40px)}
+.layout-switch button{position:relative;z-index:1;width:38px;height:28px;display:grid;place-items:center;flex:none;padding:4px 9px;color:var(--muted);border:0;border-radius:6px}
+.layout-switch button[aria-pressed=true]{color:var(--text)}
+.layout-switch button:hover{color:var(--text);background:#ffffff06}
+.layout-switch svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+.layout-switch .layout-fill{fill:currentColor;fill-opacity:.22;stroke:none}
+.film-tools #selectall,.film-tools #clear{background:var(--raised);border:0;padding:3px 9px;border-radius:5px;color:var(--text)}
+.film-tools #selectall:hover,.film-tools #clear:hover{background:var(--line)}
+.tree-symbol{display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;flex:0 0 20px;color:var(--muted)}
+.tree-symbol svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.tree-symbol .folder-surface{fill:currentColor;fill-opacity:.09}
+.tree-row.chosen .tree-symbol{color:var(--accent)}
+.tree-expander svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@media(prefers-reduced-motion:reduce){.layout-switch:before{transition:none}}
+
+.library,.stage,.right,.filmstrip,.resize-left,.resize-right,.resize-bottom{transform-origin:0 0}
+.interface-icon{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.interface-icon .icon-surface{fill:currentColor;fill-opacity:.11}
+.interface-icon .icon-detail{stroke:var(--accent);opacity:.85}
+.interface-icon .icon-indicator{fill:var(--accent);opacity:.9}
+.tree-symbol,.tree-symbol svg{width:22px;height:22px}
+.tree-symbol{flex-basis:22px}
+.tree-symbol .interface-icon{stroke-width:1.5}
+.layout-switch .interface-icon{width:22px;height:22px}
+.layout-switch .icon-surface{fill-opacity:.32}
+.layout-switch .icon-indicator{fill:currentColor;opacity:.75}
+#theme,#guide{display:flex;align-items:center;gap:7px}
+#theme .interface-icon,#guide .interface-icon{width:18px;height:18px}
+.library .local-folder-button{gap:7px}
+.library .local-folder-button .interface-icon{width:19px;height:19px}
+</style></head><body>
+<div class="app">
+<header><div class="brand"><div class="mark">L</div><div><b>LumaCraft</b><small>框印工坊</small></div></div><nav aria-label="工作区"><button class="active" id="worktab">照片工作台</button><button id="librarytab">预设库</button><a id="editorEntry" href="editor/index.html" style="display:inline-flex;align-items:center;padding:7px 11px;color:var(--accent);text-decoration:none;border-radius:6px">预设编辑器</a></nav><div class="spacer"></div><div class="layout-switch" role="group" aria-label="工作台布局" data-mode="bottom">
+<button data-layout="bottom" aria-label="底栏横向铺满" title="底栏横向铺满" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="3" width="19" height="18" rx="2"/><path d="M2.5 15.5h19M8 3v12.5M16 3v12.5"/><path class="layout-fill" d="M3 16h18v3a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19z"/></svg></button>
+<button data-layout="sides" aria-label="侧栏纵向铺满" title="侧栏纵向铺满" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="3" width="19" height="18" rx="2"/><path d="M8 3v18M16 3v18M8 15.5h8"/><path class="layout-fill" d="M3 5a1.5 1.5 0 0 1 1.5-1.5h3v17h-3A1.5 1.5 0 0 1 3 19zM16.5 3.5h3A1.5 1.5 0 0 1 21 5v14a1.5 1.5 0 0 1-1.5 1.5h-3z"/></svg></button></div><button id="theme" aria-label="切换明暗主题">◐ 外观</button><button class="outline" id="guide">使用提示</button></header>
+<main class="shell">
+<aside class="library"><div class="source-heading"><p class="section-label">照片来源</p><label class="subfolder-toggle" title="包含所选目录及其所有子目录中的照片"><input type="checkbox" role="switch" id="includeSubfolders"><span class="switch-track" aria-hidden="true"></span><span>含子目录</span></label></div>
+<div id="directoryTree" role="tree" aria-label="电脑目录树"></div>
+<div class="divider"></div><p class="section-label">当前位置</p><div class="file-path" id="path"></div><div class="tree-status" id="directoryStatus"></div>
+<div class="divider"></div><button class="local-folder-button" id="openfolder">＋ 选择本地目录体验</button><input id="folderinput" type="file" webkitdirectory multiple accept="image/jpeg,image/png" hidden></aside>
+<section class="stage" aria-label="照片预览"><div class="stagebar"><div><strong id="filename"></strong><span class="muted" id="dimensions"></span></div><span class="muted" id="previewpreset"></span></div><div class="preview-space"><div id="artboard" class="artboard"></div></div><div class="preview-bottom"><button class="active" id="fit">适合窗口</button><span>·</span><span>保留完整构图</span><span>·</span><span id="zoomlabel">预览</span></div></section>
+<section class="filmstrip" aria-label="目录照片"><div class="film-tools"><span id="filecount"></span><span class="muted">/</span><strong id="selectcount"></strong><button id="selectall">全选</button><button id="clear">取消选择</button><div class="spacer"></div><span class="muted">Ctrl 增减 · Shift 连选</span></div><div class="thumbs" id="thumbs"></div></section>
+<aside class="right"><div class="right-tabs" role="tablist" aria-label="照片编辑面板"><button class="active" role="tab" aria-selected="true" id="presetTab">预设</button><button role="tab" aria-selected="false" id="adjustTab">调整</button></div><div class="right-content"><div class="scope"><span></span><div id="scope"></div></div><div id="presetsPanel"><input class="search" id="search" aria-label="搜索预设" placeholder="⌕  搜索预设名称"><div class="filters"><button class="active" id="allPresets">全部</button><button id="favoritePresets">收藏</button></div><div class="preset-grid" id="presets"></div><button class="new-preset" id="newpreset">＋ 打开预设编辑器</button></div><div id="adjustPanel" hidden><div class="panel-title" style="margin-top:0">边框 <small class="muted">照片短边比例</small></div><label class="toggle"><input type="checkbox" id="link" checked>四边联动</label><div id="sliders"></div><div class="control"><label for="color">边框颜色</label><input type="color" id="color" value="#f3f0e8"></div><div class="control"><label for="caption">题签文字</label><input id="caption" value="MOUNTAIN SILENCE"></div><button class="outline" id="reset">恢复所选预设样式</button><p class="note">这里演示基础调整。组件拖动、图层与完整排版将在编辑器中细化。</p></div><div class="photo-info"><h3>当前照片信息 <span class="muted tiny" id="metaname"></span></h3><div id="metadata" class="meta-grid"></div><button class="info-button" id="editinfo">查看 / 补填拍摄信息</button></div></div><div class="export-dock"><button class="primary" id="export">导出照片 <span id="exportcount"></span></button><p>生成新文件 · 默认移除 GPS</p></div></aside>
+<div class="resize resize-left" role="separator" aria-label="调整左侧栏宽度" aria-orientation="vertical" tabindex="0" data-resize="left"></div>
+<div class="resize resize-right" role="separator" aria-label="调整右侧栏宽度" aria-orientation="vertical" tabindex="0" data-resize="right"></div>
+<div class="resize resize-bottom" role="separator" aria-label="调整底栏高度" aria-orientation="horizontal" tabindex="0" data-resize="bottom"></div>
+</main><footer><span>● 本地工作台</span><span id="footerstatus">所有修改保留在本次原型会话</span><div class="spacer"></div><span>示例照片来自初步预设样式参考图</span></footer></div>
+<dialog class="modal" id="infoDialog"><div class="modal-head"><h2 id="infoTitle"></h2><button data-close="infoDialog" aria-label="关闭拍摄信息">✕</button></div><div class="modal-body"><p class="note" style="margin-top:0">已有信息直接显示。默认只补缺，修改现有内容请开启覆盖。</p><div id="infoFields"></div><label class="toggle"><input type="checkbox" id="overwrite">覆盖已有内容</label></div><div class="modal-foot"><button data-close="infoDialog">取消</button><button class="primary" id="saveinfo">保存信息</button></div></dialog>
+<dialog class="modal" id="exportDialog"><div class="modal-head"><h2>导出照片</h2><button data-close="exportDialog" aria-label="关闭导出">✕</button></div><div class="modal-body"><p class="note" style="margin-top:0">UI 原型演示，可查看设置与进度。</p><div class="scope-options" id="exportScopes"></div><div class="row"><div class="field"><label for="format">格式</label><select id="format"><option>JPG</option><option>PNG</option></select></div><div class="field"><label for="size">照片尺寸</label><select id="size"><option>保留原尺寸</option><option>长边 3000 px</option><option>长边 2048 px</option></select></div></div><div class="field" id="qualityField"><label for="quality">JPG 质量 <span id="qualityLabel">92</span></label><input type="range" id="quality" min="50" max="100" value="92"></div><div class="field"><label for="outputName">文件命名</label><input id="outputName" value="{原文件名}_LumaCraft"><div class="help">重名自动编号，保留原图</div></div><label class="toggle"><input type="checkbox" checked>保留拍摄参数 EXIF</label><label class="toggle" style="margin-top:12px"><input type="checkbox" checked>移除 GPS 位置信息</label><div id="exportProgress" hidden style="margin-top:20px"><progress max="100" value="0" id="progress"></progress><p id="progressText" class="note"></p></div></div><div class="modal-foot"><button id="cancelExport">取消</button><button class="primary" id="startExport">模拟导出</button></div></dialog>
+<dialog class="modal" id="guideDialog"><div class="modal-head"><h2>体验这版工作台</h2><button data-close="guideDialog" aria-label="关闭提示">✕</button></div><div class="modal-body"><p>1. 点击底部照片切换预览，Ctrl 增减选择，Shift 连续选择。</p><p>2. 点击右侧预设，样式会应用到选中的照片。</p><p>3. 切换“调整”，尝试边框厚度、颜色和题签。</p><p>4. 打开信息面板，查看共同值、不同值与缺失项。</p><p>5. 打开导出，体验范围、格式和进度。</p><p class="note">示例均取自同一张参考照片。参数与文件夹为演示数据。原型修改只在当前会话内生效，模拟导出不生成成片。</p></div></dialog>
+
+
+<div id="toast" class="toast" role="status" hidden></div>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const reference=location.protocol==='file:'?'reference.png':'/files/reference.png';
+const escapeHtml=value=>String(value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const styles=[{id:'gallery',name:'画廊签名',bg:'#f3f0e8',caption:'MOUNTAIN SILENCE',b:[4,4,4,15]},{id:'film',name:'胶片档案',bg:'#111111',caption:'FUJIFILM X-T5 · 028',b:[5,2,2,10]},{id:'white',name:'经典白底',bg:'#ffffff',caption:'THE MOMENT, PRESERVED',b:[0,0,0,12]},{id:'black',name:'专业黑框',bg:'#111111',caption:'HASSELBLAD · 35mm f/2.8',b:[0,0,0,12]},{id:'travel',name:'旅行记录',bg:'#fafafa',caption:'川西 · 新都桥',b:[0,0,0,17]},{id:'overlay',name:'透明叠加',bg:'#ffffff',caption:'LIGHT FINDS A WAY',b:[0,0,0,0]}];
+const fieldNames={camera:'相机型号',lens:'镜头型号',time:'拍摄时间',focal:'焦距',aperture:'光圈',shutter:'快门',iso:'ISO',place:'地点'};
+let folder='trip',photos=[],current=0,anchor=0,selected=new Set([0]),favorites=new Set(['gallery','film']),favoriteOnly=false,tab='preset',infoBatch=[],infoInitial={},exportTimer=null,exportScope='selected',exportBatch=[];
+
+const drives=[
+ {id:'c',name:'系统 (C:)',path:'C:/',kind:'drive',children:[
+   {id:'users',name:'用户',path:'C:/Users',children:[
+     {id:'home',name:'当前用户',path:'C:/Users/当前用户',children:[
+       {id:'desktop',name:'桌面',path:'C:/Users/当前用户/Desktop',count:0},
+       {id:'pictures',name:'图片',path:'C:/Users/当前用户/Pictures',count:3},
+       {id:'documents',name:'文档',path:'C:/Users/当前用户/Documents',count:0}]}]},
+   {id:'programs',name:'Program Files',path:'C:/Program Files',count:0},
+   {id:'windows',name:'Windows',path:'C:/Windows',count:0}]},
+ {id:'d',name:'数据 (D:)',path:'D:/',kind:'drive',children:[
+   {id:'photo-root',name:'照片',path:'D:/照片',count:0,children:[
+     {id:'year2026',name:'2026',path:'D:/照片/2026',children:[
+       {id:'trip',name:'川西旅行',path:'D:/照片/2026/川西旅行',count:8,children:[
+         {id:'trip-day1',name:'第一天',path:'D:/照片/2026/川西旅行/第一天',count:4},
+         {id:'trip-day2',name:'第二天',path:'D:/照片/2026/川西旅行/第二天',count:3}]},
+       {id:'city',name:'城市漫步',path:'D:/照片/2026/城市漫步',count:5},
+       {id:'daily',name:'日常记录',path:'D:/照片/2026/日常记录',count:3}]},
+     {id:'year2025',name:'2025',path:'D:/照片/2025',count:2}]},
+   {id:'exports',name:'导出照片',path:'D:/导出照片',count:0}]},
+ {id:'e',name:'移动硬盘 (E:)',path:'E:/',kind:'drive',children:[
+   {id:'backup',name:'照片备份',path:'E:/照片备份',count:2}]}
+];
+const directoryNodes=new Map();
+const expandedNodes=new Set(['d','photo-root','year2026','trip']);
+let includeChildren=false,localSequence=0;
+function registerNodes(items){
+  for(const node of items){
+    node.images=node.images||Array.from({length:node.count||0},(_,i)=>({
+      ...newPhoto(i),name:node.id.toUpperCase()+'_'+String(i+1).padStart(4,'0')+'.JPG',directory:node.path}));
+    directoryNodes.set(node.id,node);
+    if(node.children)registerNodes(node.children);
+  }
+}
+function collectPhotos(node,recursive){
+  return [...node.images,...(recursive?(node.children||[]).flatMap(child=>collectPhotos(child,true)):[])];
+}
+
+const interfaceIcons={"drive": "<rect class=\"icon-surface\" x=\"3\" y=\"5\" width=\"18\" height=\"15\" rx=\"3\"/><path d=\"M3 14h18M7 9h6M7 17h3\"/><circle class=\"icon-indicator\" cx=\"17\" cy=\"17\" r=\"1\" stroke=\"none\"/>", "external-drive": "<rect class=\"icon-surface\" x=\"6\" y=\"2.5\" width=\"12\" height=\"19\" rx=\"3.5\"/><path d=\"M9 6h6M9 8.5h6M6 16.5h12\"/><circle class=\"icon-indicator\" cx=\"12\" cy=\"19\" r=\".9\" stroke=\"none\"/>", "folder": "<path class=\"icon-surface\" d=\"M3 8V6.5A2.5 2.5 0 0 1 5.5 4H9l2.5 2.5h7A2.5 2.5 0 0 1 21 9v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18z\"/><path d=\"M3 9.5h18\"/><path class=\"icon-detail\" d=\"M7 15.5h5\"/>", "folder-open": "<path d=\"M3 12V6.5A2.5 2.5 0 0 1 5.5 4H9l2.5 2.5h7A2.5 2.5 0 0 1 21 9v2\"/><path class=\"icon-surface\" d=\"M4 10.5h16.7a1.4 1.4 0 0 1 1.3 1.9l-2.2 6.2a2.5 2.5 0 0 1-2.3 1.7H6.1a2.5 2.5 0 0 1-2.4-1.9L2.6 13A2 2 0 0 1 4 10.5z\"/><path class=\"icon-detail\" d=\"M7 16.5h5\"/>", "layout-bottom": "<rect x=\"2.5\" y=\"2.5\" width=\"19\" height=\"19\" rx=\"3.5\"/><rect class=\"icon-surface\" x=\"5.5\" y=\"5.5\" width=\"4\" height=\"8\" rx=\"1\" stroke=\"none\"/><rect class=\"icon-surface\" x=\"14.5\" y=\"5.5\" width=\"4\" height=\"8\" rx=\"1\" stroke=\"none\"/><path d=\"M6 16h12\"/><rect class=\"icon-indicator\" x=\"5.5\" y=\"17.5\" width=\"13\" height=\"1.5\" rx=\".75\" stroke=\"none\"/>", "layout-sides": "<rect x=\"2.5\" y=\"2.5\" width=\"19\" height=\"19\" rx=\"3.5\"/><rect class=\"icon-indicator\" x=\"5.5\" y=\"5.5\" width=\"3\" height=\"13\" rx=\"1\" stroke=\"none\"/><rect class=\"icon-indicator\" x=\"15.5\" y=\"5.5\" width=\"3\" height=\"13\" rx=\"1\" stroke=\"none\"/><path d=\"M11 17h2\"/>", "moon": "<path class=\"icon-surface\" d=\"M19.8 14.6A8.5 8.5 0 0 1 9.4 4.2a8.5 8.5 0 1 0 10.4 10.4z\"/><path class=\"icon-detail\" d=\"M17.5 3v4M15.5 5h4M21 9v2M20 10h2\"/>", "sun": "<circle class=\"icon-surface\" cx=\"12\" cy=\"12\" r=\"4.3\"/><path class=\"icon-detail\" d=\"M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4m0-14.2-1.4 1.4M6.3 17.7l-1.4 1.4\"/>", "help": "<rect class=\"icon-surface\" x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"6\"/><path d=\"M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4\"/><circle class=\"icon-indicator\" cx=\"12\" cy=\"16.5\" r=\".9\" stroke=\"none\"/>", "folder-add": "<path class=\"icon-surface\" d=\"M3 8V6.5A2.5 2.5 0 0 1 5.5 4H9l2.5 2.5h7A2.5 2.5 0 0 1 21 9v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18z\"/><path d=\"M3 9.5h18\"/><path class=\"icon-detail\" d=\"M12 12v5M9.5 14.5h5\"/>"};
+function interfaceIcon(name){
+ return '<svg class="interface-icon" viewBox="0 0 24 24" aria-hidden="true">'+interfaceIcons[name]+'</svg>';
+}
+
+function directoryIcon(node,open){
+ return interfaceIcon(node.id==='e'?'external-drive':node.kind==='drive'?'drive':open?'folder-open':'folder');
+}
+function renderTree(){
+  function branch(items,depth){
+    return items.map(node=>{
+      const open=expandedNodes.has(node.id),hasChildren=!!node.children?.length;
+      return '<div role="treeitem" aria-level="'+(depth+1)+'" aria-selected="'+(folder===node.id)+'"'+(hasChildren?' aria-expanded="'+open+'"':'')+'><div class="tree-row '+(folder===node.id?'chosen':'')+'" style="padding-left:'+(depth*10)+'px">'+
+        (hasChildren?'<button class="tree-expander" data-expand="'+node.id+'" aria-label="'+(open?'收起':'展开')+' '+escapeHtml(node.name)+'">'+('<svg viewBox="0 0 14 14" aria-hidden="true"><path d="'+(open?'M3 5l4 4 4-4':'m5 3 4 4-4 4')+'"/></svg>')+'</button>':'<span class="tree-empty-arrow"></span>')+
+        '<button class="tree-name" data-directory="'+node.id+'" aria-label="浏览 '+escapeHtml(node.path)+'"><span class="tree-symbol">'+directoryIcon(node,open)+'</span><span class="node-label">'+escapeHtml(node.name)+'</span></button></div>'+
+        (hasChildren&&open?'<div role="group">'+branch(node.children,depth+1)+'</div>':'')+'</div>';
+    }).join('');
+  }
+  $('directoryTree').innerHTML=branch(drives,0);
+}
+
+function newPhoto(i,src){return {name:'DSC_'+String(2041+i).padStart(4,'0')+'.JPG',src,preset:'gallery',edited:false,settings:null,info:{camera:i%3===2?'SONY α7 IV':'FUJIFILM X-T5',lens:'XF 23mm F1.4 R LM WR',time:'2026:10:18 06:'+String(42+i).padStart(2,'0')+':00',focal:'35 mm',aperture:'f/2.8',shutter:'1/250 s',iso:i%2?'200':'100',place:i%3===1?'':'四川 · 新都桥'}};}
+function scene(photo){return '<div class="scene">'+(photo.src?'<img src="'+escapeHtml(photo.src)+'" alt="所选照片" draggable="false">':'<svg viewBox="18 150 487 314" preserveAspectRatio="xMidYMid slice" role="img" aria-label="雪山与湖泊"><image href="'+reference+'" width="1536" height="1024"/></svg>')+'</div>';}
+function activeStyle(photo){return styles.find(style=>style.id===photo.preset);}
+function settings(photo){return photo.settings||activeStyle(photo);}
+function targets(){return [...selected].map(i=>photos[i]);}
+function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').hidden=true,2700);}
+function selectPhoto(i,event={}){if(event.shiftKey){if(!(event.ctrlKey||event.metaKey))selected.clear();for(let n=Math.min(anchor,i);n<=Math.max(anchor,i);n++)selected.add(n);current=i;}else if(event.ctrlKey||event.metaKey){if(selected.has(i)){selected.delete(i);if(selected.size&&!selected.has(current))current=[...selected].at(-1);}else{selected.add(i);current=i;}anchor=i;}else{selected=new Set([i]);current=anchor=i;}render();}
+function loadFolder(id,preserve=false){
+  const previous=preserve?photos[current]:null;
+  folder=id;
+  const node=directoryNodes.get(id);
+  photos=collectPhotos(node,includeChildren);
+  current=previous?Math.max(0,photos.indexOf(previous)):0;
+  anchor=current;
+  selected=photos.length?new Set([current]):new Set();
+  render();
+}
+function renderEmpty(){
+  $('filename').textContent='暂无照片';$('dimensions').textContent='';$('previewpreset').textContent='';
+  $('artboard').className='empty-preview';$('artboard').removeAttribute('style');
+  $('artboard').innerHTML=includeChildren?'此目录及子目录中暂无支持的照片':'此目录没有照片<br><span class="tiny">可开启“含子目录”，或选择其他目录</span>';
+  $('thumbs').innerHTML='';$('metadata').innerHTML='';
+  $('filecount').textContent='0 张照片';$('selectcount').textContent='已选 0 张';
+  $('scope').textContent='此目录暂无照片';$('exportcount').textContent='0 张 →';
+  $('editinfo').disabled=true;$('export').disabled=true;$('reset').disabled=true;$('newpreset').disabled=true;
+  $('caption').disabled=true;$('color').disabled=true;$('sliders').innerHTML='';
+  renderPresets();
+}
+function render(){renderTree();const node=directoryNodes.get(folder);
+$('path').textContent=node.path;$('directoryStatus').textContent=(includeChildren?'含全部子目录':'仅当前目录')+' · '+photos.length+' 张照片';
+if(!photos.length){renderEmpty();return;}
+$('export').disabled=false;$('reset').disabled=false;$('newpreset').disabled=false;$('caption').disabled=false;$('color').disabled=false;
+const photo=photos[current],style=activeStyle(photo),config=settings(photo);$('filename').textContent=photo.name;$('dimensions').textContent=photo.src?'　 本地照片':'　 6240 × 4160';$('previewpreset').textContent=style.name+(photo.edited?' · 已调整':'');$('metaname').textContent='· 当前预览';$('filecount').textContent=photos.length+' 张照片';$('selectcount').textContent='已选 '+selected.size+' 张';$('scope').textContent=selected.size?'修改将应用到选中 '+selected.size+' 张':'未选中照片，请先选择';$('exportcount').textContent=selected.size+' 张 →';$('artboard').className='artboard '+photo.preset;$('artboard').removeAttribute('style');if(photo.settings){$('artboard').style.background=config.bg;$('artboard').style.padding=config.b[0]+'% '+config.b[2]+'% 0 '+config.b[1]+'%';}$('artboard').innerHTML=scene(photo)+'<div class="caption"><div class="title">'+escapeHtml(config.caption)+'</div><div class="sub">'+escapeHtml(photo.info.camera||'')+'　 /　 '+escapeHtml(photo.info.focal||'')+'　'+escapeHtml(photo.info.aperture||'')+'　 <span class="signature">Alex Chen</span></div></div>';$('thumbs').innerHTML=photos.map((p,i)=>'<button class="thumb '+(selected.has(i)?'selected ':'')+(current===i?'current':'')+'" data-photo="'+i+'" aria-label="'+escapeHtml(p.name)+'" aria-pressed="'+selected.has(i)+'">'+scene(p)+'<span class="name">'+escapeHtml(p.name)+(p.edited?'<span class="dot" aria-label="已编辑"></span>':'')+'</span></button>').join('');$('metadata').innerHTML=['camera','lens','focal','aperture','shutter','iso','place','time'].map(key=>'<div><span>'+fieldNames[key]+'</span><div class="'+(photo.info[key]?'':'missing')+'">'+escapeHtml(photo.info[key]||'缺失 · 可补填')+'</div></div>').join('');$('editinfo').disabled=!selected.size;$('caption').value=config.caption;$('color').value=config.bg;if(!document.activeElement.matches('[data-border]'))$('sliders').innerHTML=['上边框','左边框','右边框','下边框'].map((label,i)=>'<div class="control"><label for="border'+i+'">'+label+'<small>'+config.b[i]+'%</small></label><input data-border="'+i+'" id="border'+i+'" type="range" min="0" max="25" value="'+config.b[i]+'" '+(!selected.size?'disabled':'')+'></div>').join('');if(photo.settings){const caption=$('artboard').querySelector('.caption');caption.style.height=(config.b[3]*5)+'px';caption.style.overflow='hidden';}document.querySelectorAll('[data-border]').forEach(input=>{input.value=config.b[Number(input.dataset.border)];input.previousElementSibling.querySelector('small').textContent=input.value+'%';});renderPresets();}
+function renderPresets(){const previewPhoto=photos[current]||newPhoto(0);const query=$('search').value.trim();$('presets').innerHTML=styles.filter(p=>(!favoriteOnly||favorites.has(p.id))&&p.name.includes(query)).map(p=>'<button class="preset '+p.id+' '+(photos.length&&photos[current].preset===p.id?'picked':'')+'" data-preset="'+p.id+'" '+(!selected.size?'disabled':'')+'><div class="sample">'+scene(previewPhoto)+'</div><span class="pname">'+p.name+'</span><span class="adapt">'+(favorites.has(p.id)?'★ ':'')+'横竖通用</span></button>').join('')||'<p class="note">没有匹配的预设</p>';}
+function switchTab(next){tab=next;$('presetsPanel').hidden=next!=='preset';$('adjustPanel').hidden=next!=='adjust';for(const name of ['preset','adjust']){const button=$(name+'Tab');button.classList.toggle('active',next===name);button.setAttribute('aria-selected',String(next===name));}}
+function applyPreset(id){targets().forEach(p=>{p.preset=id;p.settings=null;p.edited=true;});render();toast('已应用到 '+selected.size+' 张照片');}
+function updateSettings(change){if(!selected.size)return;targets().forEach(p=>{if(!p.settings){const base=activeStyle(p);p.settings={...base,b:[...base.b]};}change(p.settings);p.edited=true;});render();}
+$('directoryTree').onclick=e=>{
+ const expander=e.target.closest('[data-expand]');
+ if(expander){const id=expander.dataset.expand;expandedNodes.has(id)?expandedNodes.delete(id):expandedNodes.add(id);renderTree();return;}
+ const directory=e.target.closest('[data-directory]');
+ if(directory)loadFolder(directory.dataset.directory);
+};
+$('includeSubfolders').onchange=e=>{includeChildren=e.target.checked;loadFolder(folder,true);};
+$('thumbs').onclick=e=>{const button=e.target.closest('[data-photo]');if(button)selectPhoto(Number(button.dataset.photo),e);};
+$('presets').onclick=e=>{const button=e.target.closest('[data-preset]');if(button&&!button.disabled)applyPreset(button.dataset.preset);};
+$('presets').oncontextmenu=e=>{const button=e.target.closest('[data-preset]');if(!button)return;e.preventDefault();const id=button.dataset.preset;favorites.has(id)?favorites.delete(id):favorites.add(id);renderPresets();toast(favorites.has(id)?'已收藏预设':'已取消收藏');};
+$('selectall').onclick=()=>{selected=new Set(photos.map((_,i)=>i));render();};$('clear').onclick=()=>{selected.clear();render();};$('search').oninput=renderPresets;
+$('allPresets').onclick=()=>{favoriteOnly=false;$('allPresets').classList.add('active');$('favoritePresets').classList.remove('active');renderPresets();};$('favoritePresets').onclick=()=>{favoriteOnly=true;$('allPresets').classList.remove('active');$('favoritePresets').classList.add('active');renderPresets();};
+$('presetTab').onclick=()=>switchTab('preset');$('adjustTab').onclick=()=>switchTab('adjust');$('newpreset').onclick=()=>{location.href='editor/index.html';};$('reset').onclick=()=>applyPreset(photos[current].preset);
+$('sliders').oninput=e=>{if(!e.target.matches('[data-border]'))return;const value=Number(e.target.value),index=Number(e.target.dataset.border);updateSettings(s=>{if($('link').checked)s.b=s.b.map(()=>value);else s.b[index]=value;});};$('color').oninput=e=>updateSettings(s=>s.bg=e.target.value);$('caption').onchange=e=>updateSettings(s=>s.caption=e.target.value);
+$('theme').onclick=()=>{document.body.classList.toggle('light');$('theme').innerHTML=interfaceIcon(document.body.classList.contains('light')?'sun':'moon')+'<span>外观</span>';};$('fit').onclick=()=>{document.querySelector('.preview-space').scrollTo(0,0);toast('照片已适合窗口');};$('guide').onclick=()=>$('guideDialog').showModal();
+$('worktab').onclick=()=>{switchTab('preset');$('worktab').classList.add('active');$('librarytab').classList.remove('active');};$('librarytab').onclick=()=>{switchTab('preset');$('search').focus();$('librarytab').classList.add('active');$('worktab').classList.remove('active');toast('预设集中在右侧，可搜索、筛选收藏，右键收藏预设');};
+document.querySelectorAll('[data-close]').forEach(button=>button.onclick=()=>$(button.dataset.close).close());
+$('editinfo').onclick=()=>{infoBatch=targets();infoInitial={};$('overwrite').checked=false;$('infoTitle').textContent='拍摄信息 · '+infoBatch.length+' 张照片';$('infoFields').innerHTML=Object.entries(fieldNames).map(([key,label])=>{const values=[...new Set(infoBatch.map(p=>p.info[key]).filter(Boolean))],present=infoBatch.filter(p=>p.info[key]).length;const value=values.length===1?values[0]:'';infoInitial[key]=value;return '<div class="field"><label for="field-'+key+'">'+label+'</label><input id="field-'+key+'" data-info="'+key+'" value="'+escapeHtml(value)+'" placeholder="'+(values.length>1?'多个不同值':'缺失')+'"><div class="help">已有 '+present+' 张 · 缺失 '+(infoBatch.length-present)+' 张</div>'+(values.length>1?'<details class="note"><summary>查看不同值</summary>'+values.map(v=>escapeHtml(v)+' · '+infoBatch.filter(p=>p.info[key]===v).length+' 张').join('<br>')+'</details>':'')+'</div>';}).join('');$('infoDialog').showModal();};
+$('saveinfo').onclick=()=>{document.querySelectorAll('[data-info]').forEach(input=>{const key=input.dataset.info,value=input.value.trim();if(!value||value===infoInitial[key])return;infoBatch.forEach(p=>{if(!p.info[key]||$('overwrite').checked){p.info[key]=value;p.edited=true;}});});$('infoDialog').close();render();toast('拍摄信息已更新');};
+function exportPhotos(){return exportScope==='current'?(photos.length?[photos[current]]:[]):exportScope==='edited'?photos.filter(p=>p.edited):targets();}
+function exportLabels(){const counts={current:photos.length?1:0,selected:selected.size,edited:photos.filter(p=>p.edited).length};$('exportScopes').innerHTML=Object.entries({current:'当前照片',selected:'选中照片',edited:'全部已编辑'}).map(([key,label])=>'<label><input type="radio" name="scope" value="'+key+'" '+(exportScope===key?'checked':'')+'>'+label+' '+counts[key]+'</label>').join('');$('startExport').disabled=exportPhotos().length===0;$('startExport').textContent='模拟导出 '+exportPhotos().length+' 张';}
+$('export').onclick=()=>{exportScope=selected.size?'selected':'current';$('exportProgress').hidden=true;exportLabels();$('exportDialog').showModal();};$('exportScopes').onchange=e=>{exportScope=e.target.value;exportLabels();};$('format').onchange=()=>$('qualityField').hidden=$('format').value==='PNG';$('quality').oninput=()=>$('qualityLabel').textContent=$('quality').value;
+function stopExport(){clearInterval(exportTimer);exportTimer=null;$('startExport').disabled=exportPhotos().length===0;$('cancelExport').textContent='关闭';}
+$('startExport').onclick=()=>{exportBatch=exportPhotos();if(!exportBatch.length)return;$('exportProgress').hidden=false;$('progress').value=0;$('startExport').disabled=true;$('cancelExport').textContent='取消导出';let done=0;exportTimer=setInterval(()=>{done++;$('progress').value=done/exportBatch.length*100;$('progressText').textContent=done===exportBatch.length?'模拟完成，共 '+done+' 张。此原型不生成文件。':'正在模拟导出 '+done+' / '+exportBatch.length+' 张';if(done===exportBatch.length){stopExport();$('footerstatus').textContent='最近一次模拟导出完成 · '+done+' 张';}},400);};$('cancelExport').onclick=()=>{if(exportTimer){stopExport();$('progressText').textContent='模拟导出已取消';}else $('exportDialog').close();};$('exportDialog').addEventListener('close',stopExport);
+$('openfolder').onclick=()=>$('folderinput').click();
+$('folderinput').onchange=e=>{
+ const files=[...e.target.files].filter(f=>/\.(jpe?g|png)$/i.test(f.name));
+ if(!files.length){toast('请选择包含 JPG 或 PNG 的目录');return;}
+ const rootName=files[0].webkitRelativePath.split('/')[0]||'本地照片';
+ const root={id:'local-'+(++localSequence),name:rootName,path:rootName,children:[],images:[]};
+ const localNodes=new Map([[rootName,root]]);
+ for(const file of files){
+   const relative=file.webkitRelativePath||rootName+'/'+file.name;
+   const parts=relative.split('/');parts.pop();
+   let parent=root,path=parts[0];
+   for(const part of parts.slice(1)){
+     path+='/'+part;
+     if(!localNodes.has(path)){
+       const child={id:'local-'+(++localSequence),name:part,path,children:[],images:[]};
+       localNodes.set(path,child);parent.children.push(child);
+     }
+     parent=localNodes.get(path);
+   }
+   parent.images.push({...newPhoto(0,URL.createObjectURL(file)),name:file.name,info:{},directory:parent.path});
+ }
+ drives.push(root);registerNodes([root]);expandedNodes.add(root.id);loadFolder(root.id);
+ toast('本地目录已加入原型目录树，未解析 EXIF');
+};
+document.addEventListener('keydown',e=>{if(e.target.closest('[data-resize],.layout-switch')||!photos.length||document.querySelector('dialog[open]')||['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='a'){e.preventDefault();$('selectall').click();}if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();selectPhoto(Math.max(0,Math.min(photos.length-1,current+(e.key==='ArrowRight'?1:-1))),e);document.querySelector('[data-photo="'+current+'"]').scrollIntoView({block:'nearest',inline:'nearest'});}});
+
+const layoutDefaults={mode:'bottom',left:216,right:312,bottom:172};
+let workspaceLayout={...layoutDefaults};
+try{const saved=JSON.parse(localStorage.getItem('lumacraft-workspace-layout-v1'));if(saved&&typeof saved==='object')workspaceLayout={...layoutDefaults,...saved};}catch{}
+const shell=document.querySelector('.shell');
+function applyWorkspaceLayout(){
+  const limits={left:[160,Math.max(160,Math.min(320,shell.clientWidth-workspaceLayout.right-430))],
+    right:[260,Math.max(260,Math.min(420,shell.clientWidth-workspaceLayout.left-430))],
+    bottom:[132,Math.max(132,Math.min(300,shell.clientHeight-240))]};
+  for(const key of ['left','right','bottom']){
+    const numeric=Number(workspaceLayout[key]);
+    workspaceLayout[key]=Math.round(Math.max(limits[key][0],Math.min(limits[key][1],Number.isFinite(numeric)?numeric:layoutDefaults[key])));
+    document.documentElement.style.setProperty('--'+key,workspaceLayout[key]+'px');
+
+  }
+  workspaceLayout.mode=workspaceLayout.mode==='sides'?'sides':'bottom';
+  shell.classList.toggle('side-first',workspaceLayout.mode==='sides');
+  document.querySelector('.layout-switch').dataset.mode=workspaceLayout.mode;
+  document.querySelectorAll('[data-layout]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.layout===workspaceLayout.mode)));
+  document.querySelectorAll('[data-resize]').forEach(handle=>{
+    const key=handle.dataset.resize;
+    handle.setAttribute('aria-valuemin',limits[key][0]);handle.setAttribute('aria-valuemax',limits[key][1]);
+    handle.setAttribute('aria-valuenow',workspaceLayout[key]);handle.setAttribute('aria-valuetext',workspaceLayout[key]+' 像素');
+  });
+}
+function saveWorkspaceLayout(){try{localStorage.setItem('lumacraft-workspace-layout-v1',JSON.stringify(workspaceLayout));}catch{}}
+
+
+const panelAnimations=new Map();
+function changeWorkspaceMode(mode){
+ if(mode===workspaceLayout.mode)return;
+ const panels=[...document.querySelectorAll('.library,.stage,.right,.filmstrip,.resize-left,.resize-right,.resize-bottom')];
+ const before=new Map(panels.map(panel=>[panel,panel.getBoundingClientRect()]));
+ for(const animation of panelAnimations.values())animation.cancel();
+ panelAnimations.clear();
+ workspaceLayout.mode=mode;
+ applyWorkspaceLayout();
+ saveWorkspaceLayout();
+ if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+ for(const panel of panels){
+   const first=before.get(panel),last=panel.getBoundingClientRect();
+   if(!first.width||!first.height||!last.width||!last.height)continue;
+   const dx=first.left-last.left,dy=first.top-last.top;
+   const sx=first.width/last.width,sy=first.height/last.height;
+   if(Math.abs(dx)+Math.abs(dy)+Math.abs(sx-1)+Math.abs(sy-1)<.01)continue;
+   const animation=panel.animate([
+     {transform:'translate('+dx+'px,'+dy+'px) scale('+sx+','+sy+')'},
+     {transform:'translate(0,0) scale(1,1)'}
+   ],{duration:360,easing:'cubic-bezier(.22,1,.36,1)'});
+   panelAnimations.set(panel,animation);
+   animation.onfinish=()=>{if(panelAnimations.get(panel)===animation)panelAnimations.delete(panel);};
+ }
+}
+document.querySelectorAll('[data-layout]').forEach(button=>{
+ button.innerHTML=interfaceIcon('layout-'+button.dataset.layout);
+ button.onclick=()=>changeWorkspaceMode(button.dataset.layout);
+});
+$('theme').innerHTML=interfaceIcon(document.body.classList.contains('light')?'sun':'moon')+'<span>外观</span>';
+$('guide').innerHTML=interfaceIcon('help')+'<span>使用提示</span>';
+$('openfolder').innerHTML=interfaceIcon('folder-add')+'<span>选择本地目录体验</span>';
+document.querySelectorAll('[data-resize]').forEach(handle=>{
+  const key=handle.dataset.resize;
+  let dragging=false;
+  handle.onpointerdown=event=>{if(event.button!==0)return;event.preventDefault();for(const animation of panelAnimations.values())animation.finish();dragging=true;handle.setPointerCapture(event.pointerId);handle.classList.add('dragging');};
+  handle.onpointermove=event=>{
+    if(!dragging)return;
+    const rect=shell.getBoundingClientRect();
+    workspaceLayout[key]=key==='left'?event.clientX-rect.left:key==='right'?rect.right-event.clientX:rect.bottom-event.clientY;
+    applyWorkspaceLayout();
+  };
+  function finish(){dragging=false;handle.classList.remove('dragging');saveWorkspaceLayout();}
+  handle.onpointerup=finish;handle.onpointercancel=finish;handle.onlostpointercapture=finish;
+  handle.onkeydown=event=>{
+    if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;
+    event.preventDefault();
+    let direction=['ArrowRight','ArrowDown'].includes(event.key)?1:-1;
+    if(key==='right'||key==='bottom')direction*=-1;
+    workspaceLayout[key]+=direction*(event.shiftKey?20:4);applyWorkspaceLayout();saveWorkspaceLayout();
+  };
+});
+document.querySelector('.layout-switch').onkeydown=event=>{
+ if(event.key!=='ArrowLeft'&&event.key!=='ArrowRight')return;
+ event.preventDefault();event.stopPropagation();
+ const button=document.querySelector('[data-layout="'+(event.key==='ArrowLeft'?'bottom':'sides')+'"]');
+ button.click();button.focus();
+};
+window.addEventListener('resize',applyWorkspaceLayout);
+applyWorkspaceLayout();
+
+registerNodes(drives);
+loadFolder('trip');
+</script></body></html>

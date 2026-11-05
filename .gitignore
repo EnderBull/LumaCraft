@@ -1,0 +1,46 @@
+# 备份与交接证据（体积大，已有独立备份）
+/backup-*/
+/handoff-*/evidence/
+
+# 工具链与依赖缓存（体积大，可重新获取）
+/app/.toolchain/
+/app/.dart_tool/
+/app/.flutter-plugins-dependencies
+/app/windows/flutter/ephemeral/
+
+# 构建产物与历史交付目录
+/app/dist/
+
+# 构建目录：只保留两个仍在使用的预览测试入口，其余忽略
+/app/build/*
+!/app/build/export-preview/
+/app/build/export-preview/*
+!/app/build/export-preview/preview_test.dart
+!/app/build/builtin-preview/
+/app/build/builtin-preview/*
+!/app/build/builtin-preview/preview_test.dart
+
+# 用户本地数据（含私人路径与预设），不进入版本库
+/app/local/
+
+# 测试运行产生的临时输出
+/app/test/*-output/
+/app/test/core/output/
+/app/test/core/.dart_tool/
+
+# 原型工具的临时会话目录（内容是原型文件的重复副本和进程状态）
+/app/ui-prototype/.superpowers/
+
+# 系统与编辑器文件
+.DS_Store
+Thumbs.db
+*.log
+*.pending
+.idea/
+*.iml
+
+# 密钥与签名文件（将来 Android 签名）
+*.jks
+*.keystore
+key.properties
+.env

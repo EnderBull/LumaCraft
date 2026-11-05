@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LumaCraft · 预设编辑器</title><link rel="icon" href="../../assets/branding/lumacraft-icon.svg"><link rel="stylesheet" href="editor.css?v=20261104-anchor"></head>
+<body>
+<div class="app">
+  <header>
+    <a class="brand" href="../index.html" title="返回照片工作台"><img src="../../assets/branding/lumacraft-icon-1024.png" alt=""><span><b>LumaCraft</b><small>框印工坊</small></span></a>
+    <span class="mode-label">预设编辑器</span><span class="header-divider"></span>
+    <button id="presetPicker" class="document-name" title="切换模板或用户预设"><span id="documentName">画廊签名 · 编辑草稿</span><i data-icon="chevronDown"></i></button>
+    <span id="draftState" class="draft-state">草稿已保存</span>
+    <div class="spacer"></div>
+    <div class="layout-switch" aria-label="工作台布局"><button data-layout="bottom" title="底栏横向铺满" aria-label="底栏横向铺满"><i data-icon="bottomLayout"></i></button><button data-layout="side" title="侧栏纵向铺满" aria-label="侧栏纵向铺满"><i data-icon="sideLayout"></i></button></div>
+    <button id="help" class="icon-button" title="使用提示" aria-label="使用提示"><i data-icon="help"></i></button>
+  </header>
+  <main id="workspace" class="workspace">
+    <aside class="library panel">
+      <div class="tabs"><button data-left="layers" class="active">图层</button><button data-left="directories">目录</button><span class="spacer"></span><button id="addLayer" class="icon-button" title="添加组件" aria-label="添加组件"><i data-icon="plus"></i></button></div>
+      <section id="layersPane" class="left-content"><div class="section-heading"><span>画布组件</span><span id="layerCount" class="muted"></span></div><div id="layers"></div><p class="hint layer-hint">点选组件编辑属性<br>拖动画布中的组件调整位置<br>Ctrl 多选 · Shift 连选<br>画布空白处拖动框选</p></section>
+      <section id="directoriesPane" class="left-content" hidden><div class="section-heading">演示照片目录</div><button class="folder active"><i data-icon="folder"></i>川西旅行<span class="spacer"></span><span class="muted">8</span></button><p class="hint">本页用示例照片演示编辑。真实目录浏览沿用 Windows 工作台。</p></section>
+      <div class="library-bottom"><span id="objectSelectionCount" class="muted">Ctrl 多选 · Shift 连选</span><div class="row"><button id="groupObjects" class="neutral" title="分组 Ctrl+G">分组</button><button id="ungroupObjects" class="neutral" title="取消分组 Ctrl+Shift+G">取消分组</button></div><div class="row"><button id="layerUp" class="neutral" title="上移一层"><i data-icon="arrowUp"></i>上移</button><button id="layerDown" class="neutral" title="下移一层"><i data-icon="arrowDown"></i>下移</button></div></div>
+    </aside>
+    <section class="stage">
+      <div class="stage-toolbar"><span id="photoName"></span><span id="photoDetails" class="muted"></span><div class="spacer"></div><button id="undo" class="icon-button" title="撤销 Ctrl+Z" aria-label="撤销"><i data-icon="undo"></i></button><button id="redo" class="icon-button" title="重做 Ctrl+Shift+Z" aria-label="重做"><i data-icon="redo"></i></button><span class="toolbar-divider"></span><button id="addComponent" class="neutral"><i data-icon="plus"></i>添加组件</button><button id="snapObjects" class="icon-button active" title="自动对齐吸附 · Alt 临时关闭" aria-label="自动对齐吸附" aria-pressed="true"><i data-icon="alignCenter"></i></button><button id="resetMenu" class="icon-button" title="恢复选项" aria-label="恢复选项"><i data-icon="restore"></i></button></div>
+      <div class="preview-statusbar"><span id="previewBadge"><span class="status-dot"></span>草稿预览</span></div><div class="canvas-zone" id="canvasZone"><div class="canvas-topline"><span id="alignmentHint" class="muted">点击组件，开始编辑</span></div><svg id="artboard" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="可编辑的照片画布" tabindex="0"></svg><div id="inlineTextBox" class="inline-text-box" hidden><textarea id="inlineTextEditor" aria-label="画布内文字编辑" spellcheck="false" maxlength="1000"></textarea><span>Enter 换行 · Ctrl+Enter 完成 · Esc 取消</span></div></div>
+      <div class="stage-bottom"><div class="preview-segment" aria-label="适配预览"><button data-preview="original" class="active">原图</button><button data-preview="landscape" title="横图适配预览"><i data-icon="landscape"></i>横图</button><button data-preview="portrait" title="竖图适配预览"><i data-icon="portrait"></i>竖图</button><button data-preview="square" title="方图适配预览"><i data-icon="square"></i>方图</button></div><span id="canvasSize" class="muted"></span><div class="spacer"></div><button id="deselect" class="muted">取消组件选择</button><span id="canvasZoom" class="muted" aria-live="polite">100%</span><button id="fitCanvas" class="muted" title="恢复适合窗口并居中">适合窗口</button></div>
+    </section>
+    <aside class="inspector panel"><div class="inspector-tabs" role="tablist" aria-label="编辑面板"><button id="tabPresets" role="tab" data-inspector="presets" aria-controls="presetsPane">预设</button><button id="tabCanvas" role="tab" data-inspector="canvas" aria-controls="properties">画布</button><button id="tabComponent" role="tab" data-inspector="component" aria-controls="properties">组件</button></div>
+<section id="presetsPane" class="presets-pane" role="tabpanel" aria-labelledby="tabPresets" hidden><label class="preset-search"><i data-icon="search"></i><input id="presetSearch" aria-label="搜索预设" placeholder="搜索预设名称"></label><div class="preset-filters"><button class="active" data-preset-filter="all">全部</button><button data-preset-filter="builtin">内置</button><button data-preset-filter="user">我的</button><span class="spacer"></span><span id="presetCount" class="muted"></span></div><div id="presetCards" class="preset-cards"></div><p class="hint">选择预设载入编辑草稿，确认应用后才修改照片样式。可通过撤销返回。</p></section>
+<div id="properties" class="properties" role="tabpanel"></div><div class="inspector-dock"><p class="hint"><i data-icon="info"></i>草稿仅在确认应用后影响照片。</p><div class="inspector-actions"><button id="savePreset" class="neutral"><i data-icon="save"></i>保存预设</button><button id="apply" class="primary">应用样式<i data-icon="arrowRight"></i></button></div></div></aside>
+    <section class="filmstrip panel"><div class="film-toolbar"><span>8 张照片</span><span id="selectionCount"></span><button id="selectAll" class="neutral small">全选</button><button id="clearSelection" class="neutral small">取消选择</button><div class="spacer"></div><span class="muted">Ctrl 增减 · Shift 连选</span></div><div id="thumbnails" class="thumbnails"></div></section>
+    <div class="resize-handle resize-left" data-resize="left" role="separator" aria-label="拖动调整左侧栏"></div><div class="resize-handle resize-right" data-resize="right" role="separator" aria-label="拖动调整右侧栏"></div><div class="resize-handle resize-bottom" data-resize="bottom" role="separator" aria-label="拖动调整底栏"></div>
+  </main>
+  <footer><span><span class="status-dot"></span>本地草稿</span><span id="footerStatus">演示照片 · 交互原型</span><div class="spacer"></div><span id="storageStatus">草稿仅保存在此浏览器</span></footer>
+</div>
+<div id="popover" class="popover" hidden></div><div id="toast" role="status" class="toast" hidden></div>
+<dialog id="modal"><form id="modalForm"><div class="dialog-title"><h2 id="modalTitle"></h2><button type="button" id="closeModal" class="icon-button" aria-label="关闭"><i data-icon="close"></i></button></div><div id="modalBody"></div><div id="modalActions" class="dialog-actions"></div></form></dialog>
+<script src="editor-objects.js?v=20261104-anchor"></script>
+<script src="editor.js?v=20261104-anchor"></script>
+</body></html>

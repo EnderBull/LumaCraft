@@ -1,0 +1,499 @@
+{
+  "format": "LumaCraftBuiltinLibrary",
+  "version": 1,
+  "folders": [
+    {
+      "id": "classic",
+      "name": "创意边框"
+    },
+    {
+      "id": "phone",
+      "name": "手机经典"
+    }
+  ],
+  "presets": [
+    {
+      "id": "gallery",
+      "folder": "classic",
+      "style": {
+        "version": 1,
+        "name": "画廊签名",
+        "adaptive": true,
+        "suitability": "universal",
+        "background": 4294177000,
+        "borders": {
+          "top": 4,
+          "right": 4,
+          "bottom": 16,
+          "left": 4
+        },
+        "linked": false,
+        "nodes": [
+          {
+            "type": "text",
+            "name": "题签",
+            "text": "MOUNTAIN SILENCE",
+            "anchor": "bottom",
+            "x": 50,
+            "y": 30,
+            "fontSize": 28,
+            "spacing": 4,
+            "opacity": 100,
+            "color": 4281610538,
+            "font": "playfair",
+            "align": "center",
+            "visible": true,
+            "locked": false,
+            "id": "gallery-title"
+          },
+          {
+            "type": "text",
+            "name": "左装饰线",
+            "text": "——",
+            "anchor": "bottom",
+            "x": 12,
+            "y": 30,
+            "fontSize": 16,
+            "spacing": 0,
+            "opacity": 100,
+            "color": 4288320906,
+            "font": "sourceSans",
+            "align": "center",
+            "visible": true,
+            "locked": false,
+            "id": "gallery-line-left"
+          },
+          {
+            "type": "text",
+            "name": "右装饰线",
+            "text": "——",
+            "anchor": "bottom",
+            "x": 88,
+            "y": 30,
+            "fontSize": 16,
+            "spacing": 0,
+            "opacity": 100,
+            "color": 4288320906,
+            "font": "sourceSans",
+            "align": "center",
+            "visible": true,
+            "locked": false,
+            "id": "gallery-line-right"
+          },
+          {
+            "type": "camera",
+            "name": "相机型号",
+            "text": "",
+            "anchor": "bottom",
+            "x": 5,
+            "y": 74,
+            "fontSize": 17,
+            "spacing": 0,
+            "opacity": 100,
+            "color": 4281610538,
+            "font": "manrope",
+            "align": "left",
+            "visible": true,
+            "locked": false,
+            "id": "gallery-camera"
+          },
+          {
+            "type": "params",
+            "name": "拍摄参数",
+            "text": "",
+            "anchor": "bottom",
+            "x": 50,
+            "y": 74,
+            "fontSize": 15,
+            "spacing": 0,
+            "opacity": 100,
+            "color": 4286018411,
+            "font": "manrope",
+            "align": "center",
+            "visible": true,
+            "locked": false,
+            "id": "gallery-params"
+          },
+          {
+            "type": "author",
+            "name": "作者签名",
+            "text": "Alex Chen",
+            "anchor": "bottom",
+            "x": 94,
+            "y": 73,
+            "fontSize": 33,
+            "spacing": 0,
+            "opacity": 100,
+            "color": 4281610538,
+            "font": "caveat",
+            "align": "right",
+            "visible": true,
+            "locked": false,
+            "id": "gallery-author"
+          }
+        ],
+        "groups": [],
+        "order": [
+          "gallery-title",
+          "gallery-line-left",
+          "gallery-line-right",
+          "gallery-camera",
+          "gallery-params",
+          "gallery-author"
+        ],
+        "layouts": {
+          "portrait": {
+            "borders": {
+              "top": 4,
+              "right": 4,
+              "bottom": 20,
+              "left": 4
+            },
+            "nodes": {
+              "gallery-title": {
+                "fontSize": 26,
+                "spacing": 2,
+                "y": 25
+              },
+              "gallery-camera": {
+                "fontSize": 15,
+                "y": 58
+              },
+              "gallery-params": {
+                "fontSize": 13,
+                "x": 5,
+                "y": 82,
+                "align": "left"
+              },
+              "gallery-author": {
+                "fontSize": 31,
+                "y": 72
+              }
+            }
+          }
+        },
+        "shadow": {
+          "enabled": true,
+          "color": 4278190080,
+          "angle": 135,
+          "distance": 6,
+          "size": 0,
+          "opacity": 12,
+          "feather": 15
+        }
+      }
+    },
+    {
+      "id": "travel",
+      "folder": "classic",
+      "style": {
+        "version": 1,
+        "name": "旅行记录",
+        "adaptive": true,
+        "suitability": "universal",
+        "background": 4294177000,
+        "borders": {
+          "top": 0,
+          "right": 0,
+          "bottom": 13,
+          "left": 0
+        },
+        "linked": false,
+        "nodes": [
+          {
+            "type": "text",
+            "name": "暖色标记",
+            "text": "▎",
+            "anchor": "bottom",
+            "x": 2,
+            "y": 35,
+            "fontSize": 42,
+            "spacing": 0,
+            "opacity": 100,
+            "color": 4293108551,
+            "font": "sourceSans",
+            "align": "center",
+            "visible": true,
+            "locked": false,
+            "id": "travel-accent"
+          },
+          {
+            "type": "place",
+            "name": "拍摄地点",
+            "text": "",
+            "anchor": "bottom",
+            "x": 5,
+            "y": 33,
+            "fontSize": 36,
+            "spacing": 0,
+            "opacity": 100,
+            "color": 4281610538,
+            "font": "wenkai",
+            "align": "left",
+            "visible": true,
+            "locked": false,
+            "id": "travel-place"
+          },
+          {
+            "type": "time",
+            "name": "拍摄时间",
+            "text": "",
+            "anchor": "bottom",
+            "x": 5,
+            "y": 77,
+            "fontSize": 18,
+            "spacing": 0,
+            "opacity": 100,
+            "color": 4286018411,
+            "font": "manrope",
+            "align": "left",
+            "visible": true,
+            "locked": false,
+            "id": "travel-time"
+          },
+          {
+            "type": "text",
+            "name": "旅行题签",
+            "text": "TRAVEL JOURNAL",
+            "anchor": "bottom",
+            "x": 96,
+            "y": 33,
+            "fontSize": 21,
+            "spacing": 2,
+            "opacity": 100,
+            "color": 4281610538,
+            "font": "jost",
+            "align": "right",
+            "visible": true,
+            "locked": false,
+            "id": "travel-heading"
+          },
+          {
+            "type": "params",
+            "name": "拍摄参数",
+            "text": "",
+            "anchor": "bottom",
+            "x": 96,
+            "y": 77,
+            "fontSize": 15,
+            "spacing": 0,
+            "opacity": 100,
+            "color": 4286018411,
+            "font": "manrope",
+            "align": "right",
+            "visible": true,
+            "locked": false,
+            "id": "travel-params"
+          }
+        ],
+        "groups": [],
+        "order": [
+          "travel-accent",
+          "travel-place",
+          "travel-time",
+          "travel-heading",
+          "travel-params"
+        ],
+        "layouts": {
+          "portrait": {
+            "borders": {
+              "top": 0,
+              "right": 0,
+              "bottom": 20,
+              "left": 0
+            },
+            "nodes": {
+              "travel-place": {
+                "fontSize": 33,
+                "y": 25
+              },
+              "travel-accent": {
+                "y": 25
+              },
+              "travel-time": {
+                "y": 52,
+                "fontSize": 16
+              },
+              "travel-heading": {
+                "x": 5,
+                "y": 78,
+                "align": "left",
+                "fontSize": 18
+              },
+              "travel-params": {
+                "y": 78,
+                "fontSize": 13
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "film",
+      "folder": "classic",
+      "style": {
+        "version": 1,
+        "name": "胶片档案",
+        "adaptive": true,
+        "suitability": "universal",
+        "background": 4279308561,
+        "borders": {
+          "top": 4,
+          "right": 2,
+          "bottom": 8,
+          "left": 2
+        },
+        "linked": false,
+        "nodes": [
+          {
+            "type": "text",
+            "name": "左帧号",
+            "text": "▶  28",
+            "anchor": "canvas",
+            "x": 4,
+            "y": 1.6,
+            "fontSize": 17,
+            "spacing": 0,
+            "opacity": 100,
+            "color": 4293243725,
+            "font": "jost",
+            "align": "left",
+            "visible": true,
+            "locked": false,
+            "id": "film-left"
+          },
+          {
+            "type": "camera",
+            "name": "相机型号",
+            "text": "",
+            "anchor": "canvas",
+            "x": 50,
+            "y": 1.6,
+            "fontSize": 18,
+            "spacing": 2,
+            "opacity": 100,
+            "color": 4293243725,
+            "font": "jost",
+            "align": "center",
+            "visible": true,
+            "locked": false,
+            "id": "film-camera"
+          },
+          {
+            "type": "text",
+            "name": "右帧号",
+            "text": "▶  29",
+            "anchor": "canvas",
+            "x": 96,
+            "y": 1.6,
+            "fontSize": 17,
+            "spacing": 0,
+            "opacity": 100,
+            "color": 4293243725,
+            "font": "jost",
+            "align": "right",
+            "visible": true,
+            "locked": false,
+            "id": "film-right"
+          },
+          {
+            "type": "lens",
+            "name": "镜头型号",
+            "text": "",
+            "anchor": "bottom",
+            "x": 3,
+            "y": 50,
+            "fontSize": 16,
+            "spacing": 0,
+            "opacity": 100,
+            "color": 4293243725,
+            "font": "jost",
+            "align": "left",
+            "visible": true,
+            "locked": false,
+            "id": "film-lens"
+          },
+          {
+            "type": "params",
+            "name": "拍摄参数",
+            "text": "",
+            "anchor": "bottom",
+            "x": 54,
+            "y": 50,
+            "fontSize": 16,
+            "spacing": 0,
+            "opacity": 100,
+            "color": 4293243725,
+            "font": "jost",
+            "align": "center",
+            "visible": true,
+            "locked": false,
+            "id": "film-params"
+          },
+          {
+            "type": "author",
+            "name": "作者签名",
+            "text": "Alex Chen",
+            "anchor": "bottom",
+            "x": 97,
+            "y": 50,
+            "fontSize": 31,
+            "spacing": 0,
+            "opacity": 100,
+            "color": 4293243725,
+            "font": "caveat",
+            "align": "right",
+            "visible": true,
+            "locked": false,
+            "id": "film-author"
+          }
+        ],
+        "groups": [],
+        "order": [
+          "film-left",
+          "film-camera",
+          "film-right",
+          "film-lens",
+          "film-params",
+          "film-author"
+        ],
+        "layouts": {
+          "portrait": {
+            "borders": {
+              "top": 5,
+              "right": 2,
+              "bottom": 12,
+              "left": 2
+            },
+            "nodes": {
+              "film-left": {
+                "y": 1.3
+              },
+              "film-right": {
+                "y": 1.3
+              },
+              "film-camera": {
+                "fontSize": 16,
+                "y": 1.3
+              },
+              "film-lens": {
+                "fontSize": 14,
+                "y": 27
+              },
+              "film-params": {
+                "fontSize": 13,
+                "x": 3,
+                "y": 73,
+                "align": "left"
+              },
+              "film-author": {
+                "y": 51
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

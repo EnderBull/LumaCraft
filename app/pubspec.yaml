@@ -1,0 +1,57 @@
+name: lumacraft
+description: LumaCraft 技术验证原型
+publish_to: none
+version: 0.8.0+31
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  image: ^4.2.0
+  file_selector: ^1.0.3
+  flutter_svg: ^2.2.3
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/branding/lumacraft-icon-1024.png
+    - assets/ui/
+    - assets/fonts/sources.json
+    - assets/fonts/SourceHanSerifCN-Regular-OFL.txt
+    - assets/fonts/SourceHanSansCN-Regular-OFL.txt
+    - assets/fonts/SmileySans-Oblique-OFL.txt
+    - assets/fonts/PlayfairDisplay-OFL.txt
+    - assets/fonts/Manrope-OFL.txt
+    - assets/fonts/LXGWWenKaiLite-Regular-OFL.txt
+    - assets/fonts/Jost-OFL.txt
+    - assets/fonts/Caveat-OFL.txt
+    - assets/builtins/
+
+  fonts:
+    - family: LCSourceSans
+      fonts:
+        - asset: assets/fonts/SourceHanSansCN-Regular.otf
+    - family: LCSmiley
+      fonts:
+        - asset: assets/fonts/SmileySans-Oblique.ttf
+    - family: LCSourceSerif
+      fonts:
+        - asset: assets/fonts/SourceHanSerifCN-Regular.otf
+    - family: LCWenkai
+      fonts:
+        - asset: assets/fonts/LXGWWenKaiLite-Regular.ttf
+    - family: LCJost
+      fonts:
+        - asset: assets/fonts/Jost.ttf
+    - family: LCManrope
+      fonts:
+        - asset: assets/fonts/Manrope.ttf
+    - family: LCPlayfair
+      fonts:
+        - asset: assets/fonts/PlayfairDisplay.ttf
+    - family: LCCaveat
+      fonts:
+        - asset: assets/fonts/Caveat.ttf
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
