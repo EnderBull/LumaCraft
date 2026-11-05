@@ -318,6 +318,7 @@ class StyleDocument {
   int background;
   BackgroundStyle fill;
   FilmStyle film;
+  StampStyle stamp;
   PhotoShadowStyle shadow;
   bool linked;
   Map<String, double> borders;
@@ -330,6 +331,7 @@ class StyleDocument {
       this.linked = false,
       BackgroundStyle? fill,
       FilmStyle? film,
+      StampStyle? stamp,
       PhotoShadowStyle? shadow,
       Map<String, double>? borders,
       List<StyleNode>? nodes,
@@ -337,6 +339,7 @@ class StyleDocument {
       List<String>? order})
       : fill = fill ?? BackgroundStyle(),
         film = film ?? FilmStyle(),
+        stamp = stamp ?? StampStyle(),
         shadow = shadow ?? PhotoShadowStyle(),
         borders = borders ?? {'top': 3, 'right': 3, 'bottom': 16, 'left': 3},
         nodes = nodes ?? [],
@@ -393,6 +396,7 @@ class StyleDocument {
         'background': background,
         'fill': fill.toJson(),
         'film': film.toJson(),
+        'stamp': stamp.toJson(),
         'shadow': shadow.toJson(),
         'linked': editingLayout == 'general'
             ? linked
@@ -425,6 +429,7 @@ class StyleDocument {
         fill: BackgroundStyle.fromJson(
             Map<String, dynamic>.from(j['fill'] ?? {})),
         film: FilmStyle.fromJson(Map<String, dynamic>.from(j['film'] ?? {})),
+        stamp: StampStyle.fromJson(Map<String, dynamic>.from(j['stamp'] ?? {})),
         shadow: PhotoShadowStyle.fromJson(
             Map<String, dynamic>.from(j['shadow'] ?? {})),
         borders: (j['borders'] as Map).map((k, v) =>

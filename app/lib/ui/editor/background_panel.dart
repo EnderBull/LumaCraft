@@ -117,7 +117,12 @@ extension BackgroundPanel on _PresetEditorState {
       propertySelect(
           '填充方式',
           fill.mode,
-          const {'solid': '纯色', 'gradient': '双色渐变', 'blur': '照片模糊'},
+          const {
+            'solid': '纯色',
+            'gradient': '双色渐变',
+            'blur': '照片模糊',
+            'texture': '纹理'
+          },
           (v) => fill.mode = v),
       if (fill.mode != 'blur') ...[
         if (fill.mode == 'gradient')
@@ -125,7 +130,9 @@ extension BackgroundPanel on _PresetEditorState {
               colorField('起始颜色', c.doc.background, (v) => c.doc.background = v),
               colorField('结束颜色', fill.secondColor, (v) => fill.secondColor = v))
         else
-          colorField('背景颜色', c.doc.background, (v) => c.doc.background = v),
+          colorField(fill.mode == 'texture' ? '底色' : '背景颜色', c.doc.background,
+              (v) => c.doc.background = v),
+        if (fill.mode == 'texture') ...textureProperties(),
         if (fill.mode == 'gradient') ...[
           propertySelect(
               '渐变类型',
@@ -193,35 +200,40 @@ extension BackgroundPanel on _PresetEditorState {
     ]);
   }
 
-  Widget textureProperties() {
-    final fill = c.doc.fill, group = textureGroupOf(fill.texture);
-    return section('边框纹理', [
+  List<Widget> textureProperties() {
+    final fill = c.doc.fill;
+    return [
       pair(
           propertySelect(
               '纹理风格',
-              group,
-              {
-                'none': '无',
-                for (final e in textureGroups.entries) e.key: e.value.$1
-              },
-              (v) => fill.texture =
-                  v == 'none' ? 'none' : textureGroups[v]!.$2.keys.first),
-          group == 'none'
-              ? const SizedBox.shrink()
-              : propertySelect('纹理', fill.texture,
-                  textureGroups[group]!.$2, (v) => fill.texture = v)),
-      if (fill.hasTexture) ...[
-        shadowSlider('不透明度', fill.textureOpacity,
-            (v) => fill.textureOpacity = v),
-        const SizedBox(height: 14),
-        pair(
-            numeric('大小 %', fill.textureScale, (v) => fill.textureScale = v,
-                min: 50, max: 300),
-            colorField('纹理颜色', fill.textureColor,
-                (v) => fill.textureColor = v)),
-        Text('纹理只铺在边框上，不影响照片。', style: EditorTypography.hint(context)),
-      ]
-    ]);
+              textureGroupOf(fill.texture),
+              {for (final e in textureGroups.entries) e.key: e.value.$1},
+              (v) => fill.texture = textureGroups[v]!.$2.keys.first),
+          Padding(
+              padding: const EdgeInsets.only(bottom: 15),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('纹理', style: EditorTypography.label(context)),
+                    const SizedBox(height: 8),
+                    TexturePicker(
+                        fill: fill,
+                        base: c.doc.background,
+                        onChanged: (v) => c.edit(() => fill.texture = v))
+                  ]))),
+      shadowSlider(
+          '不透明度', fill.textureOpacity, (v) => fill.textureOpacity = v),
+      const SizedBox(height: 14),
+      pair(
+          numeric('大小 %', fill.textureScale, (v) => fill.textureScale = v,
+              min: 50, max: 300),
+          colorField(
+              '纹理颜色', fill.textureColor, (v) => fill.textureColor = v)),
+      Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Text('纹理只铺在边框上，不影响照片。',
+              style: EditorTypography.hint(context))),
+    ];
   }
 
   Widget filmProperties() {
@@ -229,11 +241,19 @@ extension BackgroundPanel on _PresetEditorState {
     final vertical = f.verticalFor(g.photo), hole = f.holeFor(g.photo);
     final required = (vertical ? hole.width : hole.height) + f.inset;
     final available = vertical ? [g.left, g.right] : [g.top, g.bottom];
-    return section('胶片打孔', [
-      compactToggle(
-          '启用装饰', f.enabled, () => c.edit(() => f.enabled = !f.enabled)),
-      if (f.enabled) ...[
-        const SizedBox(height: 10),
+    final s = c.doc.stamp;
+    final shape = s.enabled ? 'stamp' : (f.enabled ? 'film' : 'none');
+    return section('边框造型', [
+      propertySelect(
+          '造型',
+          shape,
+          const {'none': '不启用', 'film': '胶片打孔', 'stamp': '邮票打孔'},
+          (v) {
+        f.enabled = v == 'film';
+        s.enabled = v == 'stamp';
+      }),
+      if (shape == 'stamp') ...stampProperties(s, g),
+      if (shape == 'film') ...[
         propertySelect(
             '排列位置',
             f.orientation,
@@ -264,5 +284,51 @@ extension BackgroundPanel on _PresetEditorState {
             style: EditorTypography.hint(context)),
       ]
     ]);
+  }
+
+  List<Widget> stampProperties(StampStyle s, StyleGeometry g) {
+    final vertical = s.ticketAxis == 'vertical';
+    final room = vertical ? g.right : g.bottom;
+    return [
+      pair(
+          propertySelect('打孔位置', s.sides, stampSideNames, (v) => s.sides = v),
+          Padding(
+              padding: const EdgeInsets.only(bottom: 15),
+              child: colorField('纸张颜色', s.paper, (v) => s.paper = v))),
+      triple(
+          numeric('孔径 px', s.diameter, (v) => s.diameter = v,
+              min: 2, max: 120, step: .1),
+          numeric('孔间距 px', s.gap, (v) => s.gap = v, max: 120, step: .1),
+          numeric('外侧留白 px', s.margin, (v) => s.margin = v,
+              max: 400, step: .1)),
+      Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text('邮票纸比画布小一圈，外侧露出背景填充。留白超过边框时，纸边自动贴住照片。',
+              style: EditorTypography.hint(context))),
+      compactToggle(
+          '车票样式', s.ticket, () => c.edit(() => s.ticket = !s.ticket)),
+      if (s.ticket) ...[
+        const SizedBox(height: 10),
+        propertySelect(
+            '分割方向', s.ticketAxis, ticketAxisNames, (v) => s.ticketAxis = v),
+        pair(
+            numeric(vertical ? '距照片右缘 px' : '距照片下缘 px', s.ticketOffset,
+                (v) => s.ticketOffset = v,
+                max: 400, step: .1),
+            numeric('缺口直径 px', s.notch, (v) => s.notch = v,
+                max: 200, step: .1)),
+        triple(
+            numeric('线宽 px', s.ticketWidth, (v) => s.ticketWidth = v,
+                min: .5, max: 20, step: .1),
+            numeric('虚线长 px', s.ticketDash, (v) => s.ticketDash = v,
+                min: 1, max: 100, step: .1),
+            numeric('虚线间隔 px', s.ticketGap, (v) => s.ticketGap = v,
+                max: 100, step: .1)),
+        colorField('分割线颜色', s.ticketColor, (v) => s.ticketColor = v),
+        if (room <= s.ticketOffset)
+          Text(vertical ? '右侧边框不够宽，分割线会贴到纸边；加宽右边框做票根。' : '下方边框不够高，分割线会贴到纸边；加高下边框。',
+              style: EditorTypography.hint(context)),
+      ]
+    ];
   }
 }

@@ -57,6 +57,37 @@ extension ImagePanel on _PresetEditorState {
     });
   }
 
+  /// 把图片换成内置邮戳。只换墨色时保留当前宽度；换样式时用该样式的默认大小。
+  Future<void> applyPostmark(String id, String kind, String ink) async {
+    c.end();
+    final node = c.doc.node(id);
+    if (node == null || c.doc.locked(id)) return;
+    final keepWidth = postmarkOf(node.image)?.$1 == kind;
+    final mark = await buildPostmark(kind, ink);
+    await prepareImageMarks([mark]);
+    final target = c.doc.node(id);
+    if (!mounted || target == null) return;
+    c.edit(() {
+      if (keepWidth) mark.width = target.image.width;
+      target.image = mark;
+    });
+  }
+
+  Future<void> choosePostmark(BuildContext anchor, StyleNode node) async {
+    if (dialogOpen) return;
+    final current = postmarkOf(node.image);
+    dialogOpen = true;
+    String? kind;
+    try {
+      kind = await showPostmarkPicker(anchor, current?.$2 ?? 'gray', current?.$1);
+    } finally {
+      dialogOpen = false;
+    }
+    if (kind != null && kind != current?.$1) {
+      await applyPostmark(node.id, kind, current?.$2 ?? 'gray');
+    }
+  }
+
   Widget imageProperties(StyleNode node) => section('图片素材', [
         if (imageMarkReady(node.image.data) && node.image.data.isNotEmpty)
           Container(
@@ -74,8 +105,23 @@ extension ImagePanel on _PresetEditorState {
         if (marksError != null)
           Text(marksError!, style: EditorTypography.hint(context)),
         const SizedBox(height: 10),
-        neutral('替换图片', () => replaceImageMark(node.id),
-            icon: Icons.image_outlined),
+        pair(
+            neutral('替换图片', () => replaceImageMark(node.id),
+                icon: Icons.image_outlined),
+            Builder(
+                builder: (anchor) => neutral(
+                    '内置邮戳', () => choosePostmark(anchor, node),
+                    icon: Icons.local_post_office_outlined))),
+        if (postmarkOf(node.image) case (final kind, final ink)) ...[
+          const SizedBox(height: 12),
+          Text('邮戳墨色', style: EditorTypography.label(context)),
+          const SizedBox(height: 8),
+          PostmarkInkRow(
+              value: ink,
+              onChanged: (v) {
+                if (v != ink) applyPostmark(node.id, kind, v);
+              }),
+        ],
         const SizedBox(height: 14),
         pair(
             numeric('宽度 px', node.image.width, (v) => node.image.width = v,

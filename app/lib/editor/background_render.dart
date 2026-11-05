@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui';
+import 'background_style.dart';
 import 'style_document.dart';
 import 'texture_render.dart';
 
@@ -111,17 +112,108 @@ void paintStyleBackground(
     canvas.restore();
   }
   if (clipped) canvas.restore();
-  if (fill.hasTexture && (g.top > 0 || g.bottom > 0 || g.left > 0 || g.right > 0)) {
+  final framed = g.top > 0 || g.bottom > 0 || g.left > 0 || g.right > 0;
+  // 开启邮票时，纹理改铺在邮票纸上，纸外只留底色。
+  if (fill.hasTexture && framed && !d.stamp.enabled) {
     canvas.save();
     canvas.clipPath(_borderArea(g));
     paintTexture(canvas, fill, rect, g.photo);
     canvas.restore();
   }
+  if (d.stamp.enabled && framed) paintStamp(canvas, d, g);
+}
+
+/// 邮票纸的范围：画布向内缩“外侧留白”，但不会缩进照片里。
+Rect stampPaper(StyleDocument d, StyleGeometry g) {
+  final m = d.stamp.margin, p = g.photo;
+  return Rect.fromLTRB(
+      math.min(m, p.left),
+      math.min(m, p.top),
+      g.size.width - math.min(m, g.size.width - p.right),
+      g.size.height - math.min(m, g.size.height - p.bottom));
+}
+
+/// 车票分割线两端（落在纸边上）。
+(Offset, Offset) ticketEnds(StampStyle s, Rect paper, Rect photo) {
+  if (s.ticketAxis == 'vertical') {
+    final x = (photo.right + s.ticketOffset).clamp(paper.left, paper.right);
+    return (Offset(x, paper.top), Offset(x, paper.bottom));
+  }
+  final y = (photo.bottom + s.ticketOffset).clamp(paper.top, paper.bottom);
+  return (Offset(paper.left, y), Offset(paper.right, y));
+}
+
+/// 每条打孔边上的孔心。孔数取整后均分整条边，四角两侧对称。
+List<Offset> stampHoles(StampStyle s, Rect paper) {
+  final out = <Offset>[], edges = s.edgesFor(paper);
+  void along(Offset start, Offset end) {
+    final n = math.max(1, ((end - start).distance / (s.diameter + s.gap)).round());
+    for (var i = 0; i < n; i++) {
+      out.add(Offset.lerp(start, end, (i + .5) / n)!);
+    }
+  }
+
+  if (edges[0]) along(paper.topLeft, paper.topRight);
+  if (edges[1]) along(paper.topRight, paper.bottomRight);
+  if (edges[2]) along(paper.bottomLeft, paper.bottomRight);
+  if (edges[3]) along(paper.topLeft, paper.bottomLeft);
+  return out;
+}
+
+Path stampPaperPath(StyleDocument d, StyleGeometry g) {
+  final s = d.stamp, paper = stampPaper(d, g);
+  final holes = Path();
+  for (final c in stampHoles(s, paper)) {
+    holes.addOval(Rect.fromCircle(center: c, radius: s.diameter / 2));
+  }
+  if (s.ticket && s.notch > 0) {
+    final (a, b) = ticketEnds(s, paper, g.photo);
+    for (final c in [a, b]) {
+      holes.addOval(Rect.fromCircle(center: c, radius: s.notch / 2));
+    }
+  }
+  return Path.combine(
+      PathOperation.difference, Path()..addRect(paper), holes);
+}
+
+void paintStamp(Canvas canvas, StyleDocument d, StyleGeometry g) {
+  final s = d.stamp;
+  canvas.save();
+  canvas.clipPath(_borderArea(g));
+  final paper = stampPaperPath(d, g);
+  canvas.drawPath(
+      paper,
+      Paint()
+        ..color = Color(s.paper)
+        ..isAntiAlias = true);
+  if (d.fill.hasTexture) {
+    canvas.save();
+    canvas.clipPath(paper);
+    paintTexture(canvas, d.fill, Offset.zero & g.size, g.photo);
+    canvas.restore();
+  }
+  if (s.ticket && s.ticketWidth > 0) {
+    final (a, b) = ticketEnds(s, stampPaper(d, g), g.photo);
+    final dir = (b - a) / (b - a).distance;
+    final margin = s.notch / 2 + s.ticketGap;
+    final pen = Paint()
+      ..color = Color(s.ticketColor)
+      ..strokeWidth = s.ticketWidth
+      ..isAntiAlias = true;
+    final length = (b - a).distance - margin * 2;
+    for (var t = 0.0; t < length; t += s.ticketDash + s.ticketGap) {
+      final start = a + dir * (margin + t);
+      canvas.drawLine(
+          start, start + dir * math.min(s.ticketDash, length - t), pen);
+    }
+  }
+  canvas.restore();
 }
 
 List<RRect> filmHoles(StyleDocument d, StyleGeometry g) {
   final f = d.film;
-  if (!f.enabled) return [];
+  // 边框造型一次只启用一种：开了邮票就不画胶片孔。
+  if (!f.enabled || d.stamp.enabled) return [];
   final vertical = f.verticalFor(g.photo), hole = f.holeFor(g.photo);
   final w = hole.width, h = hole.height;
   final step = (vertical ? h : w) + f.gap;
@@ -165,7 +257,7 @@ void paintPhotoShadow(Canvas canvas, StyleDocument d, StyleGeometry g) {
 }
 
 void paintFilm(Canvas canvas, StyleDocument d, StyleGeometry g) {
-  if (!d.film.enabled) return;
+  if (!d.film.enabled || d.stamp.enabled) return;
   canvas.save();
   canvas.clipPath(Path()
     ..fillType = PathFillType.evenOdd

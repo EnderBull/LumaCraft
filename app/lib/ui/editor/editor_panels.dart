@@ -9,6 +9,7 @@ extension EditorPanels on _PresetEditorState {
       Icons.vertical_align_bottom: 'arrowDown',
       Icons.add_box_outlined: 'add',
       Icons.image_outlined: 'image',
+      Icons.local_post_office_outlined: 'postmark',
       Icons.save_outlined: 'savePreset'
     };
     final ui = {
@@ -762,7 +763,6 @@ extension EditorPanels on _PresetEditorState {
               style: TextStyle(fontSize: 12, height: 1.8))
         ]),
         backgroundProperties(),
-        textureProperties(),
         shadowProperties(),
         filmProperties(),
       ]);

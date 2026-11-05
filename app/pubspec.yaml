@@ -1,7 +1,7 @@
 name: lumacraft
 description: LumaCraft 技术验证原型
 publish_to: none
-version: 0.12.0+39
+version: 0.13.0+40
 environment:
   sdk: '>=3.4.0 <4.0.0'
 dependencies:

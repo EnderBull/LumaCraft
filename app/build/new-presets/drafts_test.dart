@@ -286,6 +286,7 @@ StyleNode pal(String id, PaletteStyle p, {double opacity = 100}) => StyleNode(
 BackgroundStyle textured(String kind, int color, double opacity,
         {double scale = 100}) =>
     BackgroundStyle(
+        mode: 'texture',
         texture: kind,
         textureColor: color,
         textureOpacity: opacity,

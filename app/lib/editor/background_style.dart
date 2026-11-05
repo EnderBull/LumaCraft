@@ -50,11 +50,14 @@ class BackgroundStyle {
       this.brightness = 0,
       this.contrast = 100,
       this.saturation = 100,
-      this.texture = 'none',
+      this.texture = 'finePaper',
       this.textureColor = 0xff000000,
       this.textureOpacity = 15,
       this.textureScale = 100});
-  bool get hasTexture => textureKindNames.containsKey(texture);
+
+  /// 纹理是一种独立的填充方式：底色 + 纹理，不与渐变、照片模糊叠加。
+  bool get hasTexture =>
+      mode == 'texture' && textureKindNames.containsKey(texture);
   Map<String, dynamic> toJson() => {
         'mode': mode,
         'gradientType': gradientType,
@@ -74,10 +77,13 @@ class BackgroundStyle {
           'textureScale': textureScale
         }
       };
-  factory BackgroundStyle.fromJson(Map<String, dynamic> j) => BackgroundStyle(
-      mode: ['solid', 'gradient', 'blur'].contains(j['mode'])
-          ? j['mode']
-          : 'solid',
+  factory BackgroundStyle.fromJson(Map<String, dynamic> j) {
+    final textured = textureKindNames.containsKey(j['texture']);
+    var mode = backgroundModes.contains(j['mode']) ? j['mode'] : 'solid';
+    // 0.12.0 把纹理存成“纯色 + texture 字段”，读入时转成纹理填充，画面不变。
+    if (mode == 'solid' && textured) mode = 'texture';
+    return BackgroundStyle(
+      mode: mode,
       gradientType: j['gradientType'] == 'radial' ? 'radial' : 'linear',
       centerX: styleNumber(j, 'centerX', 50, 0, 100),
       centerY: styleNumber(j, 'centerY', 50, 0, 100),
@@ -88,11 +94,14 @@ class BackgroundStyle {
       brightness: styleNumber(j, 'brightness', 0, -100, 100),
       contrast: styleNumber(j, 'contrast', 100, 0, 200),
       saturation: styleNumber(j, 'saturation', 100, 0, 200),
-      texture: textureKindNames.containsKey(j['texture']) ? j['texture'] : 'none',
+      texture: textured ? j['texture'] : 'finePaper',
       textureColor: j['textureColor'] is int ? j['textureColor'] : 0xff000000,
       textureOpacity: styleNumber(j, 'textureOpacity', 15, 0, 100),
       textureScale: styleNumber(j, 'textureScale', 100, 50, 300));
+  }
 }
+
+const backgroundModes = ['solid', 'gradient', 'blur', 'texture'];
 
 const filmOrientations = ['vertical', 'horizontal', 'long'];
 
@@ -141,6 +150,85 @@ class FilmStyle {
       gap: styleNumber(j, 'gap', 14, 0, 100),
       radius: styleNumber(j, 'radius', 3, 0, 50),
       inset: styleNumber(j, 'inset', 5, 0, 100));
+}
+
+const stampSideNames = {
+  'all': '四边',
+  'topBottom': '上下',
+  'leftRight': '左右',
+  'short': '短边'
+};
+const ticketAxisNames = {'horizontal': '横向（照片下方）', 'vertical': '纵向（右侧票根）'};
+
+/// 邮票打孔：照片外一张“邮票纸”，纸边打半圆孔，纸外露出背景填充。
+/// 车票样式在纸上加一条虚线分割线，两端各切一个半圆缺口。
+class StampStyle {
+  bool enabled, ticket;
+  String sides, ticketAxis;
+  int paper, ticketColor;
+  double diameter, gap, margin;
+  double ticketOffset, ticketWidth, ticketDash, ticketGap, notch;
+  StampStyle(
+      {this.enabled = false,
+      this.sides = 'all',
+      this.paper = 0xffffffff,
+      this.diameter = 18,
+      this.gap = 10,
+      this.margin = 50,
+      this.ticket = false,
+      this.ticketAxis = 'horizontal',
+      this.ticketOffset = 36,
+      this.ticketWidth = 2,
+      this.ticketDash = 9,
+      this.ticketGap = 6,
+      this.ticketColor = 0xff9a948a,
+      this.notch = 30});
+
+  /// 打孔的纸边：上、右、下、左。
+  List<bool> edgesFor(Rect paper) {
+    final landscape = paper.width >= paper.height;
+    return switch (sides) {
+      'topBottom' => [true, false, true, false],
+      'leftRight' => [false, true, false, true],
+      'short' => landscape
+          ? [false, true, false, true]
+          : [true, false, true, false],
+      _ => [true, true, true, true],
+    };
+  }
+
+  Map<String, dynamic> toJson() => {
+        'enabled': enabled,
+        'sides': sides,
+        'paper': paper,
+        'diameter': diameter,
+        'gap': gap,
+        'margin': margin,
+        'ticket': ticket,
+        'ticketAxis': ticketAxis,
+        'ticketOffset': ticketOffset,
+        'ticketWidth': ticketWidth,
+        'ticketDash': ticketDash,
+        'ticketGap': ticketGap,
+        'ticketColor': ticketColor,
+        'notch': notch
+      };
+  factory StampStyle.fromJson(Map<String, dynamic> j) => StampStyle(
+      enabled: j['enabled'] == true,
+      sides: stampSideNames.containsKey(j['sides']) ? j['sides'] : 'all',
+      paper: j['paper'] is int ? j['paper'] : 0xffffffff,
+      diameter: styleNumber(j, 'diameter', 18, 2, 120),
+      gap: styleNumber(j, 'gap', 10, 0, 120),
+      margin: styleNumber(j, 'margin', 50, 0, 400),
+      ticket: j['ticket'] == true,
+      ticketAxis:
+          ticketAxisNames.containsKey(j['ticketAxis']) ? j['ticketAxis'] : 'horizontal',
+      ticketOffset: styleNumber(j, 'ticketOffset', 36, 0, 400),
+      ticketWidth: styleNumber(j, 'ticketWidth', 2, .5, 20),
+      ticketDash: styleNumber(j, 'ticketDash', 9, 1, 100),
+      ticketGap: styleNumber(j, 'ticketGap', 6, 0, 100),
+      ticketColor: j['ticketColor'] is int ? j['ticketColor'] : 0xff9a948a,
+      notch: styleNumber(j, 'notch', 30, 0, 200));
 }
 
 class PhotoShadowStyle {

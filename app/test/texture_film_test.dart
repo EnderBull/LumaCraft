@@ -55,19 +55,30 @@ void main() {
     expect(back.orientation, 'long');
   });
 
-  test('纹理参数保存与读取；未启用时不写入', () {
+  test('纹理是独立的填充方式；参数保存与读取；未启用时不写入', () {
     expect(BackgroundStyle().toJson().containsKey('texture'), isFalse);
+    expect(BackgroundStyle(mode: 'gradient', texture: 'kraft').hasTexture,
+        isFalse);
     final f = BackgroundStyle(
+        mode: 'texture',
         texture: 'kraft',
         textureColor: 0xff5a3d22,
         textureOpacity: 22,
         textureScale: 150);
     final back = BackgroundStyle.fromJson(f.toJson());
+    expect(back.mode, 'texture');
     expect(back.texture, 'kraft');
     expect(back.textureColor, 0xff5a3d22);
     expect(back.textureOpacity, 22);
     expect(back.textureScale, 150);
-    expect(BackgroundStyle.fromJson({'texture': 'unknown'}).texture, 'none');
+    final unknown = BackgroundStyle.fromJson({'texture': 'unknown'});
+    expect(unknown.mode, 'solid');
+    expect(unknown.hasTexture, isFalse);
+    // 0.12.0 写法：纯色 + 纹理字段，读入后自动变成纹理填充。
+    final old = BackgroundStyle.fromJson({'mode': 'solid', 'texture': 'linen'});
+    expect(old.mode, 'texture');
+    expect(old.texture, 'linen');
+    expect(BackgroundStyle.fromJson({'mode': 'texture'}).texture, 'finePaper');
     expect(textureKindNames.length, 18);
     for (final kind in textureKindNames.keys) {
       expect(textureGroupOf(kind), isNot('none'));
@@ -77,17 +88,20 @@ void main() {
   test('分享文件：用到新功能才标记，旧版本会拒绝；未知纹理被拒绝', () {
     final plain = framed()..name = '普通';
     final plainJson = jsonDecode(encodeLmp([SharedPreset(plain)]));
-    expect(plainJson['requires'], isNot(contains('textureV1')));
+    expect(plainJson['requires'], isNot(contains('textureFill')));
     expect(plainJson['requires'], isNot(contains('filmLongEdge')));
 
     final fancy = framed()
       ..name = '纹理'
+      ..fill.mode = 'texture'
       ..fill.texture = 'stars'
       ..film = FilmStyle(enabled: true, orientation: 'long');
     final text = encodeLmp([SharedPreset(fancy)]);
     final j = jsonDecode(text);
-    expect(j['requires'], containsAll(['textureV1', 'filmLongEdge']));
+    expect(j['requires'], containsAll(['textureFill', 'filmLongEdge']));
+    expect(j['requires'], isNot(contains('textureV1')));
     final back = decodeLmp(text).single.style;
+    expect(back.fill.mode, 'texture');
     expect(back.fill.texture, 'stars');
     expect(back.film.orientation, 'long');
 
@@ -136,6 +150,7 @@ void main() {
           g.photo.right * .5 - 2, g.photo.bottom * .5 - 2);
       for (final kind in textureKindNames.keys) {
         final d = framed()
+          ..fill.mode = 'texture'
           ..fill.texture = kind
           ..fill.textureOpacity = 60;
         final out = await render(d);

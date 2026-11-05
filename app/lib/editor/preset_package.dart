@@ -30,7 +30,9 @@ const _features = [
   'adaptiveLayout',
   'shapeV1',
   'filmLongEdge',
-  'textureV1'
+  'textureV1',
+  'textureFill',
+  'stampV1'
 ];
 // 旧版本不认识这些标记，会明确拒绝导入，而不是悄悄画错。
 final _usage = <String, bool Function(StyleDocument)>{
@@ -40,7 +42,10 @@ final _usage = <String, bool Function(StyleDocument)>{
   'radialGradient': (s) =>
       s.fill.mode == 'gradient' && s.fill.gradientType == 'radial',
   'filmLongEdge': (s) => s.film.orientation == 'long',
-  'textureV1': (s) => s.fill.hasTexture,
+  // 0.12.0 的“纯色 + 纹理”写法仍可导入，但不再写出；纹理现在是独立的填充方式。
+  'textureV1': (s) => false,
+  'textureFill': (s) => s.fill.hasTexture,
+  'stampV1': (s) => s.stamp.enabled,
 };
 String encodeLmp(List<SharedPreset> presets) {
   if (presets.isEmpty || presets.length > 200)
@@ -200,8 +205,14 @@ SharedPreset _readPreset(dynamic item) {
   }
   if (visited.length != ids.length) throw const FormatException('存在未归属的图层');
   if (j['fill'] is Map &&
-      !['solid', 'gradient', 'blur'].contains(j['fill']['mode']))
+      !backgroundModes.contains(j['fill']['mode']))
     throw const FormatException('不支持的背景类型');
+  if (j['stamp'] is Map &&
+      (j['stamp']['sides'] != null &&
+              !stampSideNames.containsKey(j['stamp']['sides']) ||
+          j['stamp']['ticketAxis'] != null &&
+              !ticketAxisNames.containsKey(j['stamp']['ticketAxis'])))
+    throw const FormatException('不支持的邮票打孔设置');
   if (j['film'] is Map &&
       !filmOrientations.contains(j['film']['orientation']))
     throw const FormatException('不支持的胶片排列');
