@@ -32,9 +32,32 @@ List<double> backgroundColorMatrix(
   ];
 }
 
+/// 底色只铺在边框区域，不铺在照片下面。
+/// 缩放到小数比例时，照片边缘像素只有部分覆盖；如果下面铺着浅色底色，
+/// 这些像素就会混入底色，在深色照片边缘形成一圈白边。
+/// 有边框的一边让底色向照片内多伸几个像素，保证照片与边框交界平滑；
+/// 边框为 0 的一边（照片贴着画布边缘）不铺底色，边缘像素只会与画布外部混合。
+Path _borderArea(StyleGeometry g) {
+  // 重叠部分被不透明的照片盖住，看不见；取 4 是为了缩小显示（每个画布单位不足 1 像素）时也不留缝。
+  const overlap = 4.0, outside = 2.0;
+  final photo = g.photo;
+  final hole = Rect.fromLTRB(
+      g.left > 0 ? photo.left + overlap : photo.left - outside,
+      g.top > 0 ? photo.top + overlap : photo.top - outside,
+      g.right > 0 ? photo.right - overlap : photo.right + outside,
+      g.bottom > 0 ? photo.bottom - overlap : photo.bottom + outside);
+  return Path.combine(PathOperation.difference,
+      Path()..addRect(Offset.zero & g.size), Path()..addRect(hole));
+}
+
 void paintStyleBackground(
     Canvas canvas, StyleDocument d, StyleGeometry g, Image photo) {
   final rect = Offset.zero & g.size, fill = d.fill;
+  final clipped = fill.mode != 'blur';
+  if (clipped) {
+    canvas.save();
+    canvas.clipPath(_borderArea(g));
+  }
   // A pale undercoat can bleed through fractional-scale blur layer edges.
   if (fill.mode != 'blur')
     canvas.drawRect(rect, Paint()..color = Color(d.background));
@@ -86,6 +109,7 @@ void paintStyleBackground(
     canvas.restore();
     canvas.restore();
   }
+  if (clipped) canvas.restore();
 }
 
 List<RRect> filmHoles(StyleDocument d, StyleGeometry g) {

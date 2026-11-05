@@ -81,6 +81,13 @@ void main() {
     await settle();
     expect(tester.takeException(), null);
     expect(find.textContaining('与任何手机或相机品牌无关'), findsOneWidget);
+    // 底栏：缩放比例和“适合窗口”必须紧贴中间画布区的右下角（右侧留白只有行边距加按钮内边距）。
+    final bar = find.ancestor(
+        of: find.text('适合窗口'),
+        matching: find.byWidgetPredicate((w) => w is SizedBox && w.height == 60));
+    expect(bar, findsOneWidget);
+    final gap = tester.getTopRight(bar).dx - tester.getTopRight(find.text('适合窗口')).dx;
+    expect(gap, lessThan(36), reason: '适合窗口右侧空了 $gap px');
     await capture('phone-folder-note');
     await tester.tap(find.text('品牌标识（占位）').first);
     await settle();

@@ -575,12 +575,13 @@ extension EditorCanvas on _PresetEditorState {
                                 });
                               }))),
                   const SizedBox(width: 8),
-                  Flexible(
+                  // 提示文字占满剩余空间，缩放比例和“适合窗口”才会紧贴右侧。
+                  Expanded(
                       child: Text('Alt 滚轮 · 空格拖动',
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                               fontSize: 12,
                               color: Theme.of(context).hintColor))),
-                  const Spacer(),
                   Text('${(zoom * 100).round()}%',
                       style: const TextStyle(fontSize: 12)),
                   TextButton(
