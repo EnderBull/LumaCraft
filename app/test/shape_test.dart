@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:lumacraft/editor/builtin_library.dart';
 import 'package:lumacraft/editor/editor_controller.dart';
 import 'package:lumacraft/editor/preset_package.dart';
 import 'package:lumacraft/editor/shape_render.dart';
@@ -247,6 +248,48 @@ void main() {
     expect(() => decodeLmp(jsonEncode(old)), throwsFormatException,
         reason: '未知能力一律拒绝');
     c.dispose();
+  });
+
+  test('内置预设里的短线是形状组件，尺寸与原字符一致，且不再有字符短线', () async {
+    final library = BuiltinLibrary.decode(
+        await File('assets/builtins/library.json').readAsString());
+    StyleNode node(String preset, String id) => library.entries
+        .firstWhere((e) => e.id == preset)
+        .style
+        .nodes
+        .firstWhere((n) => n.id == id);
+    for (final id in ['gallery-line-left', 'gallery-line-right']) {
+      final n = node('gallery', id);
+      expect(n.type, 'shape', reason: id);
+      expect(n.shape.kind, 'line');
+      expect(n.shape.width, closeTo(25.38, .001), reason: '长度与原“——”字符一致');
+      expect(n.shape.height, closeTo(1.0, .001), reason: '粗细与原“——”字符一致');
+    }
+    final accent = node('travel', 'travel-accent');
+    expect(accent.type, 'shape');
+    expect(accent.shape.kind, 'line');
+    expect(accent.shape.rotation, 90);
+    expect(accent.shape.width, closeTo(42, .001), reason: '竖条高度 42，与原“▎”一致');
+    expect(accent.shape.height, closeTo(9.5, .001),
+        reason: '方图/竖图上原“▎”左侧 1 px 在画布外被裁掉，可见宽度 9.5');
+    expect(
+        library.entries
+            .firstWhere((e) => e.id == 'travel')
+            .style
+            .forRatio(1.5)
+            .node('travel-accent')!
+            .shape
+            .height,
+        closeTo(10.5, .001),
+        reason: '横图未被裁，宽度 10.5，与原“▎”一致');
+    for (final e in library.entries) {
+      for (final n in e.style.nodes.where((n) => n.type == 'text')) {
+        expect(RegExp(r'^[\s|│┃—▎▏\-]+$').hasMatch(n.text), false,
+            reason: '${e.id}/${n.id} 不应再用字符画短线');
+      }
+    }
+    expect(library.entries.firstWhere((e) => e.id == 'travel').style
+        .forRatio(2 / 3).node('travel-accent')!.y, closeTo(25.75, .001));
   });
 
   testWidgets('形状选择器：8 个图标 4×2 排列，带名称，点选切换', (tester) async {

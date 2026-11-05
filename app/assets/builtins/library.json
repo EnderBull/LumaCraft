@@ -47,12 +47,12 @@
             "id": "gallery-title"
           },
           {
-            "type": "text",
+            "type": "shape",
             "name": "左装饰线",
-            "text": "——",
+            "text": "",
             "anchor": "bottom",
             "x": 12,
-            "y": 30,
+            "y": 31.5625,
             "fontSize": 16,
             "spacing": 0,
             "opacity": 100,
@@ -61,15 +61,36 @@
             "align": "center",
             "visible": true,
             "locked": false,
-            "id": "gallery-line-left"
+            "id": "gallery-line-left",
+            "shape": {
+              "kind": "line",
+              "width": 25.38,
+              "height": 1.0,
+              "rotation": 0,
+              "radius": 0,
+              "skew": 0.25,
+              "inset": 0.25,
+              "fill": true,
+              "split": false,
+              "stroke": false,
+              "pointy": false,
+              "round": false,
+              "dashed": false,
+              "fillColor": 4288320906,
+              "fillColor2": 4290288490,
+              "strokeColor": 4288320906,
+              "fillOpacity": 100,
+              "strokeOpacity": 100,
+              "strokeWidth": 2
+            }
           },
           {
-            "type": "text",
+            "type": "shape",
             "name": "右装饰线",
-            "text": "——",
+            "text": "",
             "anchor": "bottom",
             "x": 88,
-            "y": 30,
+            "y": 31.5625,
             "fontSize": 16,
             "spacing": 0,
             "opacity": 100,
@@ -78,7 +99,28 @@
             "align": "center",
             "visible": true,
             "locked": false,
-            "id": "gallery-line-right"
+            "id": "gallery-line-right",
+            "shape": {
+              "kind": "line",
+              "width": 25.38,
+              "height": 1.0,
+              "rotation": 0,
+              "radius": 0,
+              "skew": 0.25,
+              "inset": 0.25,
+              "fill": true,
+              "split": false,
+              "stroke": false,
+              "pointy": false,
+              "round": false,
+              "dashed": false,
+              "fillColor": 4288320906,
+              "fillColor2": 4290288490,
+              "strokeColor": 4288320906,
+              "fillOpacity": 100,
+              "strokeOpacity": 100,
+              "strokeWidth": 2
+            }
           },
           {
             "type": "camera",
@@ -168,6 +210,12 @@
               "gallery-author": {
                 "fontSize": 31,
                 "y": 72
+              },
+              "gallery-line-left": {
+                "y": 31.25
+              },
+              "gallery-line-right": {
+                "y": 31.25
               }
             }
           }
@@ -201,12 +249,12 @@
         "linked": false,
         "nodes": [
           {
-            "type": "text",
+            "type": "shape",
             "name": "暖色标记",
-            "text": "▎",
+            "text": "",
             "anchor": "bottom",
-            "x": 2,
-            "y": 35,
+            "x": 0.475,
+            "y": 36.1538,
             "fontSize": 42,
             "spacing": 0,
             "opacity": 100,
@@ -215,7 +263,28 @@
             "align": "center",
             "visible": true,
             "locked": false,
-            "id": "travel-accent"
+            "id": "travel-accent",
+            "shape": {
+              "kind": "line",
+              "width": 42,
+              "height": 9.5,
+              "rotation": 90,
+              "radius": 0,
+              "skew": 0.25,
+              "inset": 0.25,
+              "fill": true,
+              "split": false,
+              "stroke": false,
+              "pointy": false,
+              "round": false,
+              "dashed": false,
+              "fillColor": 4293108551,
+              "fillColor2": 4290288490,
+              "strokeColor": 4293108551,
+              "fillOpacity": 100,
+              "strokeOpacity": 100,
+              "strokeWidth": 2
+            }
           },
           {
             "type": "place",
@@ -308,7 +377,7 @@
                 "y": 25
               },
               "travel-accent": {
-                "y": 25
+                "y": 25.75
               },
               "travel-time": {
                 "y": 52,
@@ -323,6 +392,16 @@
               "travel-params": {
                 "y": 78,
                 "fontSize": 13
+              }
+            }
+          },
+          "landscape": {
+            "nodes": {
+              "travel-accent": {
+                "x": 0.95,
+                "shape": {
+                  "height": 10.5
+                }
               }
             }
           }
