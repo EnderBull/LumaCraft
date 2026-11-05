@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'style_document.dart';
+import 'shape_style.dart';
 import '../fonts/font_catalog.dart';
 import 'preset_store.dart';
 
@@ -25,7 +26,8 @@ const _features = [
   'shadow',
   'radialGradient',
   'bundledFontsV1',
-  'adaptiveLayout'
+  'adaptiveLayout',
+  'shapeV1'
 ];
 String encodeLmp(List<SharedPreset> presets) {
   if (presets.isEmpty || presets.length > 200)
@@ -37,7 +39,9 @@ String encodeLmp(List<SharedPreset> presets) {
         .where((f) => f == 'bundledFontsV1'
             ? presets.any((p) =>
                 p.style.nodes.any((n) => !legacyFontNames.containsKey(n.font)))
-            : f == 'adaptiveLayout'
+            : f == 'shapeV1'
+                ? presets.any((p) => p.style.nodes.any((n) => n.type == 'shape'))
+                : f == 'adaptiveLayout'
                 ? presets
                     .any((p) => p.style.adaptive || p.style.layouts.isNotEmpty)
                 : f != 'radialGradient' ||
@@ -205,6 +209,11 @@ SharedPreset _readPreset(dynamic item) {
         !['circle', 'roundedRect', 'hexagon'].contains(p['shape']))
       throw const FormatException('不支持的色卡类型');
   }
+  for (final n in nodes.where((n) => n['type'] == 'shape')) {
+    final s = n['shape'];
+    if (s is! Map || !shapeKindNames.containsKey(s['kind']))
+      throw const FormatException('不支持的形状类型');
+  }
   final document = StyleDocument.fromJson(j)..name = name.trim();
   _validateLayouts(j, document);
   return SharedPreset(document, folder: (item['folder'] ?? '').trim());
@@ -255,15 +264,17 @@ void _validateLayouts(Map<String, dynamic> j, StyleDocument document) {
                 v.value is! num ||
             v.key == 'visible' && v.value is! bool)
           throw const FormatException('布局数值无效');
-        if (v.key == 'image' || v.key == 'palette') {
+        if (v.key == 'image' || v.key == 'palette' || v.key == 'shape') {
           final allowed = (StyleDocument.nodeLayout(node)[v.key] as Map).keys;
           if (v.value is! Map ||
               (v.value as Map).entries.any((p) =>
                   !allowed.contains(p.key) || p.value is! num || p.value < 0))
             throw const FormatException('布局尺寸无效');
           final dimensions = v.value as Map;
-          final limits = v.key == 'image'
+          final Map<String, (num, num)> limits = v.key == 'image'
               ? {'width': (4, 2000)}
+              : v.key == 'shape'
+              ? shapeLimits
               : {
                   'size': (4, 300),
                   'height': (4, 300),

@@ -6,6 +6,20 @@ extension EditorCanvas on _PresetEditorState {
     final s = scene;
     if (s == null) return null;
     for (final n in c.doc.painted.reversed) {
+      if (n.type == 'shape') {
+        // 形状按自身旋转后的局部范围判断，避免倾斜的长线条误选到旁边的组件。
+        if (!c.doc.visible(n.id)) continue;
+        final local =
+            shapeToLocal(s.geometry.point(n), n.shape.rotation, point);
+        final grow = math.max(4 / canvasScale, n.shape.stroke ? n.shape.strokeWidth / 2 : 0.0);
+        if (Rect.fromCenter(
+                center: Offset.zero,
+                width: n.shape.width,
+                height: n.shape.height)
+            .inflate(grow)
+            .contains(local)) return n.id;
+        continue;
+      }
       if (c.doc.visible(n.id) &&
           (s.bounds[n.id]?.inflate(4 / canvasScale).contains(point) ?? false))
         return n.id;
@@ -22,6 +36,71 @@ extension EditorCanvas on _PresetEditorState {
     return result;
   }
 
+  StyleNode? selectedShape() {
+    if (c.selection.length != 1 || c.protected) return null;
+    final n = c.doc.node(c.selection.first);
+    return n != null && n.type == 'shape' && c.doc.visible(n.id) ? n : null;
+  }
+
+  /// 命中形状抓点：返回（抓点, 是否为旋转抓点）。
+  (ShapeGrip?, bool)? shapeGripAt(Offset point) {
+    final n = selectedShape();
+    if (n == null || scene == null) return null;
+    final center = scene!.geometry.point(n), s = n.shape;
+    final reach = 9 / canvasScale, pad = 16 / canvasScale;
+    final rotate = shapeToWorld(
+        center, s.rotation, shapeRotateGrip(s, 30 / canvasScale));
+    if ((rotate - point).distance < reach) return (null, true);
+    final grips = shapeGrips(s, pad);
+    for (final type in ['adjust', 'radius', 'size']) {
+      for (final g in grips.where((g) => g.type == type)) {
+        if ((shapeToWorld(center, s.rotation, g.local) - point).distance <
+            reach) return (g, false);
+      }
+    }
+    return null;
+  }
+
+  void dragShapeGrip(PointerMoveEvent e) {
+    final old = originals?.values.first;
+    if (old == null || scene == null) return;
+    final n = c.doc.node(old.id);
+    if (n == null) return;
+    final g = StyleGeometry(c.doc, ratio);
+    final p = world(e.localPosition), center = g.point(old);
+    if (shapeRotating) {
+      final v = p - center;
+      var rotation = shapeRotationStart +
+          (math.atan2(v.dy, v.dx) - shapeAngleStart) * 180 / math.pi;
+      if (shift) rotation = (rotation / 15).round() * 15.0;
+      rotation %= 360;
+      n.shape.rotation = rotation < 0 ? rotation + 360 : rotation;
+    } else if (shapeGrip != null) {
+      final grip = shapeGrip!;
+      final local = shapeToLocal(center, old.shape.rotation, p);
+      switch (grip.type) {
+        case 'size':
+          final r = resizeShapeByGrip(
+              center: center,
+              rotation: old.shape.rotation,
+              width: old.shape.width,
+              height: old.shape.height,
+              sx: grip.sx,
+              sy: grip.sy,
+              pointer: p,
+              keepRatio: shift);
+          n.shape.width = r.width;
+          n.shape.height = r.height;
+          g.reanchor(n, old.anchor, point: r.center);
+        case 'radius':
+          dragShapeRadius(n.shape, local, 16 / canvasScale);
+        case 'adjust':
+          dragShapeAdjust(n.shape, local);
+      }
+    }
+    c.update();
+  }
+
   void pointerDown(PointerDownEvent e) {
     if (e.buttons != kPrimaryMouseButton) return;
     finishInline();
@@ -33,6 +112,21 @@ extension EditorCanvas on _PresetEditorState {
     moved = false;
     guides = [];
     if (handDrag) return;
+    final gripHit = shapeGripAt(world(e.localPosition));
+    if (gripHit != null) {
+      final shape = selectedShape()!;
+      c.begin();
+      originals = {shape.id: shape.copy()};
+      shapeGrip = gripHit.$1;
+      shapeRotating = gripHit.$2;
+      if (shapeRotating) {
+        final v = world(e.localPosition) - scene!.geometry.point(shape);
+        shapeAngleStart = math.atan2(v.dy, v.dx);
+        shapeRotationStart = shape.shape.rotation;
+      }
+      update(() => panel = 2);
+      return;
+    }
     final selected = selectedBounds();
     final knob = c.selection.length == 1 &&
         c.doc.node(c.selection.first) != null &&
@@ -77,6 +171,10 @@ extension EditorCanvas on _PresetEditorState {
     moved = true;
     if (handDrag) {
       update(() => pan = panStart + delta);
+      return;
+    }
+    if (shapeRotating || shapeGrip != null) {
+      dragShapeGrip(e);
       return;
     }
     if (originals == null) {
@@ -184,6 +282,8 @@ extension EditorCanvas on _PresetEditorState {
       originals = null;
       marquee = null;
       guides = [];
+      shapeGrip = null;
+      shapeRotating = false;
     });
   }
 
@@ -364,6 +464,8 @@ extension EditorCanvas on _PresetEditorState {
                                         if (handDrag) pan = panStart;
                                         handDrag = false;
                                         resizingNode = false;
+                                        shapeGrip = null;
+                                        shapeRotating = false;
                                         c.end(cancel: true);
                                         update(() {
                                           down = null;
@@ -418,7 +520,9 @@ extension EditorCanvas on _PresetEditorState {
                                                       .colorScheme
                                                       .primary,
                                                   guides,
-                                                  marquee))))))),
+                                                  marquee,
+                                                  rotating: shapeRotating,
+                                                  editable: !c.protected))))))),
                       if (inlineId != null)
                         inlineEditor(box.maxWidth, box.maxHeight),
                       if (outside.isNotEmpty || wideText > 0)
@@ -569,8 +673,43 @@ class _CanvasPainter extends CustomPainter {
   final Color accent;
   final List<(bool, double)> guides;
   final Rect? marquee;
+  final bool rotating, editable;
   _CanvasPainter(this.scene, this.origin, this.scale, this.selection,
-      this.accent, this.guides, this.marquee);
+      this.accent, this.guides, this.marquee,
+      {this.rotating = false, this.editable = true});
+
+  void _paintShapeGrips(Canvas canvas, StyleNode n, Paint pen) {
+    final s = n.shape, center = scene.geometry.point(n);
+    Offset world(Offset local) => shapeToWorld(center, s.rotation, local);
+    final fill = Paint()..color = Colors.white;
+    final rotateAt = world(shapeRotateGrip(s, 30 / scale));
+    canvas.drawLine(world(shapeRotateGrip(s, 0)), rotateAt, pen);
+    canvas.drawCircle(rotateAt, 5.5 / scale, fill);
+    canvas.drawCircle(rotateAt, 5.5 / scale, pen);
+    if (rotating) return;
+    for (final grip in shapeGrips(s, 16 / scale)) {
+      final at = world(grip.local);
+      if (grip.type == 'size') {
+        canvas.save();
+        canvas.translate(at.dx, at.dy);
+        canvas.rotate(s.rotation * math.pi / 180);
+        final box = Rect.fromCenter(
+            center: Offset.zero, width: 7 / scale, height: 7 / scale);
+        canvas.drawRect(box, fill);
+        canvas.drawRect(box, pen);
+        canvas.restore();
+      } else {
+        canvas.drawCircle(at, 5 / scale, Paint()..color = const Color(0xffd7aa59));
+        canvas.drawCircle(
+            at,
+            5 / scale,
+            Paint()
+              ..color = Colors.white
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.2 / scale);
+      }
+    }
+  }
   @override
   void paint(Canvas canvas, Size size) {
     canvas.save();
@@ -585,11 +724,22 @@ class _CanvasPainter extends CustomPainter {
       final r = scene.objectBounds(id);
       if (r == null) continue;
       union = union == null ? r : union.expandToInclude(r);
-      canvas.drawRect(r.inflate(4 / scale), pen);
+      final isShape = scene.document.node(id)?.type == 'shape';
+      // 旋转过程中隐藏选择框，松手后重新显示外接矩形。
+      if (!(rotating && isShape)) canvas.drawRect(r.inflate(4 / scale), pen);
+    }
+    final single =
+        selection.length == 1 ? scene.document.node(selection.first) : null;
+    if (single != null &&
+        single.type == 'shape' &&
+        editable &&
+        scene.bounds.containsKey(single.id)) {
+      _paintShapeGrips(canvas, single, pen);
     }
     if (union != null &&
         selection.length == 1 &&
-        scene.document.node(selection.first) != null) {
+        single != null &&
+        single.type != 'shape') {
       canvas.drawRect(
           Rect.fromCenter(
               center: union.bottomRight, width: 7 / scale, height: 7 / scale),

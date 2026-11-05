@@ -16,6 +16,7 @@ import '../../editor/preset_store.dart';
 import '../../editor/style_render.dart';
 import '../../editor/photo_palette.dart';
 import '../../editor/image_mark.dart';
+import '../../editor/shape_style.dart';
 import '../../workspace_settings.dart';
 import '../../window_controls.dart';
 import '../workspace_layout.dart';
@@ -35,6 +36,7 @@ part 'editor_canvas.dart';
 part 'palette_panel.dart';
 part 'background_panel.dart';
 part 'image_panel.dart';
+part 'shape_panel.dart';
 
 class PresetEditor extends StatefulWidget {
   final List<File> files;
@@ -134,6 +136,9 @@ class _PresetEditorState extends State<PresetEditor> {
   final inlineFocus = FocusNode();
   bool resizingNode = false;
   double resizeDistance = 1;
+  ShapeGrip? shapeGrip;
+  bool shapeRotating = false;
+  double shapeAngleStart = 0, shapeRotationStart = 0;
   StyleScene? scene;
   Offset origin = Offset.zero;
   double canvasScale = 1, zoom = 1;
@@ -449,6 +454,8 @@ class _PresetEditorState extends State<PresetEditor> {
         if (handDrag) pan = panStart;
         handDrag = false;
         resizingNode = false;
+        shapeGrip = null;
+        shapeRotating = false;
         c.end(cancel: true);
         update(() {
           down = null;

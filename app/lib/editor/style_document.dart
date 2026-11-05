@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'palette_style.dart';
 import 'background_style.dart';
 import 'image_mark.dart';
+import 'shape_style.dart';
 
 String newObjectId() =>
     DateTime.now().microsecondsSinceEpoch.toRadixString(36) +
@@ -16,7 +17,8 @@ const componentNames = {
   'time': '拍摄时间',
   'place': '拍摄地点',
   'palette': '照片色卡',
-  'image': '图片标识'
+  'image': '图片标识',
+  'shape': '形状'
 };
 
 class StyleNode {
@@ -26,6 +28,7 @@ class StyleNode {
   bool visible, locked;
   PaletteStyle palette;
   ImageMark image;
+  ShapeStyle shape;
   StyleNode(
       {String? id,
       this.type = 'text',
@@ -43,9 +46,11 @@ class StyleNode {
       this.visible = true,
       this.locked = false,
       PaletteStyle? palette,
-      ImageMark? image})
+      ImageMark? image,
+      ShapeStyle? shape})
       : palette = palette ?? PaletteStyle(),
         image = image ?? ImageMark(),
+        shape = shape ?? ShapeStyle(),
         id = id ?? newObjectId();
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -64,7 +69,8 @@ class StyleNode {
         'visible': visible,
         'locked': locked,
         if (type == 'image') 'image': image.toJson(),
-        if (type == 'palette') 'palette': palette.toJson()
+        if (type == 'palette') 'palette': palette.toJson(),
+        if (type == 'shape') 'shape': shape.toJson()
       };
   factory StyleNode.fromJson(Map<String, dynamic> j) => StyleNode(
       id: j['id'],
@@ -86,6 +92,7 @@ class StyleNode {
       visible: j['visible'] != false,
       locked: j['locked'] == true,
       image: ImageMark.fromJson(Map<String, dynamic>.from(j['image'] ?? {})),
+      shape: ShapeStyle.fromJson(Map<String, dynamic>.from(j['shape'] ?? {})),
       palette:
           PaletteStyle.fromJson(Map<String, dynamic>.from(j['palette'] ?? {})));
   StyleNode copy() => StyleNode.fromJson(toJson());
@@ -182,6 +189,10 @@ class StyleDocument {
         'align': n.align,
         'visible': n.visible,
         if (n.type == 'image') 'image': {'width': n.image.width},
+        if (n.type == 'shape')
+          'shape': {
+            for (final k in shapeLayoutKeys) k: n.shape.toJson()[k]
+          },
         if (n.type == 'palette')
           'palette': {
             for (final k in ['size', 'height', 'gap', 'radius', 'scale'])

@@ -783,7 +783,8 @@ extension EditorPanels on _PresetEditorState {
                       if (['text', 'author'].contains(single.type))
                         valueField('内容', single.text, (v) => single.text = v,
                             multiline: true)
-                      else if (!['palette', 'image'].contains(single.type))
+                      else if (!['palette', 'image', 'shape']
+                          .contains(single.type))
                         Text(
                             single.content(fields).isEmpty
                                 ? '当前照片缺少该信息'
@@ -797,9 +798,10 @@ extension EditorPanels on _PresetEditorState {
                     ]),
                   if (single?.type == 'palette') paletteProperties(single!),
                   if (single?.type == 'image') imageProperties(single!),
+                  if (single?.type == 'shape') shapeProperties(single!),
                   if (common != null &&
-                      nodes
-                          .every((n) => !['palette', 'image'].contains(n.type)))
+                      nodes.every((n) =>
+                          !['palette', 'image', 'shape'].contains(n.type)))
                     section('文字样式', [
                       Text('字体', style: EditorTypography.label(context)),
                       const SizedBox(height: 8),
@@ -880,8 +882,9 @@ extension EditorPanels on _PresetEditorState {
                       opacityControl(nodes)
                     ]),
                   if (common != null &&
-                      !['palette', 'image'].contains(single?.type) &&
-                      nodes.any((n) => ['palette', 'image'].contains(n.type)))
+                      !['palette', 'image', 'shape'].contains(single?.type) &&
+                      nodes.any((n) =>
+                          ['palette', 'image', 'shape'].contains(n.type)))
                     section('共同属性', [opacityControl(nodes)]),
                   if (single != null)
                     section('位置与锚点', [

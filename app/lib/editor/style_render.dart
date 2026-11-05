@@ -8,6 +8,8 @@ import 'style_document.dart';
 import '../ui/editor/mode_transition.dart';
 import 'photo_palette.dart';
 import 'palette_render.dart';
+import 'shape_render.dart';
+import 'shape_style.dart';
 import 'image_mark.dart';
 import 'background_render.dart';
 import '../export/export_options.dart';
@@ -40,6 +42,10 @@ class StyleScene {
             center: geometry.point(n),
             width: n.image.width,
             height: n.image.width / n.image.ratio);
+        continue;
+      }
+      if (n.type == 'shape') {
+        bounds[n.id] = shapeBounds(geometry.point(n), n.shape);
         continue;
       }
       if (n.type == 'palette') {
@@ -116,6 +122,10 @@ class StyleScene {
       if (n.type == 'palette' && document.visible(n.id) && n.id != hiddenId) {
         paintPalette(canvas, bounds[n.id]!, n.palette,
             paletteFromFields(fields), n.opacity);
+        continue;
+      }
+      if (n.type == 'shape' && bounds[n.id] != null && n.id != hiddenId) {
+        paintShape(canvas, geometry.point(n), n.shape, n.opacity);
         continue;
       }
       final p = painters[n.id], r = bounds[n.id];
