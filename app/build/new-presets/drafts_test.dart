@@ -460,9 +460,9 @@ List<P> texturePresets() => [
       // 19 星星便签：照片上角贴两条和纸胶带
       P('star-note', '星星便签', 0xffcfe3f5, [
         box('tapeLeft', '胶带·左',
-            anchor: 'photo', w: 170, h: 46, rotation: 315, fill: 0xfffff4d6, fillOpacity: 80),
+            anchor: 'photo', w: 150, h: 44, rotation: 315, fill: 0xfffff4d6, fillOpacity: 80),
         box('tapeRight', '胶带·右',
-            anchor: 'photo', w: 170, h: 46, rotation: 45, fill: 0xfffff4d6, fillOpacity: 80),
+            anchor: 'photo', w: 150, h: 44, rotation: 45, fill: 0xfffff4d6, fillOpacity: 80),
         t('note', 'text', '手写一句',
             font: 'caveat', size: 62, color: 0xff3b5a80, text: 'little stars'),
         t('camera', 'camera', '机型',
@@ -472,8 +472,9 @@ List<P> texturePresets() => [
       ], (o) => sides(60, 60, tall(o, 180, 210), 60), (o) {
         final w = canvasW(o, sides(60, 60, 0, 60));
         return {
-          'tapeLeft': {'x': px(12, o.w), 'y': px(12, o.h)},
-          'tapeRight': {'x': px(o.w - 12, o.w), 'y': px(12, o.h)},
+          // 胶带转 45° 后外接框半宽约 69，离照片角 14 才能完整留在画布内。
+          'tapeLeft': {'x': px(14, o.w), 'y': px(14, o.h)},
+          'tapeRight': {'x': px(o.w - 14, o.w), 'y': px(14, o.h)},
           'note': {'x': px(60, w), 'y': 48},
           'camera': {'x': px(w - 60, w), 'y': 38},
           'params': {'x': px(w - 60, w), 'y': 66},
