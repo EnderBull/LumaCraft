@@ -119,6 +119,17 @@ class _SharePresetDialogState extends State<_SharePresetDialog> {
   }
 
   int get codeBytes => presetCodeBytes(code);
+
+  /// True when a code or a picture can be offered at all.
+  ///
+  /// With pictures included the preset is far too large for a QR code, and
+  /// pasting a 100 KB string is not a usable alternative either, so that state
+  /// offers only the `.lmp` file. This is checked on the picture flag, not on
+  /// the size: a small marker can still squeeze under the limit, and offering
+  /// it as a code would be misleading.
+  bool get shareable => code.isNotEmpty && !includeImages;
+
+  /// Kept for the size hint under the code box.
   bool get tooLarge => code.isNotEmpty && presetCodeTooLarge(code);
 
   String get bytesLabel {
@@ -371,7 +382,7 @@ class _SharePresetDialogState extends State<_SharePresetDialog> {
       const SizedBox(width: 7),
       Tooltip(
           message: includeImages
-              ? '带上图片后预设会变很大，二维码装不下'
+              ? '带上图片后预设会变很大，二维码和文本代码都不可用，只能用 .lmp 文件分享'
               : '关闭时对方拿到空白图片位，可自己替换',
           child: Icon(Icons.info_outline_rounded,
               size: 14, color: scheme.onSurface.withValues(alpha: .38)))
@@ -478,8 +489,9 @@ class _SharePresetDialogState extends State<_SharePresetDialog> {
     final scheme = Theme.of(context).colorScheme;
     final base = EditorTypography.hint(context)
         .copyWith(fontSize: 12, height: 1.5, letterSpacing: .1);
-    if (tooLarge)
-      return Text('体积超出二维码容量', textAlign: TextAlign.center, style: base);
+    if (!shareable)
+      return Text('这个预设只能用文件分享',
+          textAlign: TextAlign.center, style: base);
     return Text.rich(
         TextSpan(children: [
           TextSpan(text: '用', style: base),
@@ -494,31 +506,25 @@ class _SharePresetDialogState extends State<_SharePresetDialog> {
         textAlign: TextAlign.center);
   }
 
-  Widget _codeHint() => Text('在导入预设时粘贴这段代码即可使用',
+  Widget _codeHint() => Text(
+      shareable ? '在导入预设时粘贴这段代码即可使用' : '关闭图片标识后才会生成文本代码',
       style: EditorTypography.hint(context).copyWith(fontSize: 11.5, height: 1.6));
   Widget _codeLabel() {
     final scheme = Theme.of(context).colorScheme;
+    final muted = scheme.onSurface.withValues(alpha: .38);
     return Row(children: [
       Text('文本代码',
           style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
               letterSpacing: .3,
-              color: scheme.onSurface)),
+              color: shareable ? scheme.onSurface : muted)),
       const Spacer(),
-      Text(bytesLabel,
+      Text(shareable ? bytesLabel : '',
           style: EditorTypography.hint(context).copyWith(fontSize: 11.5))
     ]);
   }
 
-  /// White card behind the code.
-  ///
-  /// Tried bare modules in the theme colour for a while: it looked airier but
-  /// weaker, and a white code on a dark panel is also the harder case for
-  /// scanners. Back to a plain white face with no shadow and no outline — the
-  /// contrast against the panel already separates it.
-  ///
-  /// The card is a square and the grid is sized from the card itself, so the
   /// White card behind the code.
   ///
   /// The card is a square and the grid is sized from the card itself, so the
@@ -527,8 +533,12 @@ class _SharePresetDialogState extends State<_SharePresetDialog> {
   /// tried while hunting an import bug, but the codes were already readable by
   /// phone scanners; changing the drawing only made them smaller and more
   /// touched up than necessary.
+  ///
+  /// With picture markers switched on there is no card and no code: that
+  /// preset can only travel as a `.lmp` file, and pretending otherwise by
+  /// showing a code that cannot hold it would be worse than saying so.
   Widget _qrCard() {
-    final usable = code.isNotEmpty && !tooLarge;
+    if (!shareable) return _unavailableCard();
     return AspectRatio(
         aspectRatio: 1,
         child: Container(
@@ -536,42 +546,59 @@ class _SharePresetDialogState extends State<_SharePresetDialog> {
                 color: Colors.white, borderRadius: BorderRadius.circular(10)),
             padding: const EdgeInsets.all(14),
             child: Center(
-                child: usable
-                    ? LayoutBuilder(
-                        builder: (context, box) {
-                          final side =
-                              math.min(box.maxWidth, box.maxHeight);
-                          return SizedBox.square(
-                              dimension: side,
-                              child: CustomPaint(painter: _QrPainter(code)));
-                        })
-                    : codeError != null
-                        ? Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Text(codeError!,
-                                textAlign: TextAlign.center,
-                                style: EditorTypography.hint(context)
-                                    .copyWith(fontSize: 12)))
-                        : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.qr_code_2_rounded,
-                                  size: 46, color: Color(0xffa29b90)),
-                              const SizedBox(height: 12),
-                              Text('带图片标识的预设体积太大，\n装不进二维码',
-                                  textAlign: TextAlign.center,
-                                  style: EditorTypography.hint(context)
-                                      .copyWith(
-                                          fontSize: 12,
-                                          height: 1.7,
-                                          color: const Color(0xff6f6860)))
-                            ]))));
+                child: LayoutBuilder(
+                    builder: (context, box) {
+                      final side = math.min(box.maxWidth, box.maxHeight);
+                      return SizedBox.square(
+                          dimension: side,
+                          child: CustomPaint(painter: _QrPainter(code)));
+                    }))));
+  }
+
+  /// Placeholder shown in the code's slot when a code cannot be offered.
+  ///
+  /// Same square and rounded corners as the white card, filled faintly, so the
+  /// panel keeps its shape instead of collapsing.
+  Widget _unavailableCard() {
+    final scheme = Theme.of(context).colorScheme;
+    return AspectRatio(
+        aspectRatio: 1,
+        child: Container(
+            decoration: BoxDecoration(
+                color: scheme.onSurface.withValues(alpha: dark ? .045 : .035),
+                borderRadius: BorderRadius.circular(10)),
+            padding: const EdgeInsets.symmetric(horizontal: 34),
+            child: Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.qr_code_2_rounded,
+                  size: 44,
+                  color: scheme.onSurface.withValues(alpha: .22)),
+              const SizedBox(height: 14),
+              Text('带图片标识的预设无法生成二维码',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      height: 1.5,
+                      color: scheme.onSurface.withValues(alpha: .70))),
+              const SizedBox(height: 8),
+              Text(
+                  codeError ??
+                      '图片标识会让预设体积远超二维码容量。\n关闭上方开关，或改用「导出 .lmp」。',
+                  textAlign: TextAlign.center,
+                  style: EditorTypography.hint(context)
+                      .copyWith(fontSize: 11.5, height: 1.7))
+            ]))));
   }
 
   /// The code itself with its copy button inside the same filled block.
+  ///
+  /// Greyed out when a code cannot be offered: the field still occupies its
+  /// place so the panel keeps its layout, but nothing in it can be used.
   Widget _codeBox() {
     final scheme = Theme.of(context).colorScheme;
-    final has = code.isNotEmpty;
+    final has = code.isNotEmpty && shareable;
+    final muted = scheme.onSurface.withValues(alpha: .30);
     return Container(
         height: 46,
         decoration: BoxDecoration(
@@ -593,8 +620,9 @@ class _SharePresetDialogState extends State<_SharePresetDialog> {
                           ],
                           fontSize: 12,
                           letterSpacing: .2,
-                          color: scheme.onSurface
-                              .withValues(alpha: has ? .86 : .35))))),
+                          color: has
+                              ? scheme.onSurface.withValues(alpha: .86)
+                              : muted)))),
           if (has) ...[
             Container(
                 width: 1,
@@ -616,6 +644,10 @@ class _SharePresetDialogState extends State<_SharePresetDialog> {
                         padding: const EdgeInsets.symmetric(horizontal: 9),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(5)))))
+          ] else ...[
+            Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 11),
+                child: Icon(Icons.copy_rounded, size: 14, color: muted))
           ]
         ]));
   }
@@ -659,9 +691,10 @@ class _SharePresetDialogState extends State<_SharePresetDialog> {
           const SizedBox(width: 12),
           accent('导出 .lmp', exportLmpFile),
           const SizedBox(width: 10),
-          accent('保存图片', saveImage),
+          // Only the file export works while picture markers are included.
+          accent('保存图片', shareable ? saveImage : null),
           const SizedBox(width: 10),
-          accent('复制代码', code.isEmpty ? null : copyCode),
+          accent('复制代码', shareable && code.isNotEmpty ? copyCode : null),
           const SizedBox(width: 12),
           WorkspaceActionButton(
               label: '取消', onPressed: () => Navigator.pop(context))
