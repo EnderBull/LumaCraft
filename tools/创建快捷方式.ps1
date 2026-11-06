@@ -5,9 +5,12 @@
 # 用法：右键「使用 PowerShell 运行」，或在 PowerShell 里执行本文件。
 
 $ErrorActionPreference = 'Stop'
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+# 本脚本在 tools\ 里：项目根目录是上一级，vbs 与本脚本同目录，
+# 快捷方式要放回根目录（那里是用户双击的位置）。
+$toolsDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$root = Split-Path -Parent $toolsDir
 $link = Join-Path $root '启动框印工坊.lnk'
-$vbs = Join-Path $root '启动框印工坊.vbs'
+$vbs = Join-Path $toolsDir '启动框印工坊.vbs'
 
 if (-not (Test-Path $vbs)) {
     Write-Host "缺少 启动框印工坊.vbs，无法创建快捷方式。" -ForegroundColor Red

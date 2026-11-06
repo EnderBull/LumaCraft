@@ -519,23 +519,14 @@ class _SharePresetDialogState extends State<_SharePresetDialog> {
   /// contrast against the panel already separates it.
   ///
   /// The card is a square and the grid is sized from the card itself, so the
-  /// Builds the code at the full available size.
-  ///
-  /// An earlier attempt shrank the grid to a whole number of pixels per
-  /// module. It read marginally better but left a dense code visibly small
-  /// with a wide white ring around it, which looked wrong. Instead the grid
-  /// fills the card and the painter snaps each module edge to a pixel, so the
-  /// squares stay crisp without giving up the size.
-  ///
   /// White card behind the code.
   ///
-  /// Tried bare modules in the theme colour for a while: it looked airier but
-  /// weaker, and a white code on a dark panel is also the harder case for
-  /// scanners. Back to a plain white face with no shadow and no outline — the
-  /// contrast against the panel already separates it.
-  ///
   /// The card is a square and the grid is sized from the card itself, so the
-  /// quiet zone is the same on all four sides.
+  /// quiet zone is the same on all four sides. The grid is drawn with plain
+  /// fractional rectangles — no pixel snapping and no size reduction. That was
+  /// tried while hunting an import bug, but the codes were already readable by
+  /// phone scanners; changing the drawing only made them smaller and more
+  /// touched up than necessary.
   Widget _qrCard() {
     final usable = code.isNotEmpty && !tooLarge;
     return AspectRatio(
@@ -707,12 +698,7 @@ Uint8List _roundBottomCorners(Uint8List png, int radius) {
   return Uint8List.fromList(img.encodePng(canvas));
 }
 
-/// Draws the module grid to fill the given square.
-///
-/// Each module's edges are snapped outward to whole device pixels with
-/// anti-aliasing off: a half-covered pixel would blur the boundary, and a
-/// dense code has almost no clean squares left. Snapping keeps the code at
-/// full size — shrinking it to land on an integer grid made it look small.
+/// Draws the module grid, filling the given square.
 class _QrPainter extends CustomPainter {
   final String data;
   _QrPainter(this.data);
@@ -722,23 +708,19 @@ class _QrPainter extends CustomPainter {
         payload: QrPayload.fromString(data),
         errorCorrectLevel: QrErrorCorrectLevel.medium));
     final count = image.moduleCount;
-    final paint = Paint()
-      ..color = const Color(0xff14110d)
-      ..isAntiAlias = false;
+    final paint = Paint()..color = const Color(0xff14110d);
     final cell = math.min(size.width, size.height) / count;
-    // Centre the grid in case the box is not exactly square.
     final originX = (size.width - cell * count) / 2;
     final originY = (size.height - cell * count) / 2;
     for (var y = 0; y < count; y++) {
       for (var x = 0; x < count; x++) {
         if (!image.isDark(y, x)) continue;
-        // floor/ceil rather than a fixed overdraw: edges land on whole pixels
-        // whatever the module size happens to be.
-        final left = (originX + x * cell).floorToDouble();
-        final top = (originY + y * cell).floorToDouble();
-        final right = (originX + (x + 1) * cell).ceilToDouble();
-        final bottom = (originY + (y + 1) * cell).ceilToDouble();
-        canvas.drawRect(Rect.fromLTRB(left, top, right, bottom), paint);
+        // A hair of overdraw keeps neighbouring modules joined; without it a
+        // gap can appear on fractional boundaries.
+        canvas.drawRect(
+            Rect.fromLTWH(originX + x * cell, originY + y * cell, cell + .4,
+                cell + .4),
+            paint);
       }
     }
   }

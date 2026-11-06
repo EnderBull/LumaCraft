@@ -4,8 +4,11 @@
 # 这个脚本按版本号从高到低找，启动最新的那个，所以打包后不需要再改快捷方式。
 
 $ErrorActionPreference = 'Stop'
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+# 本脚本在 tools\ 里，项目根目录是它的上一级。
+$root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $dist = Join-Path $root 'app\dist'
+# 出错时用弹窗提示；没有这句 Show 会报「找不到类型」。
+Add-Type -AssemblyName System.Windows.Forms
 
 if (-not (Test-Path $dist)) {
     [System.Windows.Forms.MessageBox]::Show("找不到 app\dist 文件夹。`n请先打包一次软件。", '框印工坊') | Out-Null
