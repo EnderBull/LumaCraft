@@ -144,8 +144,10 @@ void main() {
     await tester.runAsync(() async {
       for (final kind in postmarkKinds.keys) {
         for (final ink in postmarkInks.keys) {
-          final mark = await buildPostmark(kind, ink);
-          expect(postmarkOf(mark), (kind, ink));
+          final color = postmarkInks[ink]!.$2;
+          final mark = await buildPostmark(kind, color);
+          expect(mark.filename, 'postmark-$kind-$ink.png');
+          expect(postmarkOf(mark), (kind, color));
           final size = postmarkSize(kind);
           expect(mark.ratio, closeTo(size.width / size.height, .001));
           final codec =
@@ -163,6 +165,11 @@ void main() {
         }
       }
       expect(postmarkOf(ImageMark(filename: 'logo.png')), isNull);
+      final custom = await buildPostmark('oval', 0xff33aa77);
+      expect(custom.filename, 'postmark-oval-33aa77.png');
+      expect(postmarkOf(custom), ('oval', 0xff33aa77));
+      expect(postmarkOf(ImageMark(filename: 'postmark-waves-11223344.png')),
+          ('waves', 0x11223344));
     });
   });
 }

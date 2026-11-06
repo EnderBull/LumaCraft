@@ -4,11 +4,13 @@ import 'package:flutter/services.dart';
 
 class NumberDragSpec {
   final double min, max, step, fallback;
+  final double? reset;
   const NumberDragSpec(
       {required this.min,
       required this.max,
       required this.fallback,
-      this.step = 1});
+      this.step = 1,
+      this.reset});
 }
 
 String numberInputText(double value) =>
@@ -22,6 +24,7 @@ class NumberDragInput extends StatefulWidget {
   final NumberDragSpec spec;
   final ValueChanged<String> onChanged;
   final VoidCallback onDone, onCancel;
+  final String? Function()? onReset;
   final InputDecoration? decoration;
   final TextStyle? style;
   const NumberDragInput(
@@ -32,6 +35,7 @@ class NumberDragInput extends StatefulWidget {
       required this.onChanged,
       required this.onDone,
       required this.onCancel,
+      this.onReset,
       this.decoration,
       this.style});
   @override
@@ -76,6 +80,28 @@ class _NumberDragInputState extends State<NumberDragInput> {
     widget.focusNode.unfocus();
   }
 
+  void restore() {
+    final custom = widget.onReset;
+    if (custom != null) {
+      final text = custom();
+      if (text != null) {
+        widget.controller.value = TextEditingValue(
+            text: text,
+            selection:
+                TextSelection(baseOffset: 0, extentOffset: text.length));
+      }
+      return;
+    }
+    final reset = widget.spec.reset;
+    if (reset == null) return;
+    final text = numberInputText(reset);
+    widget.controller.value = TextEditingValue(
+        text: text,
+        selection: TextSelection(baseOffset: 0, extentOffset: text.length));
+    widget.onChanged(text);
+    widget.onDone();
+  }
+
   @override
   Widget build(BuildContext context) => GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -84,6 +110,9 @@ class _NumberDragInputState extends State<NumberDragInput> {
         widget.controller.selection = TextSelection(
             baseOffset: 0, extentOffset: widget.controller.text.length);
       },
+      onDoubleTap: widget.onReset == null && widget.spec.reset == null
+          ? null
+          : restore,
       child: RawGestureDetector(
           behavior: HitTestBehavior.opaque,
           gestures: {

@@ -256,6 +256,25 @@ void paintPhotoShadow(Canvas canvas, StyleDocument d, StyleGeometry g) {
   canvas.restore();
 }
 
+void paintPhotoStroke(Canvas canvas, StyleDocument d, StyleGeometry g) {
+  final s = d.photoStroke;
+  if (!s.enabled || s.opacity <= 0 || s.width <= 0) return;
+  final base = s.target == 'canvas' ? Offset.zero & g.size : g.photo;
+  final rect = base.deflate(s.inset);
+  if (rect.width <= 1 || rect.height <= 1) return;
+  canvas.save();
+  canvas.clipRect(Offset.zero & g.size);
+  canvas.drawRect(
+      rect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = s.width
+        ..strokeJoin = StrokeJoin.miter
+        ..isAntiAlias = true
+        ..color = Color(s.color).withValues(alpha: s.opacity / 100));
+  canvas.restore();
+}
+
 void paintFilm(Canvas canvas, StyleDocument d, StyleGeometry g) {
   if (!d.film.enabled || d.stamp.enabled) return;
   canvas.save();

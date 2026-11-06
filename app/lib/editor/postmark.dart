@@ -26,24 +26,42 @@ double postmarkWidth(String kind) => switch (kind) {
       _ => 280,
     };
 
-/// 从图片文件名认出内置邮戳：postmark-<样式>-<墨色>.png。
-(String, String)? postmarkOf(ImageMark mark) {
-  final m = RegExp(r'^postmark-(\w+)-(\w+)\.png$').firstMatch(mark.filename);
-  if (m == null ||
-      !postmarkKinds.containsKey(m[1]) ||
-      !postmarkInks.containsKey(m[2])) {
-    return null;
+/// 灰蓝红黑仍用原来的文件名；其它颜色写成 6 位或 8 位十六进制，旧预设还能认出。
+String postmarkFilename(String kind, int color) {
+  for (final ink in postmarkInks.entries) {
+    if (ink.value.$2 == color) return 'postmark-$kind-${ink.key}.png';
   }
-  return (m[1]!, m[2]!);
+  final argb = color & 0xffffffff;
+  final hex = (argb >> 24) == 0xff
+      ? (argb & 0xffffff).toRadixString(16).padLeft(6, '0')
+      : argb.toRadixString(16).padLeft(8, '0');
+  return 'postmark-$kind-$hex.png';
 }
 
-Future<ImageMark> buildPostmark(String kind, String ink, {double? width}) async {
+/// 从图片文件名认出内置邮戳，返回样式和墨色（ARGB）。
+(String, int)? postmarkOf(ImageMark mark) {
+  final named =
+      RegExp(r'^postmark-(\w+)-([a-z]+)\.png$').firstMatch(mark.filename);
+  if (named != null &&
+      postmarkKinds.containsKey(named[1]) &&
+      postmarkInks.containsKey(named[2])) {
+    return (named[1]!, postmarkInks[named[2]]!.$2);
+  }
+  final hex = RegExp(r'^postmark-(\w+)-([0-9a-fA-F]{6}|[0-9a-fA-F]{8})\.png$')
+      .firstMatch(mark.filename);
+  if (hex == null || !postmarkKinds.containsKey(hex[1])) return null;
+  final raw = int.parse(hex[2]!, radix: 16);
+  final color = hex[2]!.length == 6 ? 0xff000000 | raw : raw;
+  return (hex[1]!, color);
+}
+
+Future<ImageMark> buildPostmark(String kind, int color, {double? width}) async {
   final size = postmarkSize(kind);
   const scale = 1.4;
   final recorder = ui.PictureRecorder();
   final canvas = ui.Canvas(recorder);
   canvas.scale(scale);
-  paintPostmark(canvas, kind, ui.Color(postmarkInks[ink]!.$2));
+  paintPostmark(canvas, kind, ui.Color(color));
   final picture = recorder.endRecording();
   final image = await picture.toImage(
       (size.width * scale).round(), (size.height * scale).round());
@@ -52,7 +70,7 @@ Future<ImageMark> buildPostmark(String kind, String ink, {double? width}) async 
     final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
     return ImageMark(
         data: base64Encode(bytes!.buffer.asUint8List()),
-        filename: 'postmark-$kind-$ink.png',
+        filename: postmarkFilename(kind, color),
         width: width ?? postmarkWidth(kind),
         ratio: size.width / size.height);
   } finally {

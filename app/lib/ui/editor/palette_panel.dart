@@ -72,28 +72,55 @@ extension PalettePanel on _PresetEditorState {
         if (p.mode == 'strip')
           pair(
               numeric('总宽度 px', p.size * 6, (v) => p.size = v / 6,
-                  min: 24, max: 1800),
-              numeric('高度 px', p.height, (v) => p.height = v, min: 4, max: 300))
+                  min: 24,
+                  max: 1800,
+                  reset: initialNum(node.id, (n) => n.palette.size * 6, 204)),
+              numeric('高度 px', p.height, (v) => p.height = v,
+                  min: 4,
+                  max: 300,
+                  reset: initialNum(node.id, (n) => n.palette.height, 34)))
         else if (p.shape == 'roundedRect')
-          pair(numeric('宽度 px', p.size, (v) => p.size = v, min: 4, max: 300),
-              numeric('高度 px', p.height, (v) => p.height = v, min: 4, max: 300))
+          pair(
+              numeric('宽度 px', p.size, (v) => p.size = v,
+                  min: 4,
+                  max: 300,
+                  reset: initialNum(node.id, (n) => n.palette.size, 34)),
+              numeric('高度 px', p.height, (v) => p.height = v,
+                  min: 4,
+                  max: 300,
+                  reset: initialNum(node.id, (n) => n.palette.height, 34)))
         else
           numeric(p.shape == 'circle' ? '直径 px' : '边长 px', p.size,
               (v) => p.size = v,
-              min: 4, max: 300),
+              min: 4,
+              max: 300,
+              reset: initialNum(node.id, (n) => n.palette.size, 34)),
         if (p.mode == 'blocks' && p.shape != 'circle')
           pair(
-              numeric('间距 px', p.gap, (v) => p.gap = v, max: 100, step: .1),
+              numeric('间距 px', p.gap, (v) => p.gap = v,
+                  max: 100,
+                  step: .1,
+                  reset: initialNum(node.id, (n) => n.palette.gap, 10)),
               numeric('圆角 px', p.radius, (v) => p.radius = v,
-                  max: 150, step: .1))
+                  max: 150,
+                  step: .1,
+                  reset: initialNum(node.id, (n) => n.palette.radius, 6)))
         else if (p.mode == 'blocks')
-          numeric('间距 px', p.gap, (v) => p.gap = v, max: 100, step: .1)
+          numeric('间距 px', p.gap, (v) => p.gap = v,
+              max: 100,
+              step: .1,
+              reset: initialNum(node.id, (n) => n.palette.gap, 10))
         else
-          numeric('圆角 px', p.radius, (v) => p.radius = v, max: 150, step: .1),
+          numeric('圆角 px', p.radius, (v) => p.radius = v,
+              max: 150,
+              step: .1,
+              reset: initialNum(node.id, (n) => n.palette.radius, 6)),
         Text('圆角随形状尺寸限制；间距按外轮廓计算。', style: EditorTypography.hint(context)),
         const SizedBox(height: 12),
         numeric('整体缩放 %', p.scale * 100, (v) => p.scale = v / 100,
-            min: 10, max: 600),
+            min: 10,
+            max: 600,
+            reset: initialNum(node.id, (n) => n.palette.scale * 100, 100)),
         opacityControl([node]),
         const SizedBox(height: 12),
         Text('尺寸按照片短边 1000 px 为基准；整体缩放同步调整间距和描边。',
@@ -149,9 +176,17 @@ extension PalettePanel on _PresetEditorState {
                 (v) => p.strokeMode = v),
           pair(
               numeric('描边粗细 px', p.strokeWidth, (v) => p.strokeWidth = v,
-                  min: .1, max: 30, step: .1),
+                  min: .1,
+                  max: 30,
+                  step: .1,
+                  reset: initialNum(node.id, (n) => n.palette.strokeWidth, 1)),
               numeric('描边间距 px', p.strokeGap, (v) => p.strokeGap = v,
-                  min: 0, max: 10, step: .1)),
+                  min: 0,
+                  max: 10,
+                  step: .1,
+                  reset: initialNum(node.id, (n) => n.palette.strokeGap, 0))),
+          shadowSlider('不透明度', p.strokeOpacity, (v) => p.strokeOpacity = v),
+          const SizedBox(height: 14),
           colorField('描边颜色', p.strokeColor, (v) => p.strokeColor = v),
           Text(p.strokeGap == 0 ? '间距为0时保留内描边。' : '描边向外留透明间隙；色条内部的分隔线保持相连。',
               style: EditorTypography.hint(context)),

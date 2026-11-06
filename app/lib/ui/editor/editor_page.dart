@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:file_selector/file_selector.dart';
 import '../../directory_browser.dart';
+import '../../photo_state.dart';
 import '../directory_panel.dart';
 import 'dart:io';
 import 'dart:math' as math;
@@ -15,6 +16,7 @@ import '../../fonts/font_catalog.dart';
 import '../../editor/editor_controller.dart';
 import '../../editor/preset_store.dart';
 import '../../editor/style_render.dart';
+import '../../export/color_management.dart';
 import '../../editor/photo_palette.dart';
 import '../../editor/image_mark.dart';
 import '../../editor/shape_style.dart';
@@ -29,9 +31,12 @@ import '../workspace_layout.dart';
 import '../smooth_scroll.dart';
 import '../preset_panel.dart';
 import '../workspace_dialog.dart';
+import '../heif_store_buttons.dart';
 import '../folder_select.dart';
 import '../builtin_folder_select.dart';
 import '../preset_thumbnail.dart';
+import '../photo_info_form.dart';
+import '../photo_thumb.dart';
 import 'prototype_controls.dart';
 import 'workspace_chrome.dart';
 import 'mode_transition.dart';
@@ -60,6 +65,13 @@ class PresetEditor extends StatefulWidget {
   final Map<String, String> initialFields;
   final double initialPhotoScrollOffset;
   final Future<void> Function(EditorBrowseState)? onReturn;
+  final Future<void> Function(String path, String value)? onSavePlace;
+  final Future<void> Function(String path, String key, String value)?
+      onSaveField;
+  final int relinkCount;
+  final Future<void> Function()? onRelink;
+  final int autoRelinkCount;
+  final Future<void> Function()? onShowAutoRelink;
   final String? initialDirectory;
   final List<String> initialDirectories;
   final bool initialScanning;
@@ -80,6 +92,12 @@ class PresetEditor extends StatefulWidget {
       this.initialFields = const {},
       this.initialPhotoScrollOffset = 0,
       this.onReturn,
+      this.onSavePlace,
+      this.onSaveField,
+      this.relinkCount = 0,
+      this.onRelink,
+      this.autoRelinkCount = 0,
+      this.onShowAutoRelink,
       this.initialDirectory,
       this.initialDirectories = const [],
       this.initialScanning = false});
@@ -97,12 +115,18 @@ class _PresetEditorState extends State<PresetEditor> {
   Timer? dragTimer;
   late final List<File> files;
   final editorScanner = PhotoScanner();
+  final folderWatch = PhotoFolderWatch();
+  Timer? watchTimer;
   String? directory;
   List<String> directoryRoots = [];
   bool directoryTab = false, scanning = false;
   final appliedSnapshots = <String, StyleDocument>{};
   late final EditorController c;
   late final StyleDocument entry;
+  StyleDocument? openedPreset;
+  final bornNodes = <String, StyleNode>{};
+  StyleDocument? _initialView;
+  String? _initialViewLayout;
   late int index;
   late Set<String> selectedPhotos;
   final images = <String, ui.Image>{},
@@ -111,6 +135,12 @@ class _PresetEditorState extends State<PresetEditor> {
       propertyScroll = SmoothScrollController();
   late final SmoothScrollController photoScroll;
   Timer? saveTimer;
+  Timer? placeTimer;
+  (String, String)? placePending;
+  Timer? fieldTimer;
+  (String, String)? fieldPending;
+  final infoFieldControllers = <String, TextEditingController>{};
+  final placeOpen = <String, bool>{};
   String status = '草稿仅在应用后影响照片';
   int panel = 0, photoAnchor = 0;
   bool saving = false, dialogOpen = false, space = false, applying = false;
@@ -183,18 +213,64 @@ class _PresetEditorState extends State<PresetEditor> {
         widget.presets.draftFor(widget.sourceKey)?.copy() ?? entry.copy())
       ..addListener(changed);
     c.doc.switchLayout(StyleDocument.orientation(ratio));
+    resetOpenedPreset();
     HardwareKeyboard.instance.addHandler(keyboard);
     loadPhoto();
     unawaited(ensureMarks());
-    if (widget.initialScanning && directory != null)
+    if (widget.initialScanning && directory != null) {
       browseEditor(directory!, reset: false);
+    } else {
+      startWatching();
+    }
   }
 
   void update(VoidCallback action) {
     if (mounted) setState(action);
   }
 
+  /// 记下打开这套预设时的数字。整份样式被换掉时重新记；中途新加的组件记它刚出现时的数字。
+  void resetOpenedPreset() {
+    openedPreset = c.doc.copy();
+    bornNodes.clear();
+    _initialView = null;
+    _initialViewLayout = null;
+  }
+
+  void adoptNewNodes() {
+    final base = openedPreset;
+    if (base == null) return;
+    for (final n in c.doc.nodes) {
+      if (base.node(n.id) == null && !bornNodes.containsKey(n.id)) {
+        bornNodes[n.id] = n.copy();
+      }
+    }
+  }
+
+  StyleNode? initialNode(String id) {
+    final base = openedPreset;
+    if (base != null) {
+      if (_initialView == null || _initialViewLayout != c.doc.editingLayout) {
+        final view = base.copy();
+        if (view.editingLayout != c.doc.editingLayout) {
+          view.switchLayout(c.doc.editingLayout);
+        }
+        _initialView = view;
+        _initialViewLayout = c.doc.editingLayout;
+      }
+      final found = _initialView!.node(id);
+      if (found != null) return found;
+    }
+    return bornNodes[id];
+  }
+
+  double initialNum(
+      String id, double Function(StyleNode) read, double fallback) {
+    final n = initialNode(id);
+    return n == null ? fallback : read(n);
+  }
+
   void changed() {
+    adoptNewNodes();
     if (!mounted) return;
     setState(() {});
     unawaited(ensureMarks());
@@ -301,19 +377,7 @@ class _PresetEditorState extends State<PresetEditor> {
     });
     try {
       if (!images.containsKey(path)) {
-        final buffer = await ui.ImmutableBuffer.fromFilePath(path);
-        final codec = await ui.instantiateImageCodecWithSize(buffer,
-            getTargetSize: (w, h) {
-          final scale = math.min(1.0, 1600 / math.max(w, h));
-          return ui.TargetImageSize(
-              width: (w * scale).round(), height: (h * scale).round());
-        });
-        late ui.Image img;
-        try {
-          img = (await codec.getNextFrame()).image;
-        } finally {
-          codec.dispose();
-        }
+        final img = await decodePhotoImage(path, maxEdge: 1600);
         if (!mounted) {
           img.dispose();
           return;
@@ -343,7 +407,8 @@ class _PresetEditorState extends State<PresetEditor> {
       }
     } catch (e) {
       if (mounted && ticket == loadTicket)
-        setState(() => loadError = '照片加载失败：$e');
+        setState(() => loadError =
+            e is PhotoDecodeException ? e.message : '照片加载失败：$e');
     }
   }
 
@@ -394,6 +459,17 @@ class _PresetEditorState extends State<PresetEditor> {
   }
 
   bool keyboard(KeyEvent e) {
+    final arrows = {
+      LogicalKeyboardKey.arrowLeft,
+      LogicalKeyboardKey.arrowRight,
+      LogicalKeyboardKey.arrowUp,
+      LogicalKeyboardKey.arrowDown
+    };
+    if (e is KeyUpEvent && arrows.contains(e.logicalKey)) {
+      final still =
+          HardwareKeyboard.instance.logicalKeysPressed.any(arrows.contains);
+      if (!still) c.end();
+    }
     if (!mounted ||
         dialogOpen ||
         PresetPanel.keyboardActive ||
@@ -407,7 +483,9 @@ class _PresetEditorState extends State<PresetEditor> {
       update(() => space = e is! KeyUpEvent);
       return true;
     }
-    if (e is KeyUpEvent) return false;
+    if (e is KeyUpEvent) {
+      return arrows.contains(e.logicalKey) && c.selection.isNotEmpty;
+    }
     final key = e.logicalKey;
     final photos = focus?.findAncestorWidgetOfExactType<_PhotoFocus>() != null;
     if (ctrl && key == LogicalKeyboardKey.keyD) {
@@ -426,7 +504,30 @@ class _PresetEditorState extends State<PresetEditor> {
       return true;
     }
     if (ctrl && key == LogicalKeyboardKey.keyZ) {
+      c.end();
       shift ? c.redo() : c.undo();
+      return true;
+    }
+    // 选中了组件时，方向键只移动组件。按住期间算同一步，松手后再按才是新的一步。
+    if (c.selection.isNotEmpty && arrows.contains(key)) {
+      if (c.protected) return true;
+      c.begin();
+      final step = (shift ? 10 : 1) / canvasScale;
+      final originals = {for (final n in c.selectedNodes) n.id: n.copy()};
+      c.edit(() => c.moveNodes(
+          originals,
+          Offset(
+              key == LogicalKeyboardKey.arrowLeft
+                  ? -step
+                  : key == LogicalKeyboardKey.arrowRight
+                      ? step
+                      : 0,
+              key == LogicalKeyboardKey.arrowUp
+                  ? -step
+                  : key == LogicalKeyboardKey.arrowDown
+                      ? step
+                      : 0),
+          ratio));
       return true;
     }
     if (photos) {
@@ -474,40 +575,31 @@ class _PresetEditorState extends State<PresetEditor> {
       }
       return true;
     }
-    if (c.selection.isNotEmpty &&
-        !c.protected &&
-        [
-          LogicalKeyboardKey.arrowLeft,
-          LogicalKeyboardKey.arrowRight,
-          LogicalKeyboardKey.arrowUp,
-          LogicalKeyboardKey.arrowDown
-        ].contains(key)) {
-      final step = (shift ? 10 : 1) / canvasScale;
-      final originals = {for (final n in c.selectedNodes) n.id: n.copy()};
-      c.edit(() => c.moveNodes(
-          originals,
-          Offset(
-              key == LogicalKeyboardKey.arrowLeft
-                  ? -step
-                  : key == LogicalKeyboardKey.arrowRight
-                      ? step
-                      : 0,
-              key == LogicalKeyboardKey.arrowUp
-                  ? -step
-                  : key == LogicalKeyboardKey.arrowDown
-                      ? step
-                      : 0),
-          ratio));
-      return true;
-    }
     return false;
   }
 
   @override
   void dispose() {
     editorScanner.cancel();
+    folderWatch.stop();
+    watchTimer?.cancel();
     dragTimer?.cancel();
     saveTimer?.cancel();
+    placeTimer?.cancel();
+    final pending = placePending;
+    placePending = null;
+    if (pending != null) widget.onSavePlace?.call(pending.$1, pending.$2);
+    fieldTimer?.cancel();
+    final fieldPendingNow = fieldPending;
+    fieldPending = null;
+    if (fieldPendingNow != null) {
+      final parts = fieldPendingNow.$1.split('@');
+      widget.onSaveField?.call(parts.first, parts.last, fieldPendingNow.$2);
+    }
+    for (final controller in infoFieldControllers.values) {
+      controller.dispose();
+    }
+    infoFieldControllers.clear();
     inlineInput.dispose();
     inlineFocus.dispose();
     HardwareKeyboard.instance.removeHandler(keyboard);
@@ -568,8 +660,118 @@ class _PresetEditorState extends State<PresetEditor> {
             scanning = false;
             status = files.isEmpty ? '此目录没有照片' : '已找到 ${files.length} 张照片';
           });
+          startWatching();
         },
         onError: (error) => update(() => status = '目录读取失败：$error'));
+  }
+
+  /// Watches the folder while editing. A photo deleted outside the app must
+  /// leave the list; otherwise applying a style to it would fail silently.
+  void startWatching() {
+    final roots = directoryRoots.isEmpty
+        ? [if (directory != null) directory!]
+        : directoryRoots;
+    if (roots.isEmpty) return;
+    unawaited(folderWatch.start(roots,
+        recursive: widget.settings.includeChildren, onChanged: () {
+      if (!mounted || applying) return;
+      watchTimer?.cancel();
+      watchTimer = Timer(const Duration(milliseconds: 300), () {
+        if (mounted && !applying) syncWithDisk();
+      });
+    }));
+    // Deletions do not always raise a watcher event on Windows, so check the
+    // folder on a timer as well. The check is a directory listing, and a full
+    // re-read only happens when the set of files actually changed.
+    watchTimer?.cancel();
+    watchTimer = Timer.periodic(verifyInterval, (_) async {
+      if (!mounted || applying || scanning) return;
+      final roots2 = directoryRoots.isEmpty
+          ? [if (directory != null) directory!]
+          : directoryRoots;
+      if (roots2.isEmpty) return;
+      final here = <String>{};
+      for (final root in roots2) {
+        try {
+          await for (final entity in Directory(root).list(
+              recursive: widget.settings.includeChildren,
+              followLinks: false)) {
+            if (entity is File && photoFilePattern.hasMatch(entity.path))
+              here.add(entity.path);
+          }
+        } catch (_) {}
+      }
+      if (!mounted) return;
+      final mine = files.map((f) => f.path).toSet();
+      if (here.length == mine.length && here.every(mine.contains)) return;
+      await syncWithDisk();
+    });
+  }
+
+  /// Drops photos that are gone and picks up new ones, keeping the photo
+  /// being edited whenever it still exists.
+  Future<void> syncWithDisk() async {
+    final roots = directoryRoots.isEmpty
+        ? [if (directory != null) directory!]
+        : directoryRoots;
+    if (roots.isEmpty) return;
+    final current = scanning;
+    scanning = true;
+    final result = await editorScanner.collect(roots,
+        recursive: widget.settings.includeChildren);
+    if (!mounted) return;
+    final found = result.files;
+    // A cancelled scan can come back empty; never treat that as "every photo
+    // was deleted" unless the photos on screen really are gone.
+    if (found.isEmpty && files.isNotEmpty && files.any((f) => f.existsSync())) {
+      update(() => scanning = current);
+      return;
+    }
+    final here = found.map((f) => f.path).toSet();
+    final missing = files.where((f) => !here.contains(f.path)).toList();
+    final known = files.map((f) => f.path).toSet();
+    final added = found.where((f) => !known.contains(f.path)).toList();
+    if (missing.isEmpty && added.isEmpty) {
+      update(() => scanning = current);
+      return;
+    }
+    final editingPath = files.isEmpty ? null : files[index].path;
+    update(() {
+      // `files` is a late final list shared with the panels; it must be
+      // refilled in place, not reassigned (that throws and silently kills the
+      // refresh).
+      files
+        ..clear()
+        ..addAll(found);
+      if (missing.isNotEmpty) {
+        for (final file in missing) {
+          images.remove(file.path)?.dispose();
+          information.remove(file.path);
+          selectedPhotos.remove(file.path);
+          forgetThumbnail(file.path);
+        }
+      }
+      final next = editingPath == null
+          ? 0
+          : files.indexWhere((f) => f.path == editingPath);
+      index = next >= 0 && files.isNotEmpty ? next : 0;
+      if (index >= files.length) index = files.isEmpty ? 0 : files.length - 1;
+      photoAnchor = index;
+      if (missing.isNotEmpty && files.isNotEmpty &&
+          files[index].path != editingPath) {
+        loadTicket++;
+      }
+      scanning = current;
+      if (missing.isNotEmpty) {
+        status =
+            '共 ${files.length} 张照片 · ${missing.length} 张已不在文件夹里，已从列表移除';
+      } else if (added.isNotEmpty) {
+        status = '共 ${files.length} 张照片 · 新增 ${added.length} 张';
+      }
+    });
+    if (missing.any((f) => f.path == editingPath) && files.isNotEmpty)
+      loadPhoto();
+    if (added.isNotEmpty) await ensureMarks();
   }
 
   Widget directoryContents() => DirectoryPanel(
@@ -879,7 +1081,14 @@ class _PresetEditorState extends State<PresetEditor> {
     if (dialogOpen || files.isEmpty) return;
     finishInline();
     c.end();
-    bool all = selectedPhotos.length > 1;
+    // One photo selected means there is nothing to choose: apply straight to
+    // it. The dialog only appears when a range decision is actually needed.
+    final single = selectedPhotos.length <= 1;
+    if (single) {
+      await applyTo({files[index].path});
+      return;
+    }
+    bool all = true;
     final yes = await modal<bool>((ctx) => StatefulBuilder(
         builder: (ctx, set) => WorkspaceDialog(
                 title: const Text('应用样式'),
@@ -906,13 +1115,18 @@ class _PresetEditorState extends State<PresetEditor> {
                       child: const Text('确认应用'))
                 ])));
     if (yes != true) return;
+    await applyTo(all ? {...selectedPhotos} : {files[index].path});
+  }
+
+  Future<void> applyTo(Set<String> targets) async {
     update(() => applying = true);
     try {
-      await widget.apply(
-          c.doc.copy(), all ? {...selectedPhotos} : {files[index].path});
+      await widget.apply(c.doc.copy(), targets);
       update(() {
-        status = '样式已应用';
-        for (final path in all ? selectedPhotos : {files[index].path}) {
+        status = targets.length > 1
+            ? '样式已应用到 ${targets.length} 张照片'
+            : '样式已应用';
+        for (final path in targets) {
           appliedSnapshots[path] = c.doc.copy();
         }
       });

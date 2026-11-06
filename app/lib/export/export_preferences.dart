@@ -22,7 +22,7 @@ class ExportPreferences {
         ..retainCaptureInfo = j['retainCaptureInfo'] != false
         ..retainGps = j['retainGps'] == true;
       final pixels = j['edgePixels'];
-      if (pixels is int && pixels > 0 && pixels <= 16384) o.edgePixels = pixels;
+      if (pixels is int && pixels > 0 && pixels <= exportMaxEdge) o.edgePixels = pixels;
       final parts = <NamingPart>[];
       for (final p in j['template'] as List) {
         if (parts.length >= 100 ||

@@ -16,15 +16,19 @@ import 'ui/editor/prototype_controls.dart';
 import 'ui/editor/workspace_chrome.dart';
 import 'ui/editor/mode_transition.dart';
 import 'photo_state.dart';
-import 'directory_browser.dart';
+import 'photo_relink.dart';import 'directory_browser.dart';
 import 'workspace_settings.dart';
 import 'window_controls.dart';
 import 'export/export_options.dart';
 import 'export/export_naming.dart';
 import 'export/export_preferences.dart';
 import 'export/export_task.dart';
+import 'export/export_recovery.dart';
 import 'export/color_management.dart';
 import 'ui/export/export_dialog.dart';
+import 'ui/heif_store_buttons.dart';
+import 'ui/photo_info_form.dart';
+import 'ui/relink_dialog.dart';
 import 'ui/export/export_conflict_dialog.dart';
 import 'ui/workspace_dialog.dart';
 import 'ui/app_theme.dart';
@@ -78,6 +82,7 @@ class _WorkshopState extends State<Workshop> {
   bool exportPanelOpen = false;
 
   final scanner = PhotoScanner();
+  final folderWatch = PhotoFolderWatch();
   final filmstripScroll = SmoothScrollController();
   final inspectorScroll = SmoothScrollController();
   final informationScroll = SmoothScrollController();
@@ -101,9 +106,23 @@ class _WorkshopState extends State<Workshop> {
   Future<Map<String, String>> capture(File file) {
     if (!metadata.containsKey(file.path)) {
       if (metadata.length >= 32) metadata.remove(metadata.keys.first);
-      metadata[file.path] = compute(readCapture, file.path);
+      metadata[file.path] = compute(readCapture, file.path).then((info) {
+        rememberCaptureTime(file.path, info);
+        return info;
+      });
     }
     return metadata[file.path]!;
+  }
+
+  /// Keeps the capture time in the record so a moved file can be recognised
+  /// by name plus time even after it leaves this folder.
+  void rememberCaptureTime(String path, Map<String, String> info) {
+    final time = (info['time'] ?? '').trim();
+    if (time.isEmpty) return;
+    final state = store.state(path);
+    if (state.captureTime == time) return;
+    state.captureTime = time;
+    unawaited(persist());
   }
 
   @override
@@ -136,6 +155,9 @@ class _WorkshopState extends State<Workshop> {
       if (!mounted) return;
       workspaceSettings.changed();
       setState(() => ready = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) showExportRecovery();
+      });
       final previous = workspaceSettings.lastDirectory;
       if (previous != null && await Directory(previous).exists() && mounted)
         browseDirectory(previous);
@@ -144,10 +166,76 @@ class _WorkshopState extends State<Workshop> {
     }
   }
 
+  Future<void> showExportRecovery() async {
+    final store = ExportRecoveryStore.standard();
+    // Report an unfinished batch either way: closing the window in the middle
+    // of an export also leaves work undone, and the choice is the user's.
+    final pending = await store.readInterrupted();
+    if (pending == null || !mounted) return;
+    final closed = await store.closedByUser();
+    if (!mounted) return;
+    // Photos that already failed once are skipped on resume, so a photo that
+    // cannot be exported never puts the batch into a loop.
+    final resume = pending.canResume
+        ? await showDialog<bool>(
+            context: context,
+            // Every panel here closes when the dimmed area is clicked; closing
+            // this one means "not now", which is the same as the left button.
+            barrierDismissible: true,
+            builder: (ctx) => WorkspaceDialog(
+                    title: const Text('上次导出没有完成'),
+                    content: SizedBox(
+                        width: 560,
+                        child: Text(exportRecoveryMessage(pending,
+                            closedByUser: closed))),
+                    actions: [
+                      WorkspaceActionButton(
+                          label: '暂不导出',
+                          onPressed: () => Navigator.pop(ctx, false)),
+                      WorkspaceActionButton(
+                          label: '继续导出剩下的 ${pending.pending.length} 张',
+                          onPressed: () => Navigator.pop(ctx, true))
+                    ]))
+        : null;
+    if (resume == true && mounted) {
+      await continueExport(pending);
+      return;
+    }
+    await store.clear();
+  }
+
+  /// Carries on a batch left behind by a crash. The photo that was being
+  /// handled when it stopped is skipped: it is the most likely cause, and
+  /// retrying it would stop the batch again.
+  Future<void> continueExport(ExportRecovery note) async {
+    final options = note.options;
+    if (options == null) return;
+    final noteStore = ExportRecoveryStore.standard();
+    final rest = resumableJobs(note,
+        exists: (path) => File(path).existsSync());
+    final jobs = <ExportJob>[];
+    for (final job in rest) {
+      final state = store.state(job.source);
+      jobs.add(ExportJob(File(job.source), state.style?.copy(), state.film,
+          Map.of(state.fields), job.stem, job.target));
+    }
+    await noteStore.clear();
+    if (jobs.isEmpty) {
+      if (mounted)
+        setState(() => status = '上次中断的那张已跳过，剩下没有需要继续导出的照片');
+      return;
+    }
+    if (!mounted) return;
+    exportOptions = options.copy();
+    await runExportJobs(jobs, options);
+  }
+
   Future<void> browseDirectory(String path) => browseDirectories({path});
   Future<void> browseDirectories(Set<String> paths) async {
     if (busy || !ready) return;
     scanner.cancel();
+    folderWatch.stop();
+    _verifyTimer?.cancel();
     if (scanFinished?.isCompleted == false) scanFinished!.complete();
     final finished = Completer<void>();
     scanFinished = finished;
@@ -187,8 +275,334 @@ class _WorkshopState extends State<Workshop> {
               '共 ${files.length} 张照片${skipped == 0 ? "" : " · 跳过 $skipped 个无法读取的目录"}';
         });
       if (!finished.isCompleted) finished.complete();
+      unawaited(relinkAfterScan());
+      startFolderWatch();
     });
     await finished.future;
+  }
+
+  /// Keeps the folder list in step with the disk: a photo copied in or deleted
+  /// while the app is open shows up without switching folders.
+  ///
+  /// The OS notification is unreliable for deletions (a move to the recycle
+  /// bin can raise nothing on Windows), so a light check runs on a timer as
+  /// well. The check only lists folder entries; photos are re-read only when
+  /// the set of files actually changed.
+  void startFolderWatch() {
+    if (selectedDirectories.isEmpty) return;
+    unawaited(folderWatch.start(selectedDirectories,
+        recursive: workspaceSettings.includeChildren,
+        onChanged: () {
+          if (!mounted || busy) return;
+          refreshDirectorySoon();
+        }));
+    _verifyTimer?.cancel();
+    _verifyTimer = Timer.periodic(verifyInterval, (_) {
+      if (!mounted || busy || scanning) return;
+      if (selectedDirectories.isEmpty) return;
+      unawaited(verifyDirectory());
+    });
+  }
+
+  Timer? _verifyTimer;
+
+  /// Compares the folder with the list on screen and refreshes only on a real
+  /// difference, so the 2-second check costs almost nothing.
+  Future<void> verifyDirectory() async {
+    if (selectedDirectories.isEmpty) return;
+    final current = files.map((f) => exportPathKey(f.path)).toSet();
+    final found = <String>{};
+    for (final root in selectedDirectories) {
+      try {
+        await for (final entity in Directory(root).list(
+            recursive: workspaceSettings.includeChildren,
+            followLinks: false)) {
+          if (entity is File && photoFilePattern.hasMatch(entity.path))
+            found.add(exportPathKey(entity.path));
+        }
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    if (found.length == current.length && found.every(current.contains)) return;
+    await rescanCurrentDirectories();
+  }
+
+  Timer? _refreshTimer;
+
+  /// Coalesces bursts: copying or deleting a folder fires many events.
+  void refreshDirectorySoon() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted || busy || selectedDirectories.isEmpty) return;
+      rescanCurrentDirectories();
+    });
+  }
+
+  /// Re-reads the folders on screen and makes the list match the disk, so a
+  /// photo added or removed outside the app shows up immediately.
+  ///
+  /// Everything the user filled in lives in the record store, not in `files`,
+  /// so the selection is kept when its photo still exists. If the current
+  /// photo was deleted, the nearest remaining photo takes over and the status
+  /// line says how many disappeared, instead of silently showing a gap.
+  Future<void> rescanCurrentDirectories() async {
+    if (selectedDirectories.isEmpty) return;
+    final previous = files.map((f) => f.path).toList();
+    final previousCurrent = files.isEmpty ? null : files[index].path;
+    final previousSelected = {...selected};
+    final result = await scanner.collect(selectedDirectories,
+        recursive: workspaceSettings.includeChildren);
+    if (!mounted) return;
+    final found = result.files;
+    if (found.isEmpty && result.skipped > 0) return;
+    // Compare the actual set of paths, not just the count: deleting one photo
+    // and adding another keeps the count the same but changes the list.
+    final previousSet = previous.map(exportPathKey).toSet();
+    final foundSet = found.map((f) => exportPathKey(f.path)).toSet();
+    final missing = previous
+        .where((path) => !foundSet.contains(exportPathKey(path)))
+        .toList();
+    final added =
+        found.where((f) => !previousSet.contains(exportPathKey(f.path))).toList();
+    if (missing.isEmpty && added.isEmpty) return;
+    setState(() {
+      files = found;
+      final paths = files.map((f) => f.path).toSet();
+      selection.reset(files.map((f) => f.path).toList());
+      final kept = previousSelected.where(paths.contains).toSet();
+      if (kept.isNotEmpty) {
+        selection.paths
+          ..clear()
+          ..addAll(kept);
+        final restored = files.indexWhere((f) => f.path == previousCurrent);
+        selection.current = restored >= 0
+            ? restored
+            : files.indexWhere((f) => kept.contains(f.path));
+        selection.anchor = selection.current;
+      }
+      if (kept.isEmpty && files.isNotEmpty) selection.current = 0;
+      if (missing.isNotEmpty) {
+        final deleted = missing.length;
+        status =
+            '共 ${files.length} 张照片 · $deleted 张已不在文件夹里，已从列表移除';
+      } else {
+        status = '共 ${files.length} 张照片';
+      }
+      current = files.isEmpty ? null : previews[files[index].path];
+    });
+    if (current == null && files.isNotEmpty) refresh();
+  }
+
+  /// Called once a folder scan settles. Records of photos that are no longer
+  /// in the folder are matched by file name plus capture time. Only when both
+  /// match is a record carried over, so a same-named photo from another shoot
+  /// is never taken over silently.
+  Future<void> relinkAfterScan() async {
+    if (files.isEmpty || busy || selectedDirectories.isEmpty) return;
+    final current = files.map((f) => f.path).toSet();
+    // Fingerprints first: a renamed or swapped file must be noticed before
+    // anything else, otherwise its record stays with the wrong picture.
+    final fingerprints = <String, String>{};
+    for (final file in List<File>.of(files)) {
+      try {
+        fingerprints[file.path] = photoFingerprint(file.path);
+      } catch (_) {}
+    }
+    var changed = false;
+    final followed = followContent(
+        records: store.photos, fingerprintsByPath: fingerprints);
+    if (applyMoves(store.photos, followed)) changed = true;
+    for (final file in files) {
+      final state = store.photos[file.path];
+      final print = fingerprints[file.path];
+      if (state == null || print == null) continue;
+      if (state.fingerprint == print) continue;
+      state.fingerprint = print;
+      if (state.hasContent) changed = true;
+    }
+    if (changed) await persist();
+    final records =
+        pendingRecords(records: store.photos, currentPaths: current);
+    final times = <String, String>{};
+    final matched = <({String from, String to})>[];
+    if (records.isNotEmpty) {
+      // Read times without writing records here: storing them first would
+      // give the moved photo a record of its own and block the relink.
+      for (final file in List<File>.of(files)) {
+        try {
+          if (await file.length() > 64 * 1024 * 1024) continue;
+          final info = await compute(readCapture, file.path);
+          times[file.path] = (info['time'] ?? '').trim();
+        } catch (_) {}
+      }
+      var moved = false;
+      for (final record in records) {
+        final time = await _recordTime(record.oldPath, record.captureTime);
+        if (time.isEmpty) continue;
+        final match = findRelinkedPath(
+            record: PendingRecord(record.oldPath, record.fileName, time,
+                edited: record.edited),
+            timesByPath: times);
+        if (match == null) continue;
+        if (store.relink(record.oldPath, match)) {
+          times.remove(match);
+          moved = true;
+          matched.add((from: record.oldPath, to: match));
+        }
+      }
+      if (moved) {
+        for (final entry in times.entries) {
+          final state = store.photos[entry.key];
+          if (state != null && entry.value.isNotEmpty)
+            state.captureTime = entry.value;
+        }
+      }
+    }
+    final remaining = pendingRecords(
+        records: store.photos, currentPaths: current, timesByPath: times);
+    if (records.isNotEmpty) await persist();
+    final automatic = [
+      for (final move in followed) (from: move.from, to: move.to),
+      ...matched
+    ];
+    if (!mounted) return;
+    setState(() {
+      pendingRelink = remaining;
+      if (automatic.isNotEmpty) autoRelinked = automatic;
+      status = remaining.isEmpty
+          ? '共 ${files.length} 张照片'
+          : '共 ${files.length} 张照片 · ${remaining.length} 张记录待重新关联';
+    });
+  }
+
+  /// Explains what the app matched on its own, naming both sides so the user
+  /// can check it without hunting.
+  Future<void> showAutoRelink() async {
+    if (autoRelinked.isEmpty || !mounted) return;
+    await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (ctx) => WorkspaceDialog(
+                title: Text('已自动关联 ${autoRelinked.length} 张照片'),
+                content: SizedBox(
+                    width: 560,
+                    child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                              '这些照片移动或改过名，软件按文件名和拍摄时间认了出来，'
+                              '套用的预设和补填的信息都已跟着照片接回，不需要再做操作。',
+                              style: dialogBodyStyle.copyWith(fontSize: 12)),
+                          const SizedBox(height: 12),
+                          ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 220),
+                              child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                      color: Theme.of(ctx)
+                                          .colorScheme
+                                          .surfaceContainerHighest,
+                                      borderRadius: BorderRadius.circular(6)),
+                                  child: ListView.builder(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 6, horizontal: 8),
+                                      itemCount: autoRelinked.length,
+                                      itemBuilder: (_, i) {
+                                        final pair = autoRelinked[i];
+                                        return Padding(
+                                            padding: const EdgeInsets
+                                                .symmetric(vertical: 3),
+                                            child: Row(children: [
+                                              Icon(Icons.check_circle_outline,
+                                                  size: 13,
+                                                  color: Theme.of(ctx)
+                                                      .colorScheme
+                                                      .primary),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                  child: Text(
+                                                      '${recordFileName(pair.from)}'
+                                                      '  →  '
+                                                      '${recordFileName(pair.to)}',
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow
+                                                          .ellipsis,
+                                                      style: dialogBodyStyle
+                                                          .copyWith(
+                                                              fontSize: 12)))
+                                            ]));
+                                      })))
+                        ])),
+                actions: [
+                  WorkspaceActionButton(
+                      label: '知道了',
+                      onPressed: () => Navigator.pop(ctx))
+                ]));
+    if (mounted) setState(() => autoRelinked = const []);
+  }
+
+  /// Runs the same matching pass again after the user picked a folder, so a
+  /// manual pick can settle a whole group of moved photos at once.
+  Future<void> retryRelink() async {
+    if (files.isEmpty || busy) return;
+    await relinkAfterScan();
+  }
+
+  /// Capture time of a pending record. Old records saved before times were
+  /// stored are read from the file if it still exists.
+  Future<String> _recordTime(String oldPath, String? known) async {
+    if (known != null && known.isNotEmpty) return known;
+    if (!await File(oldPath).exists()) return '';
+    try {
+      final info = await compute(readCapture, oldPath);
+      return (info['time'] ?? '').trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Lets the user pick the pairs that automatic matching could not settle.
+  Future<void> openRelink() async {
+    if (files.isEmpty || busy) return;
+    if (pendingRelink.isEmpty) {
+      // Nothing is lost right now. Point this out instead of opening an empty
+      // panel, since the button is always available.
+      setState(() => status = '当前文件夹的照片都有记录，没有待关联的照片');
+      return;
+    }
+    final available = files
+        .where((f) {
+          final record = store.photos[f.path];
+          return record == null || !record.hasContent;
+        })
+        .toList();
+    final done = await showRelinkDialog(context,
+        pending: List.of(pendingRelink),
+        available: available,
+        folderLabel: selectedDirectories.isEmpty
+            ? '当前文件夹'
+            : selectedDirectories.map((p) => recordFileName(p)).join('、'),
+        onLink: (oldPath, newPath) {
+          final accepted = store.relink(oldPath, newPath);
+          if (accepted) {
+            try {
+              store.photos[newPath]!.fingerprint = photoFingerprint(newPath);
+            } catch (_) {}
+          }
+          return accepted;
+        },
+        onDone: persist);
+    if (!mounted) return;
+    final remaining = pendingRecords(
+        records: store.photos,
+        currentPaths: files.map((f) => f.path).toSet());
+    setState(() {
+      pendingRelink = remaining;
+      status = done == 0
+          ? '共 ${files.length} 张照片'
+          : '已关联 $done 张 · 共 ${files.length} 张照片'
+              '${remaining.isEmpty ? '' : ' · 还有 ${remaining.length} 张待关联'}';
+    });
   }
 
   void receivePhotos(List<File> batch) {
@@ -239,7 +653,6 @@ class _WorkshopState extends State<Workshop> {
     if (selectedDirectories.isNotEmpty)
       browseDirectories({...selectedDirectories});
   }
-
   Future<bool> persist() async {
     try {
       await store.save();
@@ -281,6 +694,20 @@ class _WorkshopState extends State<Workshop> {
     if (mounted) setState(() => status = '已应用到 ${paths.length} 张照片');
   }
 
+  Future<void> savePhotoField(String path, String key, String value) async {
+    final state = store.state(path);
+    final text = value.trim();
+    if (text.isEmpty) {
+      state.fields.remove(key);
+    } else {
+      state.fields[key] = text;
+    }
+    await store.save();
+  }
+
+  Future<void> savePhotoPlace(String path, String value) =>
+      savePhotoField(path, 'place', value);
+
   Future<void> openBuiltinEditor(PresetEntry entry) async {
     if (!presetStore.authoring || busy || openingEditor) return;
     openingEditor = true;
@@ -305,6 +732,8 @@ class _WorkshopState extends State<Workshop> {
               metadata: (file) async =>
                   store.state(file.path).effective(await capture(file)),
               apply: (doc, paths) => applyPhotoStyle(doc, paths),
+              onSavePlace: savePhotoPlace,
+              onSaveField: savePhotoField,
               initialPhoto: current,
               initialFields: fields,
               initialDirectory: currentDirectory,
@@ -353,6 +782,12 @@ class _WorkshopState extends State<Workshop> {
                     initialDirectories: selectedDirectories.toList(),
                     initialScanning: wasScanning,
                     initialFields: fields,
+                    onSavePlace: savePhotoPlace,
+                    onSaveField: savePhotoField,
+                    relinkCount: pendingRelink.length,
+                    onRelink: openRelink,
+                    autoRelinkCount: autoRelinked.length,
+                    onShowAutoRelink: showAutoRelink,
                     initialPhotoScrollOffset:
                         filmstripScroll.hasClients ? filmstripScroll.offset : 0,
                     onReturn: (state) async {
@@ -392,7 +827,8 @@ class _WorkshopState extends State<Workshop> {
                       }
                     },
                     apply: applyPhotoStyle),
-                if (Platform.isWindows) Positioned.fill(child: windowEdges())
+                if (Platform.isWindows && !maximized)
+                  Positioned.fill(child: windowEdges())
               ])));
       if (mounted &&
           workspaceSettings.lastDirectory != null &&
@@ -402,165 +838,6 @@ class _WorkshopState extends State<Workshop> {
       if (mounted) setState(() {});
     } finally {
       openingEditor = false;
-    }
-  }
-
-  Future<void> editInfo() async {
-    final batch = List<File>.of(targets);
-    if (batch.isEmpty) return;
-    setState(() => busy = true);
-    final originals = <String, Map<String, String>>{};
-    try {
-      for (final file in batch) {
-        originals[file.path] = await capture(file);
-      }
-      if (!mounted) return;
-      final effective = batch
-          .map(
-              (file) => store.state(file.path).effective(originals[file.path]!))
-          .toList();
-      final summaries = {
-        for (final key in infoFields.keys) key: InfoSummary(effective, key)
-      };
-      final initial =
-          summaries.map((key, value) => MapEntry(key, value.initial));
-      final controllers = {
-        for (final key in infoFields.keys)
-          key: TextEditingController(text: initial[key])
-      };
-      bool overwrite = false;
-      String? error;
-      final infoScroll = ScrollController();
-      final updates = await showDialog<Map<String, String>>(
-          context: context,
-          builder: (ctx) => StatefulBuilder(
-              builder: (ctx, update) => AlertDialog(
-                      title: Text('补填 ${batch.length} 张照片'),
-                      content: SizedBox(
-                          width: 480,
-                          height: (MediaQuery.sizeOf(ctx).height - 240)
-                              .clamp(180.0, 620.0),
-                          child: Scrollbar(
-                              controller: infoScroll,
-                              thumbVisibility: true,
-                              child: SingleChildScrollView(
-                                  controller: infoScroll,
-                                  padding: const EdgeInsets.only(right: 16),
-                                  child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        const Text(
-                                            '显示已有信息。只保存改动的字段，留空跳过，默认仅补缺。'),
-                                        const SizedBox(height: 20),
-                                        ...infoFields.entries.map((e) {
-                                          final summary = summaries[e.key]!;
-                                          return Padding(
-                                              padding: const EdgeInsets.only(
-                                                  bottom: 18),
-                                              child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment
-                                                          .stretch,
-                                                  children: [
-                                                    Text(e.value,
-                                                        style: const TextStyle(
-                                                            fontSize: 13)),
-                                                    const SizedBox(height: 6),
-                                                    TextField(
-                                                        key: ValueKey(
-                                                            'info-${e.key}'),
-                                                        controller:
-                                                            controllers[e.key],
-                                                        style: const TextStyle(
-                                                            fontSize: 14),
-                                                        decoration:
-                                                            InputDecoration(
-                                                          contentPadding:
-                                                              const EdgeInsets
-                                                                  .symmetric(
-                                                                  horizontal:
-                                                                      14,
-                                                                  vertical: 12),
-                                                          hintText:
-                                                              summary.hint,
-                                                        )),
-                                                    const SizedBox(height: 6),
-                                                    Text(summary.description,
-                                                        style: TextStyle(
-                                                            fontSize: 12,
-                                                            color: Theme.of(ctx)
-                                                                .hintColor)),
-                                                    if (summary.values.length >
-                                                        1)
-                                                      ExpansionTile(
-                                                          title: const Text(
-                                                              '查看已有的不同值'),
-                                                          children: summary
-                                                              .values.entries
-                                                              .map((value) => ListTile(
-                                                                  dense: true,
-                                                                  title: SelectableText(
-                                                                      value
-                                                                          .key),
-                                                                  trailing: Text(
-                                                                      '${value.value} 张')))
-                                                              .toList()),
-                                                  ]));
-                                        }),
-                                        CheckboxListTile(
-                                            value: overwrite,
-                                            onChanged: (v) =>
-                                                update(() => overwrite = v!),
-                                            title: const Text('主动覆盖已有内容')),
-                                        if (error != null)
-                                          Text(error!,
-                                              style: const TextStyle(
-                                                  color: Colors.red)),
-                                      ])))),
-                      actions: [
-                        TextButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            child: const Text('取消')),
-                        FilledButton(
-                            onPressed: () {
-                              final values = controllers
-                                  .map((k, v) => MapEntry(k, v.text.trim()));
-                              values.removeWhere((key, value) =>
-                                  value == initial[key] || value.isEmpty);
-                              for (final e in values.entries) {
-                                final problem = validateInfo(e.key, e.value);
-                                if (problem != null) {
-                                  update(() =>
-                                      error = '${infoFields[e.key]}：$problem');
-                                  return;
-                                }
-                              }
-                              Navigator.pop(ctx, values);
-                            },
-                            child: const Text('保存')),
-                      ])));
-      if (updates != null) {
-        for (final file in batch) {
-          store
-              .state(file.path)
-              .supplement(originals[file.path]!, updates, overwrite);
-        }
-        final saved = await persist();
-        if (mounted && saved)
-          setState(() => status = '已保存 ${batch.length} 张照片的补充信息');
-      }
-      // 对话框退出动画结束后再释放编辑控制器。
-      await Future<void>.delayed(const Duration(milliseconds: 250));
-      infoScroll.dispose();
-      for (final controller in controllers.values) {
-        controller.dispose();
-      }
-    } catch (e) {
-      if (mounted) setState(() => status = '读取拍摄信息失败：$e');
-    } finally {
-      if (mounted) setState(() => busy = false);
     }
   }
 
@@ -577,69 +854,8 @@ class _WorkshopState extends State<Workshop> {
           if (!snapshot.hasData)
             return const Padding(
                 padding: EdgeInsets.all(12), child: Text('正在读取拍摄信息…'));
-          final state = store.state(file.path),
-              values = state.effective(snapshot.data!);
-          String formatted(String key) {
-            final text = values[key]?.trim() ?? '';
-            if (text.isEmpty) return '缺失 · 可补填';
-            final number = double.tryParse(text);
-            final compact = number != null && number == number.roundToDouble()
-                ? number.toInt().toString()
-                : text;
-            return switch (key) {
-              'focal' => '$compact mm',
-              'aperture' => 'f/$compact',
-              'shutter' => '$text s',
-              'time' => text.replaceFirstMapped(
-                  RegExp(r'^(\d{4}):(\d{2}):(\d{2})'),
-                  (m) => '${m[1]}-${m[2]}-${m[3]}'),
-              _ => text
-            };
-          }
-
-          Widget card(String key, String label, {bool emphasis = false}) {
-            final missing = (values[key] ?? '').trim().isEmpty;
-            return Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                    color: Theme.of(context).inputDecorationTheme.fillColor,
-                    borderRadius: BorderRadius.circular(7)),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(children: [
-                        Text(label, style: EditorTypography.label(context)),
-                        const Spacer(),
-                        if (state.fields.containsKey(key))
-                          Text('已补填',
-                              style: TextStyle(
-                                  fontSize: 11, color: scheme.primary))
-                      ]),
-                      const SizedBox(height: 7),
-                      SelectableText(formatted(key),
-                          style: TextStyle(
-                              fontSize: emphasis && !missing ? 16 : 14,
-                              fontWeight:
-                                  missing ? FontWeight.w400 : FontWeight.w500,
-                              color:
-                                  missing ? scheme.primary : scheme.onSurface,
-                              height: 1.6))
-                    ]));
-          }
-
-          Widget heading(String title, String icon) => Padding(
-              padding: const EdgeInsets.only(top: 22, bottom: 10),
-              child: Row(children: [
-                PrototypeIcon(icon, size: 17),
-                const SizedBox(width: 8),
-                Text(title, style: EditorTypography.title(context))
-              ]));
-          Widget pair(Widget left, Widget right) =>
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: left),
-                const SizedBox(width: 10),
-                Expanded(child: right)
-              ]);
+          final state = store.state(file.path);
+          final fromFile = snapshot.data!;
           return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -652,33 +868,21 @@ class _WorkshopState extends State<Workshop> {
                         color: scheme.onSurface),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 6),
-                Text('拍摄参数与已补填信息', style: EditorTypography.hint(context)),
-                heading('设备', 'camera'),
-                card('camera', '相机型号'),
-                const SizedBox(height: 10),
-                card('lens', '镜头型号'),
-                heading('曝光参数', 'params'),
-                pair(card('focal', '焦距', emphasis: true),
-                    card('aperture', '光圈', emphasis: true)),
-                const SizedBox(height: 10),
-                pair(card('shutter', '快门', emphasis: true),
-                    card('iso', 'ISO', emphasis: true)),
-                heading('时间与地点', 'time'),
-                card('time', '拍摄时间'),
-                const SizedBox(height: 10),
-                card('place', '地点'),
-                const SizedBox(height: 18),
-                TextButton.icon(
-                    style: TextButton.styleFrom(
-                        backgroundColor: scheme.surfaceContainerHighest,
-                        minimumSize: const Size(0, 36),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6))),
-                    onPressed: busy || targets.isEmpty ? null : editInfo,
-                    icon: const PrototypeIcon('author', size: 16),
-                    label: Text('查看 / 补填选中 ${selected.length} 张信息',
-                        style: const TextStyle(fontSize: 12)))
+                const SizedBox(height: 16),
+                PhotoInfoForm(
+                    key: ValueKey('browse-info-${file.path}'),
+                    existing: fromFile,
+                    manual: state.fields,
+                    compact: true,
+                    onChanged: (key, value) => savePhotoField(
+                        file.path, key, value)),
+                const SizedBox(height: 12),
+                Text(
+                    selected.length > 1
+                        ? '已选 ${selected.length} 张。这里填写只作用于当前这张照片，'
+                            '其他照片的信息请逐张查看。'
+                        : '这里填写只作用于当前这张照片。',
+                    style: EditorTypography.hint(context))
               ]);
         });
   }
@@ -687,6 +891,11 @@ class _WorkshopState extends State<Workshop> {
   final previews = <String, ui.Image>{};
   ui.Image? current;
   String? previewError;
+  List<PendingRecord> pendingRelink = const [];
+
+  /// Pairs that were matched automatically on the last scan, kept so the bar
+  /// can tell the user it happened. Cleared once they have seen it.
+  List<({String from, String to})> autoRelinked = const [];
   int generation = 0;
   bool loading = false;
 
@@ -703,20 +912,7 @@ class _WorkshopState extends State<Workshop> {
       final ticket = generation;
       final path = files[index].path;
       try {
-        final buffer = await ui.ImmutableBuffer.fromFilePath(path);
-        final codec = await ui.instantiateImageCodecWithSize(buffer,
-            getTargetSize: (w, h) {
-          final scale = math.min(1.0, 1200 / math.max(w, h));
-          return ui.TargetImageSize(
-              width: math.max(1, (w * scale).round()),
-              height: math.max(1, (h * scale).round()));
-        });
-        late ui.Image image;
-        try {
-          image = (await codec.getNextFrame()).image;
-        } finally {
-          codec.dispose();
-        }
+        final image = await decodePhotoImage(path, maxEdge: 1200);
         if (!mounted || ticket != generation) {
           image.dispose();
           continue;
@@ -727,7 +923,8 @@ class _WorkshopState extends State<Workshop> {
         setState(() => current = image);
       } catch (e) {
         if (mounted && ticket == generation) {
-          setState(() => previewError = '预览失败：$e');
+          setState(() => previewError =
+              e is PhotoDecodeException ? e.message : '预览失败：$e');
           break;
         }
       }
@@ -738,6 +935,9 @@ class _WorkshopState extends State<Workshop> {
   @override
   void dispose() {
     scanner.cancel();
+    folderWatch.stop();
+    _refreshTimer?.cancel();
+    _verifyTimer?.cancel();
     filmstripScroll.dispose();
     inspectorScroll.dispose();
     informationScroll.dispose();
@@ -751,9 +951,14 @@ class _WorkshopState extends State<Workshop> {
 
   Widget photoPreview() {
     final photo = current;
-    if (photo == null)
+    if (photo == null) {
+      final message =
+          previewError ?? (files.isEmpty ? '请选择照片目录' : '正在生成预览…');
       return Center(
-          child: Text(previewError ?? (files.isEmpty ? '请选择照片目录' : '正在生成预览…')));
+          child: previewError != null && asksForHeifCodec(previewError!)
+              ? HeifInstallNotice(message)
+              : Text(message));
+    }
     // 没有设置样式的照片显示内置预设“画廊签名”，与导出、编辑页的默认样式一致。
     final style =
         store.state(files[index].path).style ?? presetStore.defaultStyle();
@@ -929,11 +1134,16 @@ class _WorkshopState extends State<Workshop> {
         if (duplicates.contains(key))
           collisions.add(target.uri.pathSegments.last);
       }
+      failed = [];
+      failedExportJobs = [];
+      failedExportOptions = options.copy();
       var choice = ExportConflictChoice.keepAll;
       if (collisions.isNotEmpty && mounted) {
         choice = await showDialog<ExportConflictChoice>(
                 context: context,
-                barrierDismissible: false,
+                // Clicking the dimmed area means "cancel": same as the close
+                // button and the same as every other panel in the app.
+                barrierDismissible: true,
                 builder: (ctx) => ExportConflictDialog(
                     filenames: collisions.toList(),
                     canReplace: duplicates.isEmpty,
@@ -949,7 +1159,12 @@ class _WorkshopState extends State<Workshop> {
         return;
       }
       final reserved = <String>{...protectedPaths};
+      // Skipping a conflicting photo means it is not part of this batch at
+      // all: the photo already in the output folder stays untouched.
+      final toExport = <ExportJob>[];
       for (final job in jobs) {
+        if (choice == ExportConflictChoice.skipExisting &&
+            await File(job.target).exists()) continue;
         if (choice == ExportConflictChoice.keepAll) {
           job.target = await unusedExportPath(
               options.directory, job.stem, options.format, reserved);
@@ -967,20 +1182,87 @@ class _WorkshopState extends State<Workshop> {
             throw const FileSystemException('输出目标是原照片，已停止替换；请更换命名或选择全部保留');
           }
         }
+        toExport.add(job);
       }
+      final skippedExisting = jobs.length - toExport.length;
       failed = [];
       failedExportJobs = [];
       failedExportOptions = options.copy();
-      for (final job in jobs) {
+      final outcome = await runExportJobs(toExport, options,
+          replace: choice == ExportConflictChoice.replace);
+      done = outcome.done;
+      wasCancelled = outcome.cancelled;
+      if (skippedExisting > 0 && mounted && !wasCancelled)
+        setState(() =>
+            status = '已跳过 $skippedExisting 张同名照片 · 导出 $done 张，共 ${jobs.length} 张');
+    } catch (error) {
+      errors.add('$error');
+    } finally {
+      if (mounted)
+        setState(() {
+          busy = false;
+          status =
+              '${wasCancelled || cancel ? '已取消' : '本次结束'}，成功 $done 张，失败 ${errors.isNotEmpty && failed.isEmpty ? errors.length : failed.length} 张${errors.isNotEmpty && failed.isEmpty ? '：${errors.first}' : ''}';
+        });
+    }
+  }
+
+  /// Runs one batch, keeping a progress note on disk so a crash can be
+  /// resumed. Already exported photos are never repeated, and a photo that
+  /// failed once is never retried automatically.
+  Future<({int done, bool cancelled})> runExportJobs(
+      List<ExportJob> jobs, ExportOptions options,
+      {bool replace = false}) async {
+    final noteStore = ExportRecoveryStore.standard();
+    final errors = <String>[];
+    var done = 0;
+    var cancelled = false;
+    final skipped = <String>{};
+    setState(() {
+      busy = true;
+      cancel = false;
+      total = jobs.length;
+      completed = 0;
+    });
+    try {
+      for (var index = 0; index < jobs.length; index++) {
+        final job = jobs[index];
         if (cancel) {
-          wasCancelled = true;
+          cancelled = true;
           break;
         }
-        setState(() => status = '正在导出 ${completed + 1}/$total');
+        setState(() => status = '正在导出 ${index + 1}/${jobs.length}');
+        final noteName = job.source.uri.pathSegments.last;
+        final rest = [
+          for (final later in jobs.skip(index + 1))
+            RecoveryJob(later.source.path, later.target, later.stem)
+        ];
         try {
-          final managed = await decodeSrgbPhoto(job.source.path);
+          await noteStore.write(ExportRecovery(noteName,
+              pending: [
+                RecoveryJob(job.source.path, job.target, job.stem),
+                ...rest
+              ],
+              completed: done,
+              skipped: skipped.toList(),
+              options: options));
+        } catch (_) {}
+        try {
+          final managed = await openForExport(job.source.path, options);
+          try {
+            await noteStore.write(ExportRecovery(noteName,
+                width: managed.width,
+                height: managed.height,
+                pending: [
+                  RecoveryJob(job.source.path, job.target, job.stem),
+                  ...rest
+                ],
+                completed: done,
+                skipped: skipped.toList(),
+                options: options));
+          } catch (_) {}
           if (cancel) {
-            wasCancelled = true;
+            cancelled = true;
             break;
           }
           late List<int> data;
@@ -1008,45 +1290,56 @@ class _WorkshopState extends State<Workshop> {
             }
           }
           if (cancel) {
-            wasCancelled = true;
+            cancelled = true;
             break;
           }
-          await publishExport(job, data,
-              replace: choice == ExportConflictChoice.replace);
+          await publishExport(job, data, replace: replace);
           done++;
         } catch (error) {
           failed.add(job.source);
           failedExportJobs.add(job);
-          errors.add('${job.source.uri.pathSegments.last}：$error');
+          skipped.add(job.source.path);
+          errors.add('$noteName：$error');
         }
         if (mounted) setState(() => completed++);
       }
       if (errors.isNotEmpty && mounted) {
         await showDialog<void>(
             context: context,
+            barrierDismissible: true,
             builder: (ctx) => WorkspaceDialog(
                     title: Text('失败 ${failed.length} 张'),
                     content: SizedBox(
                         width: 560,
-                        height: 200,
-                        child: SingleChildScrollView(
-                            child: SelectableText(errors.join('\n')))),
+                        child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SizedBox(
+                                  height: 160,
+                                  child: SingleChildScrollView(
+                                      child: SelectableText(errors.join('\n')))),
+                              if (errors.any(asksForHeifCodec)) ...[
+                                const SizedBox(height: 16),
+                                const HeifStoreButtons()
+                              ]
+                            ])),
                     actions: [
                       TextButton(
                           onPressed: () => Navigator.pop(ctx),
                           child: const Text('关闭'))
                     ]));
       }
-    } catch (error) {
-      errors.add('$error');
     } finally {
+      try {
+        await noteStore.clear();
+      } catch (_) {}
       if (mounted)
         setState(() {
           busy = false;
-          status =
-              '${wasCancelled || cancel ? '已取消' : '本次结束'}，成功 $done 张，失败 ${errors.isNotEmpty && failed.isEmpty ? errors.length : failed.length} 张${errors.isNotEmpty && failed.isEmpty ? '：${errors.first}' : ''}';
         });
     }
+    return (done: done, cancelled: cancelled);
   }
 
   Widget neutralButton(String text, VoidCallback? action) => TextButton(
@@ -1113,6 +1406,10 @@ class _WorkshopState extends State<Workshop> {
 
   Widget filmstrip() => WorkspaceFilmstrip(
       notice: '修改将应用到选中 ${selected.length} 张',
+      relinkCount: pendingRelink.length,
+      onRelink: files.isEmpty ? null : openRelink,
+      autoRelinkCount: autoRelinked.length,
+      onShowAutoRelink: showAutoRelink,
       files: files,
       selected: selected,
       current: index,
@@ -1213,8 +1510,29 @@ class _WorkshopState extends State<Workshop> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         if (busy) ...[
-                          if (total > 0)
+                          if (total > 0) ...[
                             LinearProgressIndicator(value: completed / total),
+                            const SizedBox(height: 6),
+                            Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  Text('$completed',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          fontFeatures: const [
+                                            FontFeature.tabularFigures()
+                                          ],
+                                          color: scheme.onSurface)),
+                                  Text(' / $total',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontFeatures: const [
+                                            FontFeature.tabularFigures()
+                                          ],
+                                          color: Theme.of(context).hintColor))
+                                ])
+                          ],
                           TextButton(
                               onPressed: () => setState(() {
                                     cancel = true;
@@ -1395,7 +1713,7 @@ class _WorkshopState extends State<Workshop> {
                               child: ListenableBuilder(
                                   listenable: workspaceSettings,
                                   builder: (context, _) => header())),
-                          if (Platform.isWindows)
+                          if (Platform.isWindows && !maximized)
                             Positioned.fill(child: windowEdges()),
                         ])))));
       })));

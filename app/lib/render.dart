@@ -214,6 +214,8 @@ Uint8List renderLegacyExport(
       numChannels: 4,
       order: img.ChannelOrder.rgba);
   final (short, side, top, bottom) = layout(width, height, film);
+  if (options.edgePixels == null)
+    validateExportSize(width + side * 2, height + top + bottom);
   var frame = img.Image(width: width + side * 2, height: height + top + bottom);
   img.fill(frame,
       color: film ? img.ColorRgb8(12, 12, 12) : img.ColorRgb8(247, 242, 234));
@@ -237,12 +239,54 @@ Uint8List renderLegacyExport(
   return finishExport(frame, path, fields, options, profile);
 }
 
-void validateExportSize(int width, int height) {
-  if (width < 1 ||
-      height < 1 ||
-      width > 16384 ||
-      height > 16384 ||
-      width * height > 64000000) {
-    throw const FormatException('成片超过本版本的渲染上限（单边16384像素、总计6400万像素），请减小尺寸');
+class ExportSizeException implements Exception {
+  const ExportSizeException();
+  @override
+  String toString() => exportSizeLimitMessage;
+}
+
+bool exceedsExportLimit(int width, int height) =>
+    width < 1 ||
+    height < 1 ||
+    width > exportMaxEdge ||
+    height > exportMaxEdge ||
+    width * height > exportMaxPixels;
+
+/// Longest side that still fits even when the photo is square.
+int exportSafeLongEdge(int requested) {
+  var edge = requested < 1
+      ? 1
+      : (requested > exportMaxEdge ? exportMaxEdge : requested);
+  if (edge * edge <= exportMaxPixels) return edge;
+  var low = 1, high = edge;
+  while (low < high) {
+    final mid = (low + high + 1) >> 1;
+    if (mid * mid <= exportMaxPixels) {
+      low = mid;
+    } else {
+      high = mid - 1;
+    }
   }
+  return low;
+}
+
+void validateExportSize(int width, int height) {
+  if (exceedsExportLimit(width, height)) throw const ExportSizeException();
+}
+
+/// Full-size pixels are used when they fit. A photo past the limit is opened
+/// smaller only after the user has chosen an export size that can fit.
+Future<ManagedPhoto> openForExport(String path, ExportOptions options) async {
+  try {
+    final photo = await decodeSrgbPhoto(path);
+    if (!exceedsExportLimit(photo.width, photo.height)) return photo;
+    if (options.edgePixels == null) throw const ExportSizeException();
+  } on PhotoDecodeException catch (error) {
+    if (!error.tooLarge || options.edgePixels == null) rethrow;
+  }
+  final reduced = await decodeSrgbPhoto(path,
+      maxEdge: exportSafeLongEdge(options.edgePixels!));
+  if (exceedsExportLimit(reduced.width, reduced.height))
+    throw const ExportSizeException();
+  return reduced;
 }

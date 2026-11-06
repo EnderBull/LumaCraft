@@ -148,10 +148,10 @@ class _ExportDialogState extends State<ExportDialog> {
         if (longEdge.text.trim().isNotEmpty &&
             (settings.edgePixels == null ||
                 settings.edgePixels! <= 0 ||
-                settings.edgePixels! > 16384))
+                settings.edgePixels! > exportMaxEdge))
           Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text('请输入 1～16384 的像素值',
+              child: Text('请输入 1～$exportMaxEdge 的像素值',
                   style: TextStyle(
                       fontSize: 12,
                       color: Theme.of(context).colorScheme.error)))

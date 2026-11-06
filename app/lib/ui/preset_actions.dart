@@ -363,9 +363,15 @@ extension PresetActions on _PresetPanelState {
         await persist(result.presets, result.folders);
         if (mounted) update(() => message = '已导入 ${result.count} 个预设');
       });
-  Future<String?> menu(Offset p, Map<String, String> items) => showMenu<String>(
+  Future<String?> menu(Offset p, Map<String, String> items) {
+    final overlay =
+        Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
+    final local = overlay.globalToLocal(p);
+    return showMenu<String>(
           context: context,
-          position: RelativeRect.fromLTRB(p.dx, p.dy, 0, 0),
+          position: RelativeRect.fromRect(
+              Rect.fromLTWH(local.dx, local.dy, 0, 0),
+              Offset.zero & overlay.size),
           popUpAnimationStyle: AnimationStyle.noAnimation,
           color: Theme.of(context).colorScheme.surface,
           elevation: 12,
@@ -377,6 +383,7 @@ extension PresetActions on _PresetPanelState {
                   height: 38,
                   child: Text(e.value, style: const TextStyle(fontSize: 13)))
           ]);
+  }
   Future<void> topMenu() async {
     final box = context.findRenderObject() as RenderBox;
     final action =

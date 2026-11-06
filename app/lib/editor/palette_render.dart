@@ -30,13 +30,16 @@ Size _strokePadding(PaletteStyle p) {
           : extent);
 }
 
+Color _paletteStrokeColor(PaletteStyle p) => Color(p.strokeColor)
+    .withValues(alpha: (p.strokeOpacity / 100).clamp(0.0, 1.0));
+
 /// Isolated stroke ring: clearing its interior never erases artwork beneath it.
 void _outsideStroke(Canvas canvas, Path path, Rect bounds, PaletteStyle p) {
   canvas.saveLayer(bounds, Paint());
   canvas.drawPath(
       path,
       Paint()
-        ..color = Color(p.strokeColor)
+        ..color = _paletteStrokeColor(p)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2 * (p.strokeGap + _strokeWidth(p)));
   canvas.drawPath(
@@ -84,7 +87,7 @@ void paintPalette(Canvas canvas, Rect bounds, PaletteStyle p, List<int> colors,
   final width = cell.width * 6;
   final stroke = _strokeWidth(p), padding = _strokePadding(p);
   final pen = Paint()
-    ..color = Color(p.strokeColor)
+    ..color = _paletteStrokeColor(p)
     ..style = PaintingStyle.stroke
     ..strokeWidth = stroke * 2
     ..isAntiAlias = true;

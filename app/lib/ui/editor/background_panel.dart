@@ -90,6 +90,28 @@ extension BackgroundPanel on _PresetEditorState {
                 onChangeEnd: (_) => c.end())),
       ]);
 
+  Widget photoStrokeProperties() {
+    final s = c.doc.photoStroke;
+    return section('照片描边', [
+      compactToggle(
+          '启用描边', s.enabled, () => c.edit(() => s.enabled = !s.enabled)),
+      if (s.enabled) ...[
+        const SizedBox(height: 10),
+        propertySelect('参照', s.target, photoStrokeTargets, (v) => s.target = v),
+        pair(
+            numeric('粗细 px', s.width, (v) => s.width = v,
+                min: .5, max: 80, step: .1, reset: 2),
+            numeric('偏移 px', s.inset, (v) => s.inset = v,
+                min: -400, max: 400, step: .1, reset: 0)),
+        shadowSlider('不透明度', s.opacity, (v) => s.opacity = v),
+        const SizedBox(height: 14),
+        colorField('描边颜色', s.color, (v) => s.color = v),
+        Text('正数往里缩，负数往外扩，0 压在边上。线跟着照片或画布的长宽比走。',
+            style: EditorTypography.hint(context)),
+      ]
+    ]);
+  }
+
   Widget shadowProperties() {
     final s = c.doc.shadow;
     return section('照片投影', [
@@ -98,10 +120,11 @@ extension BackgroundPanel on _PresetEditorState {
       if (s.enabled) ...[
         const SizedBox(height: 10),
         triple(
-            numeric('角度 °', s.angle, (v) => s.angle = v, max: 360),
+            numeric('角度 °', s.angle, (v) => s.angle = v, max: 360, reset: 135),
             numeric('距离 px', s.distance, (v) => s.distance = v,
-                max: 200, step: .1),
-            numeric('大小 px', s.size, (v) => s.size = v, max: 100, step: .1)),
+                max: 200, step: .1, reset: 14),
+            numeric('大小 px', s.size, (v) => s.size = v,
+                max: 100, step: .1, reset: 0)),
         shadowSlider('不透明度', s.opacity, (v) => s.opacity = v),
         const SizedBox(height: 14),
         shadowSlider('羽化程度', s.feather, (v) => s.feather = v),
@@ -140,14 +163,18 @@ extension BackgroundPanel on _PresetEditorState {
               const {'linear': '线性渐变', 'radial': '中心渐变'},
               (v) => fill.gradientType = v),
           if (fill.gradientType == 'radial') ...[
-            pair(numeric('中心 X %', fill.centerX, (v) => fill.centerX = v),
-                numeric('中心 Y %', fill.centerY, (v) => fill.centerY = v)),
+            pair(
+                numeric('中心 X %', fill.centerX, (v) => fill.centerX = v,
+                    reset: 50),
+                numeric('中心 Y %', fill.centerY, (v) => fill.centerY = v,
+                    reset: 50)),
             numeric('扩散范围 %', fill.radius, (v) => fill.radius = v,
-                min: 1, max: 200),
+                min: 1, max: 200, reset: 70),
           ],
           pair(
               fill.gradientType == 'linear'
-                  ? numeric('方向 °', fill.angle, (v) => fill.angle = v, max: 360)
+                  ? numeric('方向 °', fill.angle, (v) => fill.angle = v,
+                      max: 360, reset: 90)
                   : const SizedBox.shrink(),
               Padding(
                   padding: const EdgeInsets.only(top: 24),
@@ -187,13 +214,15 @@ extension BackgroundPanel on _PresetEditorState {
         if (paletteError != null)
           Text(paletteError!, style: EditorTypography.hint(context)),
       ] else ...[
-        numeric('模糊强度', fill.blur, (v) => fill.blur = v, max: 100, step: .5),
+        numeric('模糊强度', fill.blur, (v) => fill.blur = v,
+            max: 100, step: .5, reset: 24),
         triple(
             numeric('明度', fill.brightness, (v) => fill.brightness = v,
-                min: -100, max: 100),
-            numeric('对比度 %', fill.contrast, (v) => fill.contrast = v, max: 200),
+                min: -100, max: 100, reset: 0),
+            numeric('对比度 %', fill.contrast, (v) => fill.contrast = v,
+                max: 200, reset: 100),
             numeric('饱和度 %', fill.saturation, (v) => fill.saturation = v,
-                max: 200)),
+                max: 200, reset: 100)),
         Text('使用当前照片铺满背景，调整只影响背景；前景保留完整构图。',
             style: EditorTypography.hint(context)),
       ],
@@ -226,7 +255,7 @@ extension BackgroundPanel on _PresetEditorState {
       const SizedBox(height: 14),
       pair(
           numeric('大小 %', fill.textureScale, (v) => fill.textureScale = v,
-              min: 50, max: 300),
+              min: 50, max: 300, reset: 100),
           colorField(
               '纹理颜色', fill.textureColor, (v) => fill.textureColor = v)),
       Padding(
@@ -270,12 +299,16 @@ extension BackgroundPanel on _PresetEditorState {
                   style: EditorTypography.hint(context))),
         triple(
             numeric('孔宽 px', f.width, (v) => f.width = v,
-                min: 2, max: 100, step: .1),
+                min: 2, max: 100, step: .1, reset: 14),
             numeric('孔高 px', f.height, (v) => f.height = v,
-                min: 2, max: 100, step: .1),
-            numeric('圆角 px', f.radius, (v) => f.radius = v, max: 50, step: .1)),
-        pair(numeric('孔间距 px', f.gap, (v) => f.gap = v, max: 100, step: .1),
-            numeric('距外缘 px', f.inset, (v) => f.inset = v, max: 100, step: .1)),
+                min: 2, max: 100, step: .1, reset: 20),
+            numeric('圆角 px', f.radius, (v) => f.radius = v,
+                max: 50, step: .1, reset: 3)),
+        pair(
+            numeric('孔间距 px', f.gap, (v) => f.gap = v,
+                max: 100, step: .1, reset: 14),
+            numeric('距外缘 px', f.inset, (v) => f.inset = v,
+                max: 100, step: .1, reset: 5)),
         colorField('孔洞颜色', f.color, (v) => f.color = v),
         Text(
             available.any((a) => a < required)
@@ -297,10 +330,11 @@ extension BackgroundPanel on _PresetEditorState {
               child: colorField('纸张颜色', s.paper, (v) => s.paper = v))),
       triple(
           numeric('孔径 px', s.diameter, (v) => s.diameter = v,
-              min: 2, max: 120, step: .1),
-          numeric('孔间距 px', s.gap, (v) => s.gap = v, max: 120, step: .1),
+              min: 2, max: 120, step: .1, reset: 18),
+          numeric('孔间距 px', s.gap, (v) => s.gap = v,
+              max: 120, step: .1, reset: 10),
           numeric('外侧留白 px', s.margin, (v) => s.margin = v,
-              max: 400, step: .1)),
+              max: 400, step: .1, reset: 50)),
       Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Text('邮票纸比画布小一圈，外侧露出背景填充。留白超过边框时，纸边自动贴住照片。',
@@ -314,16 +348,16 @@ extension BackgroundPanel on _PresetEditorState {
         pair(
             numeric(vertical ? '距照片右缘 px' : '距照片下缘 px', s.ticketOffset,
                 (v) => s.ticketOffset = v,
-                max: 400, step: .1),
+                max: 400, step: .1, reset: 36),
             numeric('缺口直径 px', s.notch, (v) => s.notch = v,
-                max: 200, step: .1)),
+                max: 200, step: .1, reset: 30)),
         triple(
             numeric('线宽 px', s.ticketWidth, (v) => s.ticketWidth = v,
-                min: .5, max: 20, step: .1),
+                min: .5, max: 20, step: .1, reset: 2),
             numeric('虚线长 px', s.ticketDash, (v) => s.ticketDash = v,
-                min: 1, max: 100, step: .1),
+                min: 1, max: 100, step: .1, reset: 9),
             numeric('虚线间隔 px', s.ticketGap, (v) => s.ticketGap = v,
-                max: 100, step: .1)),
+                max: 100, step: .1, reset: 6)),
         colorField('分割线颜色', s.ticketColor, (v) => s.ticketColor = v),
         if (room <= s.ticketOffset)
           Text(vertical ? '右侧边框不够宽，分割线会贴到纸边；加宽右边框做票根。' : '下方边框不够高，分割线会贴到纸边；加高下边框。',

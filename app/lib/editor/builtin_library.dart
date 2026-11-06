@@ -17,7 +17,7 @@ class BuiltinFolder {
 class BuiltinEntry {
   final String id, folder;
   final StyleDocument style;
-  BuiltinEntry(this.id, this.style, {this.folder = 'classic'});
+  BuiltinEntry(this.id, this.style, {this.folder = 'simple'});
   Map<String, dynamic> toJson() =>
       {'id': id, 'folder': folder, 'style': style.toJson()};
 }
@@ -27,8 +27,8 @@ class BuiltinLibrary {
   final List<BuiltinEntry> entries;
   BuiltinLibrary(this.folders, this.entries);
   factory BuiltinLibrary.seed() => BuiltinLibrary([
-        const BuiltinFolder('classic', '创意边框'),
-        const BuiltinFolder('phone', '手机经典')
+        const BuiltinFolder('simple', '简约'),
+        const BuiltinFolder('phone', '手机水印')
       ], [
         BuiltinEntry('gallery', StyleDocument.template()),
         BuiltinEntry('film', StyleDocument.template(true))

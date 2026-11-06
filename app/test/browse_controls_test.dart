@@ -18,7 +18,12 @@ void main() {
     final child = await Directory('${root.path}/child').create();
     await File('${root.path}/a.jpg').writeAsString('sample');
     await File('${child.path}/b.jpeg').writeAsString('sample');
+    await File('${child.path}/c.heic').writeAsString('sample');
+    await File('${child.path}/d.HEIF').writeAsString('sample');
+    await File('${root.path}/e.hif').writeAsString('sample');
     await File('${child.path}/skip.txt').writeAsString('sample');
+    await File('${child.path}/skip.heics').writeAsString('sample');
+    await File('${child.path}/skip.png').writeAsString('sample');
     final scanner = PhotoScanner(),
         done = Completer<void>(),
         files = <String>[];
@@ -28,8 +33,8 @@ void main() {
         onDone: (_) => done.complete(),
         onError: (e) => fail(e));
     await done.future;
-    expect(files.length, 2);
-    expect(files.toSet().length, 2);
+    expect(files.length, 5);
+    expect(files.toSet().length, 5);
     var stale = 0;
     final next = Completer<void>();
     scanner.start(root.path,

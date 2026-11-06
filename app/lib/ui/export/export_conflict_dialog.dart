@@ -12,6 +12,19 @@ class ExportConflictDialog extends StatelessWidget {
       required this.filenames,
       required this.onChoose,
       this.canReplace = true});
+
+  /// Pale red for "keep all": it is the least destructive option here, and a
+  /// soft tint keeps it distinct from the accent-coloured actions without
+  /// looking like a warning.
+  static Color keepAllColor(ThemeData theme) =>
+      theme.brightness == Brightness.dark
+          ? const Color(0xff5c3a36)
+          : const Color(0xfff3dcd8);
+
+  static Color keepAllInk(ThemeData theme) =>
+      theme.brightness == Brightness.dark
+          ? const Color(0xfff6ddd8)
+          : const Color(0xff7a4038);
   @override
   Widget build(BuildContext context) => Dialog(
       clipBehavior: Clip.antiAlias,
@@ -89,13 +102,29 @@ class ExportConflictDialog extends StatelessWidget {
                               SizedBox(
                                   width: 112,
                                   height: 40,
-                                  child: WorkspaceActionButton(
-                                      label: '替换保存',
-                                      danger: true,
+                                  child: FilledButton(
+                                      onPressed: () => onChoose(
+                                          ExportConflictChoice.skipExisting),
+                                      style: FilledButton.styleFrom(
+                                          textStyle: dialogActionStyle,
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(6))),
+                                      child: const Text('跳过同名'))),
+                              SizedBox(
+                                  width: 112,
+                                  height: 40,
+                                  child: FilledButton(
                                       onPressed: !canReplace
                                           ? null
                                           : () => onChoose(
-                                              ExportConflictChoice.replace))),
+                                              ExportConflictChoice.replace),
+                                      style: FilledButton.styleFrom(
+                                          textStyle: dialogActionStyle,
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(6))),
+                                      child: const Text('替换保存'))),
                               SizedBox(
                                   width: 112,
                                   height: 40,
@@ -104,6 +133,11 @@ class ExportConflictDialog extends StatelessWidget {
                                           ExportConflictChoice.keepAll),
                                       style: FilledButton.styleFrom(
                                           textStyle: dialogActionStyle,
+                                          backgroundColor:
+                                              ExportConflictDialog.keepAllColor(
+                                                  Theme.of(context)),
+                                          foregroundColor: ExportConflictDialog
+                                              .keepAllInk(Theme.of(context)),
                                           shape: RoundedRectangleBorder(
                                               borderRadius:
                                                   BorderRadius.circular(6))),

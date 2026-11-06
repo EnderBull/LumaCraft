@@ -416,6 +416,7 @@ extension EditorCanvas on _PresetEditorState {
                       () => c.edit(() {
                             c.doc = entry.copy();
                             c.selection.clear();
+                            resetOpenedPreset();
                           }))
                 ]))),
         Container(
@@ -428,8 +429,11 @@ extension EditorCanvas on _PresetEditorState {
         Expanded(
             child: photo == null || marksLoading
                 ? Center(
-                    child: Text(
-                        marksLoading ? '正在加载图片标识…' : loadError ?? '正在加载照片…'))
+                    child: marksLoading
+                        ? const Text('正在加载图片标识…')
+                        : loadError != null && asksForHeifCodec(loadError!)
+                            ? HeifInstallNotice(loadError!)
+                            : Text(loadError ?? '正在加载照片…'))
                 : LayoutBuilder(builder: (ctx, box) {
                     scene?.dispose();
                     scene = StyleScene(c.doc, photo!, fields,

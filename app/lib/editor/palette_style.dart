@@ -1,7 +1,7 @@
 /// Dimensions follow the editor's 1000 px photo-short-side coordinate system.
 class PaletteStyle {
   String mode, shape, strokeMode;
-  double size, height, gap, radius, strokeWidth, strokeGap, scale;
+  double size, height, gap, radius, strokeWidth, strokeGap, strokeOpacity, scale;
   bool stroke, reversed;
   int strokeColor;
   PaletteStyle(
@@ -15,6 +15,7 @@ class PaletteStyle {
       this.strokeMode = 'outer',
       this.strokeWidth = 1,
       this.strokeGap = 0,
+      this.strokeOpacity = 100,
       this.strokeColor = 0xffeeeeee,
       this.reversed = false,
       this.scale = 1});
@@ -29,6 +30,7 @@ class PaletteStyle {
         'strokeMode': strokeMode,
         'strokeWidth': strokeWidth,
         'strokeGap': strokeGap,
+        'strokeOpacity': strokeOpacity,
         'strokeColor': strokeColor,
         'reversed': reversed,
         'scale': scale
@@ -54,6 +56,7 @@ class PaletteStyle {
         strokeMode: j['strokeMode'] == 'each' ? 'each' : 'outer',
         strokeWidth: n('strokeWidth', 1, .1, 30),
         strokeGap: n('strokeGap', 0, 0, 10),
+        strokeOpacity: n('strokeOpacity', 100, 0, 100),
         strokeColor: j['strokeColor'] as int? ?? 0xffeeeeee,
         reversed: j['reversed'] == true,
         scale: n('scale', 1, .1, 6));

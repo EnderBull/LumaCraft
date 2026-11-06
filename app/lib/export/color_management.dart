@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'dart:async';
@@ -28,15 +29,162 @@ String colorToolPath() {
   throw StateError('缺少色彩转换工具，请使用完整的软件文件夹');
 }
 
-Future<ManagedPhoto> decodeSrgbPhoto(String path) async {
+const heifCodecMissingMessage =
+    '这台电脑还不能读取 HEIC。请在微软商店安装“HEIF 图像扩展”和“HEVC 视频扩展”，装好后再打开。';
+const heifStoreProductId = '9PMMSR1CGPWG';
+const hevcStoreProductId = '9N4WGH0Z6VHQ';
+
+/// sRGB primaries as stored in a D50-adapted ICC matrix profile.
+const _srgbMatrix = <double>[
+  0.4360, 0.2225, 0.0139, //
+  0.3851, 0.7169, 0.0971,
+  0.1431, 0.0606, 0.7141
+];
+
+double _fixed(ByteData data, int offset) =>
+    data.getInt32(offset, Endian.big) / 65536.0;
+
+/// Head of a file, without pulling a large photo fully into memory.
+Uint8List _readHeadSync(String path, int limit) {
+  final handle = File(path).openSync();
+  try {
+    final buffer = Uint8List(limit);
+    var filled = 0;
+    while (filled < limit) {
+      // readIntoSync takes an end index in the buffer, not a byte count.
+      final read = handle.readIntoSync(buffer, filled, limit);
+      if (read <= 0) break;
+      filled += read;
+    }
+    return Uint8List.sublistView(buffer, 0, filled);
+  } finally {
+    handle.closeSync();
+  }
+}
+
+/// True when the embedded ICC profile describes a wider space than sRGB
+/// (Display P3, Adobe RGB, ProPhoto...). Flutter's own decoder ignores that
+/// profile, so such photos must be converted by Windows or the preview is
+/// visibly duller / more saturated than the exported file.
+bool iccIsWideGamut(Uint8List profile) {
+  if (profile.length < 132) return false;
+  final header = ByteData.sublistView(profile);
+  if (header.getUint32(0) > profile.length) return false;
+  if (String.fromCharCodes(profile.sublist(16, 20)) != 'RGB ') return false;
+  final count = header.getUint32(128);
+  if (count == 0 || count > 64 || 132 + count * 12 > profile.length)
+    return false;
+  final primaries = <String, List<double>>{};
+  for (var i = 0; i < count; i++) {
+    final entry = 132 + i * 12;
+    final tag = String.fromCharCodes(profile.sublist(entry, entry + 4));
+    if (!['rXYZ', 'gXYZ', 'bXYZ'].contains(tag)) continue;
+    final offset = header.getUint32(entry + 4), size = header.getUint32(entry + 8);
+    if (size < 20 || offset + 20 > profile.length) return false;
+    if (String.fromCharCodes(profile.sublist(offset, offset + 4)) != 'XYZ ')
+      return false;
+    final data = ByteData.sublistView(profile, offset, offset + 20);
+    primaries[tag] = [
+      _fixed(data, 8),
+      _fixed(data, 12),
+      _fixed(data, 16)
+    ];
+  }
+  if (primaries.length != 3) return false;
+  final actual = [
+    ...primaries['rXYZ']!,
+    ...primaries['gXYZ']!,
+    ...primaries['bXYZ']!
+  ];
+  for (var i = 0; i < 9; i++) {
+    if ((actual[i] - _srgbMatrix[i]).abs() > 0.012) return true;
+  }
+  return false;
+}
+
+/// Reads only the head of the file: the ICC profile sits before the pixels.
+/// Sync on purpose: the preview is already async and tests must stay
+/// deterministic.
+bool jpegUsesWideGamut(String path) {
+  if (heifPath(path)) return false;
+  final head = _readHeadSync(path, 262144);
+  if (head.length < 4 || head[0] != 0xff || head[1] != 0xd8) return false;
+  final pieces = <int, Uint8List>{};
+  var p = 2;
+  while (p + 4 <= head.length) {
+    if (head[p] != 0xff) break;
+    final marker = head[p + 1];
+    if (marker == 0xda || marker == 0xd9) break;
+    final length = (head[p + 2] << 8) | head[p + 3];
+    if (length < 2 || p + 2 + length > head.length) break;
+    if (marker == 0xe2 &&
+        p + 18 <= head.length &&
+        String.fromCharCodes(head.sublist(p + 4, p + 15)) == 'ICC_PROFILE') {
+      pieces[head[p + 16]] = head.sublist(p + 18, p + 2 + length);
+    }
+    p += 2 + length;
+  }
+  if (pieces.isEmpty) return false;
+  final ordered = pieces.keys.toList()..sort();
+  final profile = Uint8List.fromList(
+      [for (final key in ordered) ...pieces[key]!]);
+  return iccIsWideGamut(profile);
+}
+
+bool asksForHeifCodec(String message) =>
+    message.contains(heifCodecMissingMessage);
+
+Future<void> openMicrosoftStoreProduct(String productId) {
+  // explorer.exe treats this address as a folder and opens Documents.
+  return Process.run('rundll32', [
+    'url.dll,FileProtocolHandler',
+    'ms-windows-store://pdp/?ProductId=$productId'
+  ]);
+}
+
+class PhotoDecodeException implements Exception {
+  final String message;
+  final bool tooLarge;
+  const PhotoDecodeException(this.message, {this.tooLarge = false});
+  @override
+  String toString() => message;
+}
+
+String explainDecodeFailure(String detail, {required bool heif}) {
+  final match = RegExp(r'0x([0-9A-Fa-f]+)').firstMatch(detail);
+  final code = match == null ? '' : '0x${match.group(1)!.toUpperCase()}';
+  if (code == '0x88982F80')
+    return '这张照片按高亮度方式保存，当前无法打开。手机里常见的 HDR 仍可使用。';
+  if (code == '0x88982F50' || code == '0x80040154')
+    return heifCodecMissingMessage;
+  if (code == '0x8007000E')
+    return '这张照片太大，超过可导出的上限（最长边 16384 像素，总计约 1.34 亿像素），请缩小尺寸';
+  if (heif && code == '0xC00D36BE') return '这张 HEIC 照片已损坏，无法打开。';
+  if (heif) return '这张 HEIC 照片无法打开。';
+  return '照片解码或色彩转换失败，未生成文件。';
+}
+
+Future<ManagedPhoto> decodeSrgbPhoto(String path, {int maxEdge = 0}) async {
   if (!Platform.isWindows) throw UnsupportedError('此版本的受管理导出需要 Windows');
-  final exif = captureExif(await File(path).readAsBytes());
-  final orientation = exif?.imageIfd.orientation ?? 1;
-  final result = await Process.run(
-      colorToolPath(), [File(path).absolute.path, '$orientation'],
+  // HEIF 的方向已由系统解码器转正。再按文件里的方向标记转一次，画面会转歪。
+  var orientation = 1;
+  if (!heifPath(path)) {
+    final exif = captureExif(await File(path).readAsBytes());
+    orientation = exif?.imageIfd.orientation ?? 1;
+  }
+  final arguments = [File(path).absolute.path, '$orientation'];
+  if (maxEdge > 0) arguments.add('$maxEdge');
+  final result = await Process.run(colorToolPath(), arguments,
       stdoutEncoding: null, stderrEncoding: null);
-  if (result.exitCode != 0)
-    throw StateError('照片解码或色彩转换失败（${result.exitCode}），未生成带错误色彩标签的文件');
+  if (result.exitCode != 0) {
+    final raw = result.stderr;
+    final detail = raw is List<int>
+        ? String.fromCharCodes(raw)
+        : raw?.toString() ?? '';
+    throw PhotoDecodeException(
+        explainDecodeFailure(detail, heif: heifPath(path)),
+        tooLarge: detail.toUpperCase().contains('0X8007000E'));
+  }
   final bytes = Uint8List.fromList(result.stdout as List<int>);
   if (bytes.length < 16) throw const FormatException('色彩工具返回数据不完整');
   final header = ByteData.sublistView(bytes);
@@ -52,6 +200,43 @@ Future<ManagedPhoto> decodeSrgbPhoto(String path) async {
   }
   return ManagedPhoto(Uint8List.sublistView(bytes, 16 + profileSize), width,
       height, Uint8List.sublistView(bytes, 16, 16 + profileSize));
+}
+
+Future<ui.Image> _decodeWithFlutter(String path, int maxEdge) async {
+  final buffer = await ui.ImmutableBuffer.fromFilePath(path);
+  try {
+    final codec = await ui.instantiateImageCodecWithSize(buffer,
+        getTargetSize: (w, h) {
+      final scale = math.min(1.0, maxEdge / math.max(w, h));
+      return ui.TargetImageSize(
+          width: math.max(1, (w * scale).round()),
+          height: math.max(1, (h * scale).round()));
+    });
+    try {
+      return (await codec.getNextFrame()).image;
+    } finally {
+      codec.dispose();
+    }
+  } finally {
+    // The buffer keeps an OS handle on the file. Leaving it open made the
+    // photo undeletable outside the app until the preview was replaced.
+    buffer.dispose();
+  }
+}
+
+/// 普通 sRGB 的 JPG 仍用界面自带解码，快且足够。HEIC 和带广色域说明的
+/// JPG 交给 Windows，转成普通屏幕颜色，与导出结果一致。
+/// 预览传入最长边，避免把手机原图整张展开。
+Future<ui.Image> decodePhotoImage(String path, {required int maxEdge}) async {
+  if (!heifPath(path) && !jpegUsesWideGamut(path)) {
+    try {
+      return await _decodeWithFlutter(path, maxEdge);
+    } catch (e) {
+      if (!Platform.isWindows) throw PhotoDecodeException('预览失败：$e');
+    }
+  }
+  final managed = await decodeSrgbPhoto(path, maxEdge: maxEdge);
+  return managed.image();
 }
 
 int _crc(List<int> bytes) {

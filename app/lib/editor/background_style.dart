@@ -231,6 +231,39 @@ class StampStyle {
       notch: styleNumber(j, 'notch', 30, 0, 200));
 }
 
+const photoStrokeTargets = {'photo': '照片边缘', 'canvas': '画布外缘'};
+
+/// 跟着照片或画布走的描边。正数往里缩，负数往外扩，0 压在边上。
+/// 线画在边的正中：想让整条线都落在照片外面，偏移要设成负的半个线宽。
+class PhotoStrokeStyle {
+  bool enabled;
+  String target;
+  int color;
+  double width, opacity, inset;
+  PhotoStrokeStyle(
+      {this.enabled = false,
+      this.target = 'photo',
+      this.color = 0xffc9c2b4,
+      this.width = 2,
+      this.opacity = 100,
+      this.inset = 0});
+  Map<String, dynamic> toJson() => {
+        'enabled': enabled,
+        'target': target,
+        'color': color,
+        'width': width,
+        'opacity': opacity,
+        'inset': inset
+      };
+  factory PhotoStrokeStyle.fromJson(Map<String, dynamic> j) => PhotoStrokeStyle(
+      enabled: j['enabled'] == true,
+      target: photoStrokeTargets.containsKey(j['target']) ? j['target'] : 'photo',
+      color: j['color'] is int ? j['color'] : 0xffc9c2b4,
+      width: styleNumber(j, 'width', 2, .5, 80),
+      opacity: styleNumber(j, 'opacity', 100, 0, 100),
+      inset: styleNumber(j, 'inset', 0, -400, 400));
+}
+
 class PhotoShadowStyle {
   bool enabled;
   int color;

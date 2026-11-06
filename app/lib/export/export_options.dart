@@ -1,3 +1,10 @@
+/// Longest side a normal graphics card can draw, and the most pixels the
+/// color converter accepts (512 MiB of RGBA, about 134 million pixels).
+const exportMaxEdge = 16384;
+const exportMaxPixels = 512 * 1024 * 1024 ~/ 4;
+const exportSizeLimitMessage =
+    '成片超过可导出的上限（最长边 16384 像素，总计约 1.34 亿像素），请缩小尺寸';
+
 /// Export settings are separate from the dialog so the task runner can snapshot them.
 class ExportOptions {
   String scope = 'selected', format = 'jpg', sizeEdge = 'long';
@@ -20,8 +27,8 @@ class ExportOptions {
         !['long', 'short'].contains(sizeEdge)) return '导出设置无效';
     if (directory.trim().isEmpty) return '请选择输出目录';
     if (quality < 1 || quality > 100) return '画质需要在 1～100 之间';
-    if (edgePixels != null && (edgePixels! < 1 || edgePixels! > 16384))
-      return '成片边长需要在 1～16384 像素之间';
+    if (edgePixels != null && (edgePixels! < 1 || edgePixels! > exportMaxEdge))
+      return '成片边长需要在 1～$exportMaxEdge 像素之间';
     return null;
   }
 }
@@ -57,4 +64,4 @@ const namingVariables = {
 List<NamingPart> defaultNamingTemplate() =>
     [NamingPart.variable('name'), NamingPart.text('_LumaCraft')];
 
-enum ExportConflictChoice { keepAll, replace, cancel }
+enum ExportConflictChoice { keepAll, replace, skipExisting, cancel }

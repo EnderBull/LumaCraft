@@ -406,8 +406,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('应用样式'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('确认应用'));
-    await tester.pumpAndSettle();
+    // 只选中一张照片时不弹范围对话框，直接应用。
+    expect(find.text('确认应用'), findsNothing);
     expect(applied, isNotNull);
     expect(applied!.nodes.first.text, 'CORE FLOW');
     expect(applied!.nodes.every((n) => n.anchor == 'photo'), true);
@@ -551,6 +551,93 @@ void main() {
     scene.dispose();
     photo.dispose();
     codec.dispose();
+  });
+
+  testWidgets('图层点按只选中，挪开超过20像素才拖动', (tester) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(
+        theme: workspaceTheme(true),
+        home: PresetEditor(
+            files: [],
+            current: 0,
+            selected: {},
+            initial: StyleDocument.template(),
+            settings:
+                WorkspaceSettings(File('${output.path}/layer-drag-settings.json')),
+            presets:
+                _MemoryPresets(File('${output.path}/layer-drag-presets.json')),
+            metadata: (_) async => {},
+            apply: (_, __) async {})));
+    await tester.pump();
+    final dynamic state = tester.state(find.byType(PresetEditor));
+    final c = state.c as EditorController;
+    final id = c.doc.nodes.first.id;
+    final label = find.descendant(
+        of: find.byType(ListView), matching: find.text('题签'));
+    final feedback = find.byKey(const ValueKey('layer-drag-feedback'));
+    c.select(null);
+    await tester.pump();
+    final row = tester.getRect(label);
+    final list = tester.getRect(
+        find.ancestor(of: label, matching: find.byType(ListView)).first);
+    await tester.tapAt(Offset(
+        (row.right + 40).clamp(list.left + 8, list.right - 80), row.center.dy));
+    await tester.pump();
+    expect(c.selection.contains(id), true, reason: '点在图层行文字旁边的空白处也应选中');
+    final short = await tester.startGesture(tester.getCenter(label));
+    await tester.pump();
+    expect(c.selection.contains(id), true, reason: '按下后应立刻选中');
+    await short.moveBy(const Offset(12, 0));
+    await tester.pump();
+    expect(feedback, findsNothing, reason: '挪开不到 20 像素时不应出现拖动浮层');
+    await short.moveBy(const Offset(16, 0));
+    await tester.pump();
+    expect(feedback, findsOneWidget, reason: '挪开超过 20 像素后应立刻出现拖动浮层');
+    await short.up();
+    await tester.pump(const Duration(milliseconds: 500));
+  });
+
+  testWidgets('按住方向键连续移动只记一步撤销', (tester) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(
+        theme: workspaceTheme(true),
+        home: PresetEditor(
+            files: [],
+            current: 0,
+            selected: {},
+            initial: StyleDocument.template(),
+            settings:
+                WorkspaceSettings(File('${output.path}/nudge-settings.json')),
+            presets: _MemoryPresets(File('${output.path}/nudge-presets.json')),
+            metadata: (_) async => {},
+            apply: (_, __) async {})));
+    await tester.pump();
+    final dynamic state = tester.state(find.byType(PresetEditor));
+    final c = state.c as EditorController;
+    final id = c.doc.nodes.first.id;
+    c.select(id);
+    await tester.pump();
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump();
+    final start = c.doc.node(id)!.x;
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    final moved = c.doc.node(id)!.x;
+    expect(moved, greaterThan(start));
+    c.undo();
+    expect(c.doc.node(id)!.x, start);
+    c.redo();
+    expect(c.doc.node(id)!.x, closeTo(moved, .001));
   });
 }
 

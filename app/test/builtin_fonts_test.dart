@@ -60,10 +60,22 @@ void main() {
     await store.load();
     expect(store.entries.map((p) => p.id),
         containsAll(['gallery', 'travel', 'film']));
-    expect(store.builtinFolders.map((f) => f.name), contains('手机经典'));
+    expect(store.builtinFolders.map((f) => f.name),
+        containsAll(['简约', '旅行', '手机水印']));
+    expect(store.entries.map((e) => e.id), isNot(contains('brushed-metal')));
+    final frame = store.entries.firstWhere((e) => e.id == 'double-frame');
+    expect(frame.folder, 'builtin:simple');
+    expect(frame.style.photoStroke.enabled, isTrue);
+    expect(frame.style.photoStroke.target, 'canvas');
+    expect(frame.style.photoStroke.inset, 22);
+    expect(frame.style.nodes.any((n) => n.id == 'frame'), isFalse);
+    final candy = store.entries.firstWhere((e) => e.id == 'candy-polka');
+    expect(candy.style.photoStroke.inset, -8);
+    expect(candy.style.photoStroke.width, 16);
+    expect(candy.style.nodes.any((n) => n.id == 'ring'), isFalse);
     final original = store.entries.first.style.toJson();
     await store.saveBuiltin('gallery',
-        store.entries.first.style.copy()..name = '手工维护作品', 'classic');
+        store.entries.first.style.copy()..name = '手工维护作品', 'simple');
     final reopened = PresetStore(store.file, authoring: true);
     await reopened.load();
     expect(reopened.entries.first.style.name, '手工维护作品');
@@ -71,7 +83,7 @@ void main() {
     await release.load();
     expect(release.entries.first.style.name, '画廊签名');
     await expectLater(
-        release.saveBuiltin('gallery', StyleDocument(), 'classic'),
+        release.saveBuiltin('gallery', StyleDocument(), 'simple'),
         throwsStateError);
     final exported = BuiltinLibrary.decode(reopened.builtinLibrary.encode());
     expect(exported.entries.first.style.name, '手工维护作品');

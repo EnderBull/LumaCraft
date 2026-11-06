@@ -105,14 +105,19 @@ extension ShapePanel on _PresetEditorState {
             numeric(line ? '长度 px' : '宽度 px', s.width, (v) => s.width = v,
                 min: shapeLimits['width']!.$1,
                 max: shapeLimits['width']!.$2,
-                step: .1),
+                step: .1,
+                reset: initialNum(node.id, (n) => n.shape.width, 140)),
             numeric(line ? '粗细 px' : '高度 px', s.height, (v) => s.height = v,
                 min: shapeLimits['height']!.$1,
                 max: shapeLimits['height']!.$2,
-                step: .1)),
+                step: .1,
+                reset: initialNum(node.id, (n) => n.shape.height, 90))),
         pair(
             numeric('旋转角度 °', s.rotation, (v) => s.rotation = v % 360,
-                min: 0, max: 360, step: .1),
+                min: 0,
+                max: 360,
+                step: .1,
+                reset: initialNum(node.id, (n) => n.shape.rotation, 0)),
             s.kind == 'triangle'
                 ? Padding(
                     padding: const EdgeInsets.only(top: 22),
@@ -135,20 +140,32 @@ extension ShapePanel on _PresetEditorState {
         ],
         if (s.kind == 'parallelogram')
           numeric('倾斜程度 %', s.skew * 100, (v) => s.skew = v / 100,
-              min: 0, max: 85, step: .5),
+              min: 0,
+              max: 85,
+              step: .5,
+              reset: initialNum(node.id, (n) => n.shape.skew * 100, 25)),
         if (s.kind == 'trapezoid')
           numeric('上边收窄 %', s.inset * 100, (v) => s.inset = v / 100,
-              min: 0, max: 49, step: .5),
+              min: 0,
+              max: 49,
+              step: .5,
+              reset: initialNum(node.id, (n) => n.shape.inset * 100, 25)),
         if (s.kind == 'hexagon') ...[
           _shapeSelect('朝向', s.pointy ? 'pointy' : 'flat',
               const {'flat': '平顶', 'pointy': '尖顶'},
               (v) => s.pointy = v == 'pointy'),
           numeric('角部收窄 %', s.inset * 100, (v) => s.inset = v / 100,
-              min: 0, max: 50, step: .5),
+              min: 0,
+              max: 50,
+              step: .5,
+              reset: initialNum(node.id, (n) => n.shape.inset * 100, 25)),
         ],
         if (shapeHasRadius(s))
           numeric('圆角 px', s.radius, (v) => s.radius = v,
-              min: 0, max: shapeMaxCut(s), step: .1),
+              min: 0,
+              max: shapeMaxCut(s),
+              step: .1,
+              reset: initialNum(node.id, (n) => n.shape.radius, 0)),
         Text(
             line
                 ? '拖动线条两端的方块调整长度；拖动上方圆形抓点旋转，Shift 以 15° 为步进。'
@@ -185,7 +202,10 @@ extension ShapePanel on _PresetEditorState {
           _shapeToggle('启用描边', s.stroke, () => c.edit(() => s.stroke = !s.stroke)),
           if (s.stroke) ...[
             numeric('描边粗细 px', s.strokeWidth, (v) => s.strokeWidth = v,
-                min: .1, max: 200, step: .1),
+                min: .1,
+                max: 200,
+                step: .1,
+                reset: initialNum(node.id, (n) => n.shape.strokeWidth, 2)),
             colorField('描边颜色', s.strokeColor, (v) => s.strokeColor = v),
             _shapeOpacity('描边不透明度', s.strokeOpacity, (v) => s.strokeOpacity = v),
           ],

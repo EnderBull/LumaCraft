@@ -5,6 +5,7 @@ import '../../workspace_settings.dart';
 import '../../window_controls.dart';
 import '../app_icons.dart';
 import '../smooth_scroll.dart';
+import '../photo_thumb.dart';
 import 'prototype_controls.dart';
 
 class WorkspaceHeader extends StatelessWidget {
@@ -135,9 +136,20 @@ class WorkspaceFilmstrip extends StatefulWidget {
   final void Function(int, bool, bool) onSelect;
   final VoidCallback onSelectAll, onClear;
   final String notice;
+  final int relinkCount;
+  final VoidCallback? onRelink;
+
+  /// Pairs the app already matched on its own. Shown as a quiet confirmation
+  /// so the user learns what happened, without a dialog interrupting them.
+  final int autoRelinkCount;
+  final VoidCallback? onShowAutoRelink;
   const WorkspaceFilmstrip(
       {super.key,
       this.notice = '',
+      this.relinkCount = 0,
+      this.onRelink,
+      this.autoRelinkCount = 0,
+      this.onShowAutoRelink,
       required this.files,
       required this.selected,
       required this.current,
@@ -198,6 +210,54 @@ class _WorkspaceFilmstripState extends State<WorkspaceFilmstrip> {
                           const SizedBox(width: 8),
                           neutral(
                               '取消选择', widget.enabled ? widget.onClear : null),
+                          // Only when something actually waits for the user:
+                          // a button that is always there trains people to
+                          // ignore it.
+                          if (widget.onRelink != null && widget.relinkCount > 0) ...[
+                            const SizedBox(width: 8),
+                            TextButton.icon(
+                                style: TextButton.styleFrom(
+                                    backgroundColor:
+                                        scheme.primary.withValues(alpha: .16),
+                                    foregroundColor: scheme.primary,
+                                    minimumSize: const Size(0, 28),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(6))),
+                                onPressed: widget.enabled
+                                    ? widget.onRelink
+                                    : null,
+                                icon: const Icon(Icons.link, size: 14),
+                                label: Text('重新关联 ${widget.relinkCount} 张',
+                                    style: const TextStyle(fontSize: 12)))
+                          ],
+                          if (widget.autoRelinkCount > 0 &&
+                              widget.onShowAutoRelink != null) ...[
+                            const SizedBox(width: 8),
+                            TextButton.icon(
+                                style: TextButton.styleFrom(
+                                    backgroundColor:
+                                        scheme.surfaceContainerHighest,
+                                    foregroundColor: scheme.onSurface,
+                                    minimumSize: const Size(0, 28),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(6))),
+                                onPressed: widget.enabled
+                                    ? widget.onShowAutoRelink
+                                    : null,
+                                icon: Icon(Icons.check_circle_outline,
+                                    size: 14,
+                                    color:
+                                        scheme.onSurface.withValues(alpha: .6)),
+                                label: Text(
+                                    '已自动关联 ${widget.autoRelinkCount} 张',
+                                    style: const TextStyle(fontSize: 12)))
+                          ],
                           const Spacer(),
                           if (box.maxWidth > 600)
                             Text('Ctrl 增减 · Shift 连选',
@@ -292,12 +352,7 @@ class _WorkspaceFilmstripState extends State<WorkspaceFilmstrip> {
                                             Expanded(
                                                 child: Center(
                                                     child: Stack(children: [
-                                              Image.file(file,
-                                                  cacheWidth: 240,
-                                                  fit: BoxFit.contain,
-                                                  errorBuilder: (_, e, s) =>
-                                                      const Icon(Icons
-                                                          .broken_image_outlined)),
+                                              PhotoThumb(file),
                                               if (widget.edited
                                                   .contains(file.path))
                                                 Positioned(

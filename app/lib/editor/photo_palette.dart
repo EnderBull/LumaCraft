@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show compute;
+import '../export/color_management.dart';
 
 const photoPaletteField = '__photoPalette';
 final _paletteCache = <String, Future<List<int>>>{};
@@ -27,24 +28,14 @@ Future<List<int>> photoPaletteForFile(String path) async {
 }
 
 Future<List<int>> _readPalette(String path) async {
-  final buffer = await ui.ImmutableBuffer.fromFilePath(path);
-  final codec =
-      await ui.instantiateImageCodecWithSize(buffer, getTargetSize: (w, h) {
-    final scale = math.min(1.0, 96 / math.max(w, h));
-    return ui.TargetImageSize(
-        width: math.max(1, (w * scale).round()),
-        height: math.max(1, (h * scale).round()));
-  });
-  ui.Image? image;
+  final image = await decodePhotoImage(path, maxEdge: 96);
   try {
-    image = (await codec.getNextFrame()).image;
     final data =
         await image.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
     if (data == null) throw StateError('照片提色失败');
     return await compute(extractPhotoColors, Uint8List.sublistView(data));
   } finally {
-    image?.dispose();
-    codec.dispose();
+    image.dispose();
   }
 }
 

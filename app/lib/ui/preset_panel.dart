@@ -62,6 +62,7 @@ class _PresetPanelState extends State<PresetPanel> {
   Set<String> base = {}, hits = {};
   List<PresetEntry> visible = [];
   double cellWidth = 0, cellHeight = 0;
+  bool alignedPreset = false;
   ui.Image? placeholder;
   final previews =
       <String, (StyleDocument, ui.Image?, Map<String, String>, Widget)>{};
@@ -70,6 +71,28 @@ class _PresetPanelState extends State<PresetPanel> {
   }
 
   int previousRow = -1;
+  void alignPreset() {
+    if (alignedPreset ||
+        !scroll.hasClients ||
+        cellHeight <= 0 ||
+        !scroll.position.hasViewportDimension) return;
+    final id = store.selection.primary ?? widget.activeId;
+    if (id == null) {
+      alignedPreset = true;
+      return;
+    }
+    final index = visible.indexWhere((e) => e.id == id);
+    if (index < 0) {
+      if (store.entries.isNotEmpty) alignedPreset = true;
+      return;
+    }
+    alignedPreset = true;
+    final stride = cellHeight + 12;
+    final centered =
+        (index ~/ 2) * stride - (scroll.position.viewportDimension - cellHeight) / 2;
+    scroll.jumpTo(centered.clamp(0, scroll.position.maxScrollExtent));
+  }
+
   void scrolled() {
     if (!scroll.hasClients || cellHeight <= 0) return;
     final row = (scroll.offset / (cellHeight + 12)).floor();
@@ -428,9 +451,11 @@ class _PresetPanelState extends State<PresetPanel> {
                                 scroll.hasClients ? scroll.offset : 0.0;
                             final ready = scroll.hasClients &&
                                 scroll.position.hasViewportDimension;
-                            if (!ready)
+                            if (!ready || !alignedPreset)
                               WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (mounted) setState(() {});
+                                if (!mounted) return;
+                                if (!ready) setState(() {});
+                                alignPreset();
                               });
                             final viewport = ready
                                 ? scroll.position.viewportDimension

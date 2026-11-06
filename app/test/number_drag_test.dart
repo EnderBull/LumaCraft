@@ -85,4 +85,40 @@ void main() {
     scroll.dispose();
     c.dispose();
   });
+
+  testWidgets('双击数值框回到初始值，并且只记一步撤销', (tester) async {
+    final doc = StyleDocument.template();
+    doc.nodes.first.fontSize = 40;
+    final c = EditorController(doc);
+    final input = TextEditingController(text: '40'), focus = FocusNode();
+    await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+            body: SizedBox(
+                width: 260,
+                child: NumberDragInput(
+                    controller: input,
+                    focusNode: focus,
+                    spec: const NumberDragSpec(
+                        min: 8, max: 200, fallback: 40, reset: 24),
+                    onChanged: (s) {
+                      c.begin();
+                      c.doc.nodes.first.fontSize = double.parse(s);
+                      c.update();
+                    },
+                    onDone: c.end,
+                    onCancel: () => c.end(cancel: true))))));
+    final target = find.byType(NumberDragInput);
+    await tester.tap(target);
+    await tester.pump(const Duration(milliseconds: 40));
+    await tester.tap(target);
+    await tester.pump();
+    expect(c.doc.nodes.first.fontSize, 24);
+    c.undo();
+    expect(c.doc.nodes.first.fontSize, 40);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpWidget(const SizedBox());
+    input.dispose();
+    focus.dispose();
+    c.dispose();
+  });
 }

@@ -107,6 +107,7 @@ class StyleScene {
         geometry.photo,
         Paint()..filterQuality = FilterQuality.medium);
     paintFilm(canvas, document, geometry);
+    paintPhotoStroke(canvas, document, geometry);
     for (final n in document.painted) {
       if (n.type == 'image' && marks[n.id] != null && n.id != hiddenId) {
         final image = marks[n.id]!;
@@ -289,11 +290,16 @@ Future<Uint8List> renderStyledPhoto(
     photo = managedPhoto.clone();
   } else {
     final buffer = await ui.ImmutableBuffer.fromFilePath(path);
-    final codec = await ui.instantiateImageCodecFromBuffer(buffer);
     try {
-      photo = (await codec.getNextFrame()).image;
+      final codec = await ui.instantiateImageCodecFromBuffer(buffer);
+      try {
+        photo = (await codec.getNextFrame()).image;
+      } finally {
+        codec.dispose();
+      }
     } finally {
-      codec.dispose();
+      // Release the OS handle so the source photo stays deletable.
+      buffer.dispose();
     }
   }
   ui.Image? rendered;

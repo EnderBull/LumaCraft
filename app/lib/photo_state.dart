@@ -1,8 +1,14 @@
 import 'dart:convert';
-import 'editor/style_document.dart';
 import 'dart:io';
 import 'dart:typed_data';
+import 'editor/style_document.dart';
 import 'package:image/image.dart' as img;
+
+final photoFilePattern =
+    RegExp(r'\.(jpe?g|heic|heif|hif)$', caseSensitive: false);
+
+bool heifPath(String path) =>
+    RegExp(r'\.(heic|heif|hif)$', caseSensitive: false).hasMatch(path);
 
 const infoFields = <String, String>{
   'camera': '相机型号',
@@ -15,9 +21,44 @@ const infoFields = <String, String>{
   'place': '地点'
 };
 
+img.ExifData? _heifExif(Uint8List bytes) {
+  if (bytes.length < 16 ||
+      bytes[4] != 0x66 ||
+      bytes[5] != 0x74 ||
+      bytes[6] != 0x79 ||
+      bytes[7] != 0x70) return null;
+  for (var i = 0; i + 10 < bytes.length; i++) {
+    if (bytes[i] != 0x45 ||
+        bytes[i + 1] != 0x78 ||
+        bytes[i + 2] != 0x69 ||
+        bytes[i + 3] != 0x66 ||
+        bytes[i + 4] != 0 ||
+        bytes[i + 5] != 0) continue;
+    final start = i + 6;
+    final little = bytes[start] == 0x49 &&
+        bytes[start + 1] == 0x49 &&
+        bytes[start + 2] == 0x2a &&
+        bytes[start + 3] == 0;
+    final big = bytes[start] == 0x4d &&
+        bytes[start + 1] == 0x4d &&
+        bytes[start + 2] == 0 &&
+        bytes[start + 3] == 0x2a;
+    if (!little && !big) continue;
+    try {
+      return img.ExifData.fromInputBuffer(
+          img.InputBuffer(Uint8List.sublistView(bytes, start)));
+    } catch (_) {}
+  }
+  return null;
+}
+
 img.ExifData? captureExif(Uint8List bytes) {
-  final jpg = img.decodeJpgExif(bytes);
-  if (jpg != null) return jpg;
+  try {
+    final jpg = img.decodeJpgExif(bytes);
+    if (jpg != null) return jpg;
+  } catch (_) {}
+  final heif = _heifExif(bytes);
+  if (heif != null) return heif;
   if (bytes.length < 8 ||
       bytes[0] != 137 ||
       String.fromCharCodes(bytes.sublist(1, 4)) != 'PNG') return null;
@@ -62,6 +103,46 @@ Map<String, String> readCapture(String path) {
   }
   add('iso', exif.exifIfd[0x8827]);
   return values;
+}
+
+/// Cheap identity of a photo's content.
+///
+/// Reads the file size plus the first and last 32 KB. That is a few
+/// milliseconds per photo even for a large file, and it changes as soon as
+/// different pixels are stored — exactly what is needed to notice that two
+/// file names were swapped.
+String photoFingerprint(String path) {
+  final handle = File(path).openSync();
+  try {
+    final length = handle.lengthSync();
+    const sample = 32768;
+    final head = Uint8List(sample);
+    final headRead = handle.readIntoSync(head, 0, sample);
+    final tail = Uint8List(sample);
+    var tailRead = 0;
+    if (length > sample) {
+      handle.setPositionSync(length - sample);
+      tailRead = handle.readIntoSync(tail, 0, sample);
+    }
+    var hash = 0xcbf29ce484222325;
+    void mix(int byte) {
+      hash ^= byte;
+      hash = (hash * 0x100000001b3) & 0xffffffffffffffff;
+    }
+
+    for (var i = 0; i < headRead; i++) {
+      mix(head[i]);
+    }
+    for (var i = 0; i < tailRead; i++) {
+      mix(tail[i]);
+    }
+    for (var i = 0; i < 8; i++) {
+      mix((length >> (i * 8)) & 0xff);
+    }
+    return '${length.toRadixString(16)}-${hash.toRadixString(16)}';
+  } finally {
+    handle.closeSync();
+  }
 }
 
 String? validateInfo(String key, String value) {
@@ -126,6 +207,14 @@ class PhotoState {
       '$path::${styleSource ?? (film ? "legacy-film" : "legacy-gallery")}';
   bool edited = false;
   final fields = <String, String>{};
+
+  /// Capture time as read from the file when the photo was first opened.
+  /// Kept in the record so a moved photo can be recognised later.
+  String? captureTime;
+
+  /// Cheap identity of the photo's content. Records follow the picture, not
+  /// the file name, so swapping two file names never swaps their styles.
+  String? fingerprint;
   PhotoState();
   PhotoState.fromJson(Map<String, dynamic> json) {
     film = json['film'] == true;
@@ -133,12 +222,16 @@ class PhotoState {
     if (json['style'] != null)
       style = StyleDocument.fromJson(Map<String, dynamic>.from(json['style']));
     edited = json['edited'] == true;
+    captureTime = json['captureTime'] as String?;
+    fingerprint = json['fingerprint'] as String?;
     fields.addAll(Map<String, String>.from(json['fields'] as Map? ?? {}));
   }
   Map<String, dynamic> toJson() => {
         'film': film,
         if (styleSource != null) 'styleSource': styleSource,
         'edited': edited,
+        if (captureTime != null) 'captureTime': captureTime,
+        if (fingerprint != null) 'fingerprint': fingerprint,
         'fields': fields,
         if (style != null) 'style': style!.toJson()
       };
@@ -154,6 +247,13 @@ class PhotoState {
       }
     }
   }
+  /// True when the record carries something the user would miss. Capture time
+  /// is read automatically, so it alone does not make a record worth keeping:
+  /// it is kept from the file itself.
+  bool get hasContent =>
+      edited ||
+      style != null ||
+      fields.values.any((value) => value.trim().isNotEmpty);
 }
 
 class PhotoStore {
@@ -184,6 +284,23 @@ class PhotoStore {
   }
 
   PhotoState state(String path) => photos.putIfAbsent(path, PhotoState.new);
+
+  /// Moves a record to the photo's new location. A record that already holds
+  /// real content wins, so the newer file is never overwritten by an old
+  /// record; a record created merely by opening the folder is replaced.
+  bool relink(String oldPath, String newPath) {
+    final record = photos[oldPath];
+    if (record == null) return false;
+    if (oldPath == newPath) return false;
+    final existing = photos[newPath];
+    if (existing != null && existing.hasContent) {
+      photos.remove(oldPath);
+      return false;
+    }
+    photos.remove(oldPath);
+    photos[newPath] = record;
+    return true;
+  }
   Future<void> _pending = Future.value();
   Future<void> save() {
     final contents = jsonEncode({

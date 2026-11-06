@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'prototype_controls.dart';
 
 /// 「添加组件」下拉菜单每行放几个组件。
-/// 行数由组件数量自动算出：以后新增组件，只需要在 componentNames 里加一项，
-/// 需要时再调整这个列数即可（9 个组件 = 3 列 × 3 行）。
+/// 行数由入口数量自动算出。当前是 9 个组件再加“内置素材”，3 列 × 4 行。
 const componentPickerColumns = 3;
 
 /// 单个格子的宽度与高度。

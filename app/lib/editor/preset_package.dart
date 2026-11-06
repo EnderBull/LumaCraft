@@ -32,7 +32,9 @@ const _features = [
   'filmLongEdge',
   'textureV1',
   'textureFill',
-  'stampV1'
+  'stampV1',
+  'photoStrokeV1',
+  'paletteStrokeOpacity'
 ];
 // 旧版本不认识这些标记，会明确拒绝导入，而不是悄悄画错。
 final _usage = <String, bool Function(StyleDocument)>{
@@ -46,6 +48,9 @@ final _usage = <String, bool Function(StyleDocument)>{
   'textureV1': (s) => false,
   'textureFill': (s) => s.fill.hasTexture,
   'stampV1': (s) => s.stamp.enabled,
+  'photoStrokeV1': (s) => s.photoStroke.enabled,
+  'paletteStrokeOpacity': (s) => s.nodes.any((n) =>
+      n.type == 'palette' && n.palette.stroke && n.palette.strokeOpacity != 100),
 };
 String encodeLmp(List<SharedPreset> presets) {
   if (presets.isEmpty || presets.length > 200)
@@ -216,6 +221,10 @@ SharedPreset _readPreset(dynamic item) {
   if (j['film'] is Map &&
       !filmOrientations.contains(j['film']['orientation']))
     throw const FormatException('不支持的胶片排列');
+  if (j['photoStroke'] is Map &&
+      j['photoStroke']['target'] != null &&
+      !photoStrokeTargets.containsKey(j['photoStroke']['target']))
+    throw const FormatException('不支持的描边参照');
   if (j['fill'] is Map &&
       j['fill']['texture'] != null &&
       !textureKindNames.containsKey(j['fill']['texture']))

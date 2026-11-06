@@ -84,7 +84,7 @@ void main() {
     expect(original.style.name, '画廊签名');
     await store.saveBuiltin('gallery', original.style.copy()..name = '改过的名字',
         original.folder);
-    await store.saveBuiltin('p-extra', StyleDocument(name: '本机新建'), 'classic');
+    await store.saveBuiltin('p-extra', StyleDocument(name: '本机新建'), 'simple');
     expect(store.builtinLibrary.entries.first.style.name, '改过的名字');
     expect(store.hasBuiltinOriginal('p-extra'), false);
 
