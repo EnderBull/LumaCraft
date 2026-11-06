@@ -1373,10 +1373,7 @@ class _WorkshopState extends State<Workshop> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                               fontSize: 13,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: .60)))),
+                              color: EditorTypography.dimOn(context)))),
                   if (files.isNotEmpty)
                     Text(
                         store.state(files[index].path).style?.name ??

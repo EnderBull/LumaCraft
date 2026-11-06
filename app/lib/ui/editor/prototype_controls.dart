@@ -285,10 +285,27 @@ class WorkspaceBrand extends StatelessWidget {
 }
 
 class EditorTypography {
+  /// Opacity for dimmed body text (inactive labels, secondary badges).
+  ///
+  /// Measured in light mode: 0.60 gave 3.40:1 on the card background, below
+  /// the 4.5:1 readable minimum. 0.72 is the lowest value that clears the
+  /// panel, input and card backgrounds at once, so it is used everywhere
+  /// instead of each call site picking its own number.
+  static const dimOpacity = .72;
+
+  /// Text that sits on a coloured accent fill, such as a switch track.
+  static Color dimOn(BuildContext context) => Theme.of(context)
+      .colorScheme
+      .onSurface
+      .withValues(alpha: dimOpacity);
+
   static Color muted(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
           ? const Color(0xffaaa69c)
-          : const Color(0xff766e63);
+          // Measured against the panel, input, card and page backgrounds:
+          // the old #766e63 dropped to 3.76:1 on the page colour, which is
+          // below the 4.5:1 readable minimum. This one clears all four.
+          : const Color(0xff625a4f);
   static TextStyle title(BuildContext context) => TextStyle(
       fontSize: 13,
       fontWeight: FontWeight.w600,

@@ -28,8 +28,13 @@ ThemeData workspaceTheme(bool dark) {
         fontFamilyFallback: const ['Microsoft YaHei', 'Segoe UI', 'sans-serif'],
         bodyColor: scheme.onSurface,
         displayColor: scheme.onSurface),
-    dialogTheme: const DialogThemeData(
-        titleTextStyle: dialogTitleStyle, contentTextStyle: dialogBodyStyle),
+    dialogTheme: DialogThemeData(
+        // Every secondary panel shares one background. The export panel set
+        // this per dialog before; put it here so no panel can drift again.
+        backgroundColor: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: dialogTitleStyle.copyWith(color: scheme.onSurface),
+        contentTextStyle: dialogBodyStyle.copyWith(color: scheme.onSurface)),
     tooltipTheme:
         const TooltipThemeData(waitDuration: Duration(milliseconds: 450)),
     inputDecorationTheme: InputDecorationTheme(

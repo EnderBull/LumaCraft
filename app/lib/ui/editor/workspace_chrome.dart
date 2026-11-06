@@ -252,8 +252,7 @@ class _WorkspaceFilmstripState extends State<WorkspaceFilmstrip> {
                                     : null,
                                 icon: Icon(Icons.check_circle_outline,
                                     size: 14,
-                                    color:
-                                        scheme.onSurface.withValues(alpha: .6)),
+                                    color: EditorTypography.dimOn(context)),
                                 label: Text(
                                     '已自动关联 ${widget.autoRelinkCount} 张',
                                     style: const TextStyle(fontSize: 12)))

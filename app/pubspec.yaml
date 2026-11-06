@@ -1,7 +1,7 @@
 name: lumacraft
 description: LumaCraft 技术验证原型
 publish_to: none
-version: 0.17.3+56
+version: 0.17.4+57
 environment:
   sdk: '>=3.4.0 <4.0.0'
 dependencies:
@@ -10,6 +10,8 @@ dependencies:
   image: ^4.2.0
   file_selector: ^1.0.3
   flutter_svg: ^2.2.3
+  qr: ^4.0.1
+  zxing2: ^0.2.4
 flutter:
   uses-material-design: true
   assets:

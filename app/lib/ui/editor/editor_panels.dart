@@ -1266,7 +1266,11 @@ extension EditorPanels on _PresetEditorState {
                 Text(name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12))
+                    style: TextStyle(
+                        fontSize: 12,
+                        // Spelled out: the card sits on a tinted background,
+                        // and this text used to fall back to a near-white.
+                        color: Theme.of(context).colorScheme.onSurface))
               ])));
   Widget presetsPanel() => PresetPanel(
       store: widget.presets,

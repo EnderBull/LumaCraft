@@ -59,6 +59,8 @@ class _FolderManagerState extends State<FolderManager> {
             widget.store.folders.where((f) => f.id == folderId).firstOrNull;
         final items = folder == null ? <PresetEntry>[] : members(folder.id);
         return Dialog(
+            clipBehavior: Clip.antiAlias,
+            backgroundColor: s.surface,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: DefaultTextStyle(

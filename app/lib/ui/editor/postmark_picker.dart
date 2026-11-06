@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../editor/postmark.dart';
 import 'hsb_color_picker.dart';
+import 'prototype_controls.dart';
 
 class _PostmarkPainter extends CustomPainter {
   final String kind;
@@ -93,7 +94,7 @@ class _MaterialMenuState extends State<_MaterialMenu> {
               style: TextStyle(
                   fontSize: 12,
                   height: 1.2,
-                  color: scheme.onSurface.withValues(alpha: .55)))),
+                  color: EditorTypography.dimOn(context)))),
       Row(children: [
         ColorSwatchButton(
             color: Color(color), label: '邮戳墨色', onPressed: chooseColor),

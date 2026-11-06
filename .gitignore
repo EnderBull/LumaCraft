@@ -49,6 +49,9 @@ Thumbs.db
 .idea/
 *.iml
 
+# Windows 快捷方式：含本机绝对路径，换电脑就失效。仓库里只保留生成它的脚本。
+*.lnk
+
 # 密钥与签名文件（将来 Android 签名）
 *.jks
 *.keystore

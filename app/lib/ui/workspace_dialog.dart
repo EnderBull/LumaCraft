@@ -55,8 +55,12 @@ const dialogTitleStyle = TextStyle(
     height: 1.4,
     letterSpacing: 0);
 
+/// The panel background and text colours come from the theme (`dialogTheme`),
+/// so a light-mode panel is light all the way through. Colours used to be
+/// spelled out here and a hard-coded near-white survived into light mode.
 class WorkspaceDialog extends AlertDialog {
-  const WorkspaceDialog({super.key, super.title, super.content, super.actions})
+  const WorkspaceDialog(
+      {super.key, super.title, super.content, super.actions})
       : super(
             titleTextStyle: dialogTitleStyle,
             contentTextStyle: dialogBodyStyle);

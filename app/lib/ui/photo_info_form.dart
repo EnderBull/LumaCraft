@@ -138,8 +138,7 @@ class _PhotoInfoFormState extends State<PhotoInfoForm> {
                   Text(infoFields[key]!,
                       style: dialogBodyStyle.copyWith(
                           fontSize: 11.5,
-                          color:
-                              scheme.onSurface.withValues(alpha: .62))),
+                          color: EditorTypography.dimOn(context))),
                   const Spacer(),
                   if (locked)
                     Icon(Icons.lock_outline,

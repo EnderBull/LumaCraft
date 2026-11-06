@@ -216,6 +216,7 @@ class _BuiltinManagerState extends State<BuiltinManager> {
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)));
         return Dialog(
             clipBehavior: Clip.antiAlias,
+            backgroundColor: scheme.surface,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: DefaultTextStyle(

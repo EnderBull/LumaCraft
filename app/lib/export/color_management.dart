@@ -204,23 +204,19 @@ Future<ManagedPhoto> decodeSrgbPhoto(String path, {int maxEdge = 0}) async {
 
 Future<ui.Image> _decodeWithFlutter(String path, int maxEdge) async {
   final buffer = await ui.ImmutableBuffer.fromFilePath(path);
+  // The codec owns the buffer and releases the file handle when it is
+  // disposed; disposing the buffer here as well trips an assertion.
+  final codec = await ui.instantiateImageCodecWithSize(buffer,
+      getTargetSize: (w, h) {
+    final scale = math.min(1.0, maxEdge / math.max(w, h));
+    return ui.TargetImageSize(
+        width: math.max(1, (w * scale).round()),
+        height: math.max(1, (h * scale).round()));
+  });
   try {
-    final codec = await ui.instantiateImageCodecWithSize(buffer,
-        getTargetSize: (w, h) {
-      final scale = math.min(1.0, maxEdge / math.max(w, h));
-      return ui.TargetImageSize(
-          width: math.max(1, (w * scale).round()),
-          height: math.max(1, (h * scale).round()));
-    });
-    try {
-      return (await codec.getNextFrame()).image;
-    } finally {
-      codec.dispose();
-    }
+    return (await codec.getNextFrame()).image;
   } finally {
-    // The buffer keeps an OS handle on the file. Leaving it open made the
-    // photo undeletable outside the app until the preview was replaced.
-    buffer.dispose();
+    codec.dispose();
   }
 }
 

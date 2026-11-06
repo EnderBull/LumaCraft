@@ -13,10 +13,12 @@ import '../editor/style_render.dart';
 import '../workspace_settings.dart';
 import 'smooth_scroll.dart';
 import 'workspace_dialog.dart';
+import 'preset_share_dialog.dart';
 import 'folder_select.dart';
 import 'folder_manager.dart';
 import 'builtin_manager.dart';
 import 'preset_thumbnail.dart';
+import 'import_preset_dialog.dart';
 import 'editor/prototype_controls.dart';
 part 'preset_actions.dart';
 

@@ -256,113 +256,134 @@ extension PresetActions on _PresetPanelState {
         }
         if (mounted) update(store.selection.clear);
       });
-  Future<void> exportEntries(List<PresetEntry> chosen) => run(() async {
-        if (chosen.isEmpty) throw const FormatException('没有可导出的预设');
-        final shares = [
-          for (final e in chosen)
-            SharedPreset(e.style,
-                folder: store.folders
-                        .where((f) => f.id == e.folder)
-                        .map((f) => f.name)
-                        .firstOrNull ??
-                    '')
-        ];
-        final name = chosen.length == 1 ? chosen.first.style.name : '预设合集';
-        final location = await getSaveLocation(
-            suggestedName:
-                '${name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')}.lmp',
-            acceptedTypeGroups: [
-              const XTypeGroup(label: 'LumaCraft 预设', extensions: ['lmp'])
-            ]);
-        if (location == null) return;
-        final path = location.path.toLowerCase().endsWith('.lmp')
-            ? location.path
-            : '${location.path}.lmp';
-        final data = await compute(encodeLmp, shares);
-        await File(path).writeAsString(data, flush: true);
-        if (mounted) update(() => message = '已导出 ${chosen.length} 个预设');
-      });
+  /// Writes the `.lmp` file. Returns whether a file was actually written, so
+  /// the caller can keep its own panel open when the save dialog is cancelled.
+  Future<bool> exportEntries(List<PresetEntry> chosen) async {
+    var written = false;
+    await run(() async {
+      if (chosen.isEmpty) throw const FormatException('没有可导出的预设');
+      final shares = [
+        for (final e in chosen)
+          SharedPreset(e.style,
+              folder: store.folders
+                      .where((f) => f.id == e.folder)
+                      .map((f) => f.name)
+                      .firstOrNull ??
+                  '')
+      ];
+      final name = chosen.length == 1 ? chosen.first.style.name : '预设合集';
+      final location = await getSaveLocation(
+          suggestedName:
+              '${name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')}.lmp',
+          acceptedTypeGroups: [
+            const XTypeGroup(label: 'LumaCraft 预设', extensions: ['lmp'])
+          ]);
+      if (location == null) return;
+      final path = location.path.toLowerCase().endsWith('.lmp')
+          ? location.path
+          : '${location.path}.lmp';
+      final data = await compute(encodeLmp, shares);
+      await File(path).writeAsString(data, flush: true);
+      written = true;
+      if (mounted) update(() => message = '已导出 ${chosen.length} 个预设');
+    });
+    return written;
+  }
+  /// Opens the import panel and routes all three sources through the same
+  /// confirmation, so a file, a pasted code and a scanned picture behave the
+  /// same way once the data is in hand.
   Future<void> importPresets() => run(() async {
-        final file = await openFile(acceptedTypeGroups: [
-          const XTypeGroup(label: 'LumaCraft 预设', extensions: ['lmp'])
-        ]);
-        if (file == null) return;
-        final incoming = await readLmp(File(file.path));
-        if (!mounted) return;
-        final choices = <int, String>{};
-        final taken = store.presets.map((p) => p.style.name).toSet(),
-            conflicts = <int>{};
-        for (var i = 0; i < incoming.length; i++) {
-          if (!taken.add(incoming[i].style.name)) conflicts.add(i);
+        final picked = await showImportPresetDialog(context);
+        if (picked == null || !mounted) return;
+        List<SharedPreset> incoming;
+        if (picked.filePath != null) {
+          incoming = await readLmp(File(picked.filePath!));
+        } else if (picked.style != null) {
+          incoming = [
+            SharedPreset(picked.style!, folder: picked.style!.name.isEmpty ? '' : '')
+          ];
+        } else {
+          return;
         }
-        final yes = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => StatefulBuilder(
-                builder: (ctx, set) => WorkspaceDialog(
-                        title: Text('导入 ${incoming.length} 个预设'),
-                        content: SizedBox(
-                            width: 560,
-                            height: 390,
-                            child: ListView.builder(
-                                itemCount: incoming.length,
-                                itemBuilder: (ctx, i) {
-                                  final p = incoming[i];
-                                  return Padding(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 14),
-                                      child: Row(children: [
-                                        SizedBox(
-                                            width: 110,
-                                            height: 85,
-                                            child: PresetThumbnail(
-                                                style: p.style,
-                                                child: preview(PresetEntry(
-                                                    'import:$i', p.style)))),
-                                        const SizedBox(width: 15),
-                                        Expanded(
-                                            child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.stretch,
-                                                children: [
-                                              Text(p.style.name,
-                                                  style: EditorTypography.title(
-                                                      ctx)),
-                                              const SizedBox(height: 5),
-                                              Text(
-                                                  p.folder.isEmpty
-                                                      ? '未分组'
-                                                      : p.folder,
-                                                  style: EditorTypography.hint(
-                                                      ctx)),
-                                              if (conflicts.contains(i)) ...[
-                                                const SizedBox(height: 9),
-                                                PrototypeSelect(
-                                                    value: choices[i] ?? 'copy',
-                                                    options: const {
-                                                      'copy': '保留两份',
-                                                      'replace': '覆盖同名预设',
-                                                      'skip': '跳过'
-                                                    },
-                                                    onChanged: (v) => set(
-                                                        () => choices[i] = v))
-                                              ]
-                                            ]))
-                                      ]));
-                                })),
-                        actions: [
-                          TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('取消')),
-                          FilledButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text('导入'))
-                        ])));
-        previews.removeWhere((id, _) => id.startsWith('import:'));
-        if (yes != true || !mounted) return;
-        final result = mergeLmp(store, incoming, choices);
-        await persist(result.presets, result.folders);
-        if (mounted) update(() => message = '已导入 ${result.count} 个预设');
+        if (!mounted) return;
+        await confirmImport(incoming);
       });
+
+  /// Shows what will be imported and writes it once confirmed.
+  Future<void> confirmImport(List<SharedPreset> incoming) async {
+    if (incoming.isEmpty) throw const FormatException('没有可导入的预设');
+    final choices = <int, String>{};
+    final taken = store.presets.map((p) => p.style.name).toSet(),
+        conflicts = <int>{};
+    for (var i = 0; i < incoming.length; i++) {
+      if (!taken.add(incoming[i].style.name)) conflicts.add(i);
+    }
+    final yes = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+            builder: (ctx, set) => WorkspaceDialog(
+                    title: Text('导入 ${incoming.length} 个预设'),
+                    content: SizedBox(
+                        width: 560,
+                        height: 390,
+                        child: ListView.builder(
+                            itemCount: incoming.length,
+                            itemBuilder: (ctx, i) {
+                              final p = incoming[i];
+                              return Padding(
+                                  padding: const EdgeInsets.only(bottom: 14),
+                                  child: Row(children: [
+                                    SizedBox(
+                                        width: 110,
+                                        height: 85,
+                                        child: PresetThumbnail(
+                                            style: p.style,
+                                            child: preview(PresetEntry(
+                                                'import:$i', p.style)))),
+                                    const SizedBox(width: 15),
+                                    Expanded(
+                                        child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                          Text(p.style.name,
+                                              style: EditorTypography.title(
+                                                  ctx)),
+                                          const SizedBox(height: 5),
+                                          Text(p.folder.isEmpty
+                                              ? '未分组'
+                                              : p.folder,
+                                              style: EditorTypography.hint(
+                                                  ctx)),
+                                          if (conflicts.contains(i)) ...[
+                                            const SizedBox(height: 9),
+                                            PrototypeSelect(
+                                                value: choices[i] ?? 'copy',
+                                                options: const {
+                                                  'copy': '保留两份',
+                                                  'replace': '覆盖同名预设',
+                                                  'skip': '跳过'
+                                                },
+                                                onChanged: (v) => set(
+                                                    () => choices[i] = v))
+                                          ]
+                                        ]))
+                                  ]));
+                            })),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('取消')),
+                      FilledButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('导入'))
+                    ])));
+    previews.removeWhere((id, _) => id.startsWith('import:'));
+    if (yes != true || !mounted) return;
+    final result = mergeLmp(store, incoming, choices);
+    await persist(result.presets, result.folders);
+    if (mounted) update(() => message = '已导入 ${result.count} 个预设');
+  }
   Future<String?> menu(Offset p, Map<String, String> items) {
     final overlay =
         Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
@@ -466,7 +487,7 @@ extension PresetActions on _PresetPanelState {
         'restoreDefault': list.length == 1 ? '恢复默认' : '恢复默认（${list.length} 款）',
       'copy': '复制',
       if (editable) 'move': '移动至分组',
-      'export': '导出 .lmp',
+      'share': '分享预设',
       if (editable) 'delete': '删除'
     });
     if (!mounted) return;
@@ -474,7 +495,26 @@ extension PresetActions on _PresetPanelState {
     if (action == 'restoreDefault') await restoreDefaults(list);
     if (action == 'copy') await copySelected();
     if (action == 'move') await moveSelected();
-    if (action == 'export') await exportEntries(list);
+    if (action == 'share') await sharePresets(list);
     if (action == 'delete') await deleteSelected();
   }
+
+  /// One entry point for every way of handing a preset to someone else:
+  /// a `.lmp` file carries everything, a code carries the same preset
+  /// without the picture markers so it still fits in a QR code.
+  Future<void> sharePresets(List<PresetEntry> chosen) async {
+    if (chosen.isEmpty) return;
+    if (chosen.length > 1) {
+      // Several presets are a bundle: only a file can hold them.
+      await exportEntries(chosen);
+      return;
+    }
+    final entry = chosen.single;
+    final result = await showSharePreset(context,
+        style: entry.style,
+        photo: widget.photo ?? placeholder,
+        photoPath: widget.photoPath,
+        fields: widget.fields,
+        exportLmp: () => exportEntries(chosen));
+    if (result?.exported == true && mounted) update(() => message = '已导出预设');  }
 }

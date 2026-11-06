@@ -290,16 +290,13 @@ Future<Uint8List> renderStyledPhoto(
     photo = managedPhoto.clone();
   } else {
     final buffer = await ui.ImmutableBuffer.fromFilePath(path);
+    // The codec takes ownership of the buffer and disposes it; disposing here
+    // as well would trip the framework's "already disposed" assertion.
+    final codec = await ui.instantiateImageCodecFromBuffer(buffer);
     try {
-      final codec = await ui.instantiateImageCodecFromBuffer(buffer);
-      try {
-        photo = (await codec.getNextFrame()).image;
-      } finally {
-        codec.dispose();
-      }
+      photo = (await codec.getNextFrame()).image;
     } finally {
-      // Release the OS handle so the source photo stays deletable.
-      buffer.dispose();
+      codec.dispose();
     }
   }
   ui.Image? rendered;

@@ -331,8 +331,7 @@ extension EditorCanvas on _PresetEditorState {
           if (layout != null) ...[
             Text(layout,
                 style: TextStyle(
-                    fontSize: 14,
-                    color: scheme.onSurface.withValues(alpha: .62))),
+                    fontSize: 14, color: EditorTypography.dimOn(context))),
             Container(
                 width: 1,
                 height: 14,
@@ -360,10 +359,7 @@ extension EditorCanvas on _PresetEditorState {
                               : '${files[index].uri.pathSegments.last} · ${c.doc.name}',
                           style: TextStyle(
                               fontSize: 13,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: .60)),
+                              color: EditorTypography.dimOn(context)),
                           overflow: TextOverflow.ellipsis)),
                   action(Icons.undo_rounded, '撤销 Ctrl+Z',
                       c.canUndo ? c.undo : null),
