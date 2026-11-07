@@ -144,4 +144,18 @@ void main() {
     }
     expect(scanQrCode(Uint8List.fromList(img.encodePng(picture))), source);
   });
-}
+
+  test('声明为超大尺寸的图片在解码前被拒绝', () {
+    final png = Uint8List.fromList(img.encodePng(img.Image(width: 4, height: 4)));
+    // IHDR 宽高在第 16～23 字节；改成 1 万 × 1 万，文件本身仍只有几十字节。
+    final data = ByteData.sublistView(png);
+    data.setUint32(16, 10000);
+    data.setUint32(20, 10000);
+    expect(png.length, lessThan(200));
+    expect(() => scanQrCode(png), throwsFormatException);
+  });
+
+  test('过大的图片文件被拒绝', () {
+    expect(() => scanQrCode(Uint8List(qrImageMaxBytes + 1)),
+        throwsFormatException);
+  });}

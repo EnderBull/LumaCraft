@@ -103,7 +103,14 @@ List<SharedPreset> decodeLmp(String data) {
   }
 }
 
-SharedPreset _readPreset(dynamic item) {
+/// Same structural checks as a .lmp file, for a style that arrives as plain
+/// JSON (the text/QR code). placeholders lets an image node carry no data:
+/// a code made without images keeps only the position and size.
+SharedPreset readPresetStyle(Map<String, dynamic> style,
+        {bool placeholders = false}) =>
+    _readPreset({'style': style}, placeholders: placeholders);
+
+SharedPreset _readPreset(dynamic item, {bool placeholders = false}) {
   if (item is! Map || item['style'] is! Map)
     throw const FormatException('缺少样式内容');
   final j = Map<String, dynamic>.from(item['style']);
@@ -169,13 +176,15 @@ SharedPreset _readPreset(dynamic item) {
           image['data'] is! String ||
           (image['data'] as String).length > 24 * 1024 * 1024)
         throw const FormatException('图片素材无效或过大');
-      final bytes = base64Decode(image['data']);
-      if (bytes.length < 8 ||
+      final empty = placeholders && (image['data'] as String).isEmpty;
+      final bytes = empty ? Uint8List(0) : base64Decode(image['data']);
+      if (!empty &&
+          (bytes.length < 8 ||
           !(bytes[0] == 0x89 &&
                   bytes[1] == 0x50 &&
                   bytes[2] == 0x4e &&
                   bytes[3] == 0x47 ||
-              bytes[0] == 0xff && bytes[1] == 0xd8))
+              bytes[0] == 0xff && bytes[1] == 0xd8)))
         throw const FormatException('图片素材不是 PNG/JPG');
       if (image['width'] is! num ||
           image['ratio'] is! num ||
@@ -246,11 +255,12 @@ SharedPreset _readPreset(dynamic item) {
       throw const FormatException('不支持的形状类型');
   }
   final document = StyleDocument.fromJson(j)..name = name.trim();
-  _validateLayouts(j, document);
+  _validateLayouts(j, document, placeholders);
   return SharedPreset(document, folder: (item['folder'] ?? '').trim());
 }
 
-void _validateLayouts(Map<String, dynamic> j, StyleDocument document) {
+void _validateLayouts(Map<String, dynamic> j, StyleDocument document,
+    [bool placeholders = false]) {
   if (j['adaptive'] != null && j['adaptive'] is! bool ||
       j['suitability'] != null &&
           !StyleDocument.suitabilityNames.containsKey(j['suitability']))
@@ -331,7 +341,8 @@ void _validateLayouts(Map<String, dynamic> j, StyleDocument document) {
     flat.editingLayout = 'general';
     flat.adaptive = false;
     flat.layouts.clear();
-    _readPreset({'style': flat.toJson()..remove('layouts')});
+    _readPreset({'style': flat.toJson()..remove('layouts')},
+        placeholders: placeholders);
   }
 }
 
@@ -447,7 +458,7 @@ Future<void> validateLmpAssets(List<SharedPreset> presets) async {
   final checked = <String>{};
   for (final p in presets) {
     for (final n in p.style.nodes.where((n) => n.type == 'image')) {
-      if (!checked.add(n.image.data)) continue;
+      if (n.image.data.isEmpty || !checked.add(n.image.data)) continue;
       final buffer =
           await ui.ImmutableBuffer.fromUint8List(base64Decode(n.image.data));
       ui.ImageDescriptor? descriptor;

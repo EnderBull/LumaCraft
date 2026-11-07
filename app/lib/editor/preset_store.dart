@@ -1,3 +1,4 @@
+import '../usage_data.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'style_document.dart';
@@ -210,10 +211,12 @@ class PresetStore extends ChangeNotifier {
                 {'id': p.id, 'doc': p.style.toJson(), 'folder': p.folder})
             .toList()
       });
-      await file.parent.create(recursive: true);
-      final temp = File('${file.path}.pending');
-      await temp.writeAsString(data, flush: true);
-      await temp.rename(file.path);
+      await UsageData.write(() async {
+        await file.parent.create(recursive: true);
+        final temp = File('${file.path}.pending');
+        await temp.writeAsString(data, flush: true);
+        await temp.rename(file.path);
+      });
       this.draft = nextDraft;
       drafts = nextDrafts;
       draftSource = sourceKey ?? draftSource;

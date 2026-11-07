@@ -59,10 +59,15 @@ class PhotoScanner {
   /// Used for refreshing the list after the folder changed on disk: the
   /// complete result is needed to notice deletions, which streaming batches
   /// cannot reveal.
-  Future<({List<File> files, int skipped})> collect(
+  ///
+  /// It does not cancel a scan that is already running: several refreshes and
+  /// the first scan may overlap without cutting each other short. Only an
+  /// explicit [cancel] (the folder changed) or a new [startMany] invalidates it,
+  /// and then `cancelled` is true and `files` is incomplete — the caller must
+  /// drop it, never read it as "those photos were deleted".
+  Future<({List<File> files, int skipped, bool cancelled})> collect(
       Iterable<String> paths,
       {required bool recursive}) async {
-    cancel();
     final ticket = _generation;
     final queue = Queue<String>()..addAll(paths);
     final visited = <String>{}, seenFiles = <String>{};
@@ -90,7 +95,7 @@ class PhotoScanner {
       }
     }
     found.sort((a, b) => a.path.toLowerCase().compareTo(b.path.toLowerCase()));
-    return (files: found, skipped: skipped);
+    return (files: found, skipped: skipped, cancelled: !valid());
   }
 
   void start(String path,

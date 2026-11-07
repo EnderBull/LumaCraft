@@ -42,8 +42,8 @@ void main() {
     expect(note.options!.edgePixels, 4000);
     expect(note.options!.retainGps, isTrue);
     expect(note.options!.scope, 'edited');
-    expect(exportRecoveryMessage(note), contains('还剩 2 张'));
-    expect(exportRecoveryMessage(note), contains('跳过'));
+    expect(exportRecoveryMessage(note), contains('还剩 1 张'));
+    expect(exportRecoveryMessage(note), contains('不会恢复导出'));
   });
 
   test('旧版只有文件名的记录仍能读，只是不能继续导出', () async {

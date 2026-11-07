@@ -1,3 +1,4 @@
+import 'usage_data.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -10,7 +11,7 @@ class WorkspaceSettings extends ChangeNotifier {
   bool sideFirst = false, dark = true, includeChildren = false;
   bool resizing = false;
   String? lastDirectory;
-  final favorites = <String>{'gallery', 'film'};
+  final favorites = <String>{};
   Timer? _timer;
   Future<void> _pending = Future.value();
   String? saveError;
@@ -61,13 +62,13 @@ class WorkspaceSettings extends ChangeNotifier {
       'lastDirectory': lastDirectory,
       'favorites': favorites.toList()
     });
-    _pending = _pending.then((_) async {
+    _pending = _pending.then((_) => UsageData.write(() async {
       await file.parent.create(recursive: true);
       final temp = File('${file.path}.pending');
       await temp.writeAsString(data, flush: true);
       await temp.rename(file.path);
       saveError = null;
-    }).catchError((Object e) {
+    })).catchError((Object e) {
       saveError = '设置保存失败：$e';
     });
     return _pending;

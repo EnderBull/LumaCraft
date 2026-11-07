@@ -1,3 +1,4 @@
+import '../usage_data.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -66,13 +67,13 @@ class AppSettings extends ChangeNotifier {
       'amapSecret': _encode(amapSecret),
       'autoFillPlace': autoFillPlace,
     });
-    _pending = _pending.then((_) async {
+    _pending = _pending.then((_) => UsageData.write(() async {
       await file.parent.create(recursive: true);
       final temp = File('${file.path}.pending');
       await temp.writeAsString(data, flush: true);
       await temp.rename(file.path);
       saveError = null;
-    }).catchError((Object e) {
+    })).catchError((Object e) {
       saveError = '设置保存失败：$e';
     });
     return _pending;

@@ -113,6 +113,15 @@ void main() {
     await waitTicks(tester, seconds: 6);
     expect(find.textContaining('2 张照片'), findsWidgets,
         reason: '编辑模式删除照片后照片条要跟着少一张');
+    // 关键回归：系统通知已经处理过一次后，把通知来源关掉（模拟系统漏报），
+    // 定时核对仍必须能发现下一次文件变化。
+    final dynamic editor = tester.state(find.byType(PresetEditor));
+    expect(editor.verifyTimer?.isActive, isTrue, reason: '通知后定时核对不能被取消');
+    await tester.runAsync(() async => await editor.folderWatch.stop());
+    await tester.runAsync(() => File('${dir.path}/p2.jpg').delete());
+    await waitTicks(tester, seconds: 7);
+    expect(find.textContaining('1 张照片'), findsWidgets,
+        reason: '通知失效时，编辑模式要靠定时核对发现删除');
     await tester.pumpWidget(const SizedBox());
   }, timeout: const Timeout(Duration(minutes: 2)));
 }

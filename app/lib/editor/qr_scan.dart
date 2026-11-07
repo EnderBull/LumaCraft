@@ -1,7 +1,15 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:zxing2/qrcode.dart';
+
+const qrImageMaxBytes = 30 * 1024 * 1024;
+const qrImageMaxPixels = 40 * 1000 * 1000;
+
+/// [scanQrCode] off the UI thread: decoding and scanning a big picture takes
+/// seconds.
+Future<String?> scanQrCodeAsync(Uint8List bytes) => compute(scanQrCode, bytes);
 
 /// Reads a QR code out of a picture.
 ///
@@ -23,6 +31,22 @@ import 'package:zxing2/qrcode.dart';
 /// So the picture is reduced to the code itself, given a clean quiet zone and
 /// an integer module grid, which is what the decoder needs.
 String? scanQrCode(Uint8List bytes) {
+  // Look at the header first: a small file can still declare a huge picture.
+  if (bytes.length > qrImageMaxBytes) throw const FormatException('图片文件过大，请换一张分享图');
+  final decoder = img.findDecoderForData(bytes);
+  if (decoder == null) return null;
+  img.DecodeInfo? info;
+  try {
+    info = decoder.startDecode(bytes);
+  } on img.ImageException {
+    throw const FormatException('图片尺寸过大，请换一张分享图');
+  } catch (_) {
+    return null;
+  }
+  if (info == null) return null;
+  if (info.width * info.height > qrImageMaxPixels) {
+    throw const FormatException('图片尺寸过大，请换一张分享图');
+  }
   final decoded = img.decodeImage(bytes);
   if (decoded == null) return null;
 

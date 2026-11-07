@@ -1,3 +1,4 @@
+import '../usage_data.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'export_options.dart';
@@ -45,6 +46,7 @@ class ExportPreferences {
 
   Future<void> save(ExportOptions o, List<NamingPart> template) async {
     await file.parent.create(recursive: true);
+    if (UsageData.frozen) return;
     final data = jsonEncode({
       'version': 1,
       'directory': o.directory,
@@ -60,8 +62,10 @@ class ExportPreferences {
           {'variable': part.variable, 'value': part.value}
       ]
     });
-    final pending = File('${file.path}.pending');
-    await pending.writeAsString(data, flush: true);
-    await pending.rename(file.path);
+    await UsageData.write(() async {
+      final pending = File('${file.path}.pending');
+      await pending.writeAsString(data, flush: true);
+      await pending.rename(file.path);
+    });
   }
 }

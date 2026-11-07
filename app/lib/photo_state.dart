@@ -1,6 +1,8 @@
+import 'usage_data.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'editor/style_document.dart';
 import 'package:image/image.dart' as img;
 
@@ -143,6 +145,28 @@ String? readGpsCoordinates(img.ExifData exif) {
 /// milliseconds per photo even for a large file, and it changes as soon as
 /// different pixels are stored — exactly what is needed to notice that two
 /// file names were swapped.
+/// Fingerprints many files off the UI thread, in slices so memory stays small.
+/// A file that cannot be read is left out of the result.
+Future<Map<String, String>> fingerprintPaths(List<String> paths,
+    {int slice = 400}) async {
+  final out = <String, String>{};
+  for (var i = 0; i < paths.length; i += slice) {
+    out.addAll(await compute(_fingerprintSlice,
+        paths.sublist(i, i + slice > paths.length ? paths.length : i + slice)));
+  }
+  return out;
+}
+
+Map<String, String> _fingerprintSlice(List<String> paths) {
+  final out = <String, String>{};
+  for (final path in paths) {
+    try {
+      out[path] = photoFingerprint(path);
+    } catch (_) {}
+  }
+  return out;
+}
+
 String photoFingerprint(String path) {
   final handle = File(path).openSync();
   try {
@@ -339,12 +363,12 @@ class PhotoStore {
       'version': 1,
       'photos': photos.map((k, v) => MapEntry(k, v.toJson()))
     });
-    final next = _pending.then((_) async {
+    final next = _pending.then((_) => UsageData.write(() async {
       await file.parent.create(recursive: true);
       final temp = File('${file.path}.pending');
       await temp.writeAsString(contents, flush: true);
       await temp.rename(file.path);
-    });
+    }));
     _pending = next.catchError((Object _) {});
     return next;
   }

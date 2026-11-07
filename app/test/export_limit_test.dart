@@ -41,7 +41,7 @@ void main() {
     expect(crash?.fileName, '大图.jpg');
     expect(crash?.pixels, 6144 * 8192);
     final message = exportRecoveryMessage(crash!);
-    expect(message, contains('跳过'));
+    expect(message, contains('不会恢复导出'));
     expect(message, contains('不是正常关闭'));
     expect(exportRecoveryMessage(crash, closedByUser: true),
         contains('被关闭了'));

@@ -98,7 +98,7 @@ void main() {
     await publishExport(keep, utf8.encode('new'), replace: false);
     expect(await target.readAsString(), 'old');
     final replace = ExportJob(source, null, false, {}, 'test', target.path)
-      ..replacedStat = await target.stat();
+      ..replacedStat = FileSnapshot.of(await target.stat());
     await publishExport(replace, utf8.encode('replacement'), replace: true);
     expect(await target.readAsString(), 'replacement');
     expect(await source.readAsString(), 'source');

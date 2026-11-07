@@ -1,6 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
+
+import 'preset_package.dart';
 import 'style_document.dart';
 
 /// Shareable text form of one preset.
@@ -22,6 +26,12 @@ const presetCodePrefix = 'LC1:';
 /// (the one used here, it survives a smudged print) tops out at 2331 bytes;
 /// the qr package enforces that and rejects anything longer.
 const presetCodeQrLimit = 2331;
+
+/// Hard limits applied before anything is expanded or allocated. A code is a
+/// few KB; these leave room for a text code that carries images.
+const presetCodeMaxChars = 4 * 1024 * 1024;
+const presetCodeMaxInflated = 16 * 1024 * 1024;
+const presetCodeMaxListIndex = 1000;
 
 /// Images are the only large part of a preset. Turning them off keeps the
 /// placeholder and its size so the layout still looks right after import.
@@ -108,6 +118,12 @@ Map<String, dynamic> _apply(
       final merged = <dynamic>[];
       final keys = value.keys.map((k) => int.tryParse('$k')).whereType<int>();
       final count = keys.isEmpty ? 0 : keys.reduce((a, b) => a > b ? a : b) + 1;
+      // The index comes from the input: bound it before looping over it.
+      if (keys.any((k) => k < 0) ||
+          count > presetCodeMaxListIndex ||
+          value.length > presetCodeMaxListIndex) {
+        throw const FormatException('预设代码内容异常，无法导入');
+      }
       for (var i = 0; i < count; i++) {
         final twin = i < current.length ? current[i] : null;
         final item = value['$i'];
@@ -130,6 +146,8 @@ Map<String, dynamic> _apply(
 
 StyleDocument decodePresetCode(String input) {
   final text = input.trim();
+  if (text.length > presetCodeMaxChars)
+    throw const FormatException('预设代码过长，无法导入');
   if (!text.startsWith(presetCodePrefix))
     throw const FormatException('这不是 LumaCraft 预设代码，请检查是否复制完整');
   final rest = text.substring(presetCodePrefix.length);
@@ -148,7 +166,9 @@ StyleDocument decodePresetCode(String input) {
   Map<String, dynamic> body;
   try {
     body = Map<String, dynamic>.from(
-        jsonDecode(utf8.decode(gzip.decode(bytes))) as Map);
+        jsonDecode(utf8.decode(_inflateLimited(bytes))) as Map);
+  } on _CodeTooLarge {
+    throw const FormatException('预设代码展开后过大，无法导入');
   } on FormatException {
     throw const FormatException('预设代码已损坏，请重新复制');
   } catch (_) {
@@ -161,9 +181,11 @@ StyleDocument decodePresetCode(String input) {
   final base = Map<String, dynamic>.from(StyleDocument.template().toJson());
   final merged = _apply(base, Map<String, dynamic>.from(body['s'] as Map));
   merged['name'] = name;
-  // Version and shape still go through the normal reader, so a code built by
-  // a newer build is rejected with the same wording as a `.lmp` file.
-  return StyleDocument.fromJson(merged);
+  // Same structural checks as a `.lmp` file (layer references, group loops,
+  // sizes, layouts). Images may be empty placeholders; real image data is
+  // still checked for type and size.
+  final shared = readPresetStyle(merged, placeholders: true);
+  return shared.style;
 }
 
 /// Short, stable fingerprint of the payload so a truncated paste is caught
@@ -177,3 +199,40 @@ String _checksum(String payload) {
   return hash.toRadixString(36).padLeft(7, '0');
 }
 
+
+class _CodeTooLarge implements Exception {
+  const _CodeTooLarge();
+}
+
+class _LimitedSink extends ByteConversionSinkBase {
+  final out = BytesBuilder(copy: false);
+  @override
+  void add(List<int> chunk) {
+    out.add(chunk);
+    if (out.length > presetCodeMaxInflated) throw const _CodeTooLarge();
+  }
+
+  @override
+  void close() {}
+}
+
+/// Gunzips in small steps and stops as soon as the output passes the limit,
+/// so a tiny code cannot expand into gigabytes.
+Uint8List _inflateLimited(List<int> bytes) {
+  final sink = _LimitedSink();
+  final input = gzip.decoder.startChunkedConversion(sink);
+  const step = 4096;
+  for (var i = 0; i < bytes.length; i += step) {
+    input.add(bytes.sublist(i, i + step > bytes.length ? bytes.length : i + step));
+  }
+  input.close();
+  return sink.out.takeBytes();
+}
+
+/// Same as [decodePresetCode] but off the UI thread.
+/// Pictures inside the code get the same decode and size check as a `.lmp`.
+Future<StyleDocument> decodePresetCodeAsync(String input) async {
+  final style = await compute(decodePresetCode, input);
+  await validateLmpAssets([SharedPreset(style)]);
+  return style;
+}

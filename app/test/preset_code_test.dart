@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
+import 'package:lumacraft/editor/builtin_library.dart';
 import 'package:lumacraft/editor/preset_code.dart';
 import 'package:lumacraft/editor/style_document.dart';
 
@@ -18,7 +20,7 @@ void main() {
     doc.fill.mode = 'gradient';
     if (withImage) {
       final node = StyleNode(type: 'image');
-      node.image.data = base64Encode(List<int>.filled(4096, 7));
+      node.image.data = base64Encode(img.encodePng(img.Image(width: 8, height: 8)));
       node.image.ratio = 1.5;
       node.image.width = 200;
       doc.nodes.add(node);
@@ -110,5 +112,91 @@ void main() {
       expect(presetCodeTooLarge(code), isFalse,
           reason: '${entry.key} 应能装进二维码，实际 ${presetCodeBytes(code)} 字节');
     }
+  });
+
+  // 手工拼一段「校验码正确」的代码：校验码只防传输损坏，不防内容有问题。
+  String forge(Map<String, dynamic> style, {String name = '伪造'}) {
+    final payload = base64UrlEncode(
+            gzip.encode(utf8.encode(jsonEncode({'n': name, 's': style}))))
+        .replaceAll('=', '');
+    var hash = 0x811c9dc5;
+    for (final unit in utf8.encode(payload)) {
+      hash ^= unit;
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    return 'LC1:${hash.toRadixString(36).padLeft(7, '0')}:$payload';
+  }
+
+  test('41 款内置预设：生成、导入、比对一致，且都装得下二维码', () {
+    final library = BuiltinLibrary.decode(
+        File('assets/builtins/library.json').readAsStringSync());
+    expect(library.entries.length, greaterThanOrEqualTo(41));
+    var biggest = 0;
+    for (final entry in library.entries) {
+      final code = encodePresetCode(entry.style);
+      final back = decodePresetCode(code);
+      expect(back.name, entry.style.name, reason: entry.style.name);
+      expect(back.nodes.length, entry.style.nodes.length);
+      expect(back.order, entry.style.order);
+      expect(back.groups.length, entry.style.groups.length);
+      expect(presetCodeTooLarge(code), isFalse, reason: entry.style.name);
+      biggest = max(biggest, presetCodeBytes(code));
+    }
+    // ignore: avoid_print
+    print('最大二维码内容 $biggest / $presetCodeQrLimit 字节');
+  });
+
+  test('引用不存在图层的代码被拒绝', () {
+    final code = forge({
+      'order': ['不存在的图层']
+    });
+    expect(() => decodePresetCode(code), throwsFormatException);
+  });
+
+  test('分组循环被拒绝', () {
+    final doc = StyleDocument.template();
+    final node = doc.nodes.first.id;
+    final code = forge({
+      'groups': {
+        '0': {'id': 'ga', 'children': ['gb']},
+        '1': {'id': 'gb', 'children': ['ga']}
+      },
+      'order': {'0': 'ga', '1': node}
+    });
+    expect(() => decodePresetCode(code), throwsFormatException);
+  });
+
+  test('稀疏的超大序号被拒绝，不会循环几十万次', () {
+    final code = forge({
+      'nodes': {'999999999': {}}
+    });
+    final watch = Stopwatch()..start();
+    expect(() => decodePresetCode(code), throwsFormatException);
+    expect(watch.elapsedMilliseconds, lessThan(1000));
+  });
+
+  test('超大解压被拦下', () {
+    final big = utf8.encode('{"n":"x","s":{"z":"${'a' * (20 * 1024 * 1024)}"}}');
+    final payload = base64UrlEncode(gzip.encode(big)).replaceAll('=', '');
+    var hash = 0x811c9dc5;
+    for (final unit in utf8.encode(payload)) {
+      hash ^= unit;
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    final code = 'LC1:${hash.toRadixString(36).padLeft(7, '0')}:$payload';
+    expect(code.length, lessThan(100 * 1024), reason: '压缩后很小');
+    expect(() => decodePresetCode(code),
+        throwsA(isA<FormatException>().having((e) => e.message, 'message', contains('过大'))));
+  });
+
+  test('过长的输入被拦下', () {
+    expect(() => decodePresetCode('LC1:${'a' * (5 * 1024 * 1024)}'),
+        throwsFormatException);
+  });
+
+  test('后台解析和同步解析结果一致', () async {
+    final code = encodePresetCode(sample());
+    final back = await decodePresetCodeAsync(code);
+    expect(back.name, '测试预设');
   });
 }

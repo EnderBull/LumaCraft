@@ -1,6 +1,10 @@
+import '../window_controls.dart';
+import '../usage_data.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../photo_state.dart';
@@ -215,14 +219,7 @@ class _GeneralPage extends StatelessWidget {
 
   Future<void> _confirmClear(BuildContext context) async {
     final dir = PhotoStore.defaultFile().parent;
-    final targets = [
-      'editor-presets.json',
-      'photo-state.json',
-      'workspace.json',
-      'export-settings.json',
-      'app-settings.json',
-      'export-recovery.json'
-    ];
+    final targets = UsageData.files;
     // Typing the words is the confirmation: this deletes saved presets and
     // photo records, and there is no undo.
     const expected = '确认清理';
@@ -266,7 +263,7 @@ class _GeneralPage extends StatelessWidget {
                                   contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 12, vertical: 10))),
                           const SizedBox(height: 4),
-                          Text('清理后需要重新打开软件。',
+                          Text('清理后软件会自动关闭并重新打开。',
                               style: EditorTypography.hint(ctx)
                                   .copyWith(fontSize: 11.5))
                         ])),
@@ -286,24 +283,76 @@ class _GeneralPage extends StatelessWidget {
                     ])));
     WidgetsBinding.instance.addPostFrameCallback((_) => input.dispose());
     if (go != true) return;
-    var removed = 0;
-    for (final name in targets) {
-      for (final suffix in ['', '.pending', '.writing']) {
-        final file = File('${dir.path}/$name$suffix');
-        try {
-          if (await file.exists()) {
-            await file.delete();
-            removed++;
-          }
-        } catch (_) {
-          // A locked file is skipped; the rest still gets cleared.
-        }
+    if (UsageData.exportsRunning > 0) {
+      onNotice('正在导出照片，请等导出结束后再清理');
+      return;
+    }
+    // Same flow from browse and edit mode: stop writes, wait for the ones in
+    // flight, delete, then close so the next start loads the defaults.
+    while (true) {
+      final result = await UsageData.clearAll(dir);
+      if (result.failed.isEmpty) break;
+      if (!context.mounted) {
+        UsageData.unfreeze();
+        return;
+      }
+      final retry = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => WorkspaceDialog(
+                  title: const Text('有文件没能清理'),
+                  content: SizedBox(
+                      width: 470,
+                      child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Text('这些文件删除失败，可能被其它程序占用：'),
+                            const SizedBox(height: 10),
+                            for (final item in result.failed)
+                              Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Text('· $item',
+                                      style: EditorTypography.hint(ctx)
+                                          .copyWith(fontSize: 12))),
+                            const SizedBox(height: 10),
+                            Text('在清理完成前软件不会再保存任何数据。',
+                                style: EditorTypography.hint(ctx)
+                                    .copyWith(fontSize: 12))
+                          ])),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('放弃清理')),
+                    FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('重试'))
+                  ]));
+      if (retry != true) {
+        UsageData.unfreeze();
+        onNotice('已放弃清理，部分文件可能已被删除');
+        return;
       }
     }
-    onNotice('已清理 $removed 个文件，重新打开软件后生效');
+    onNotice('清理完成，软件即将重新打开');
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+    try {
+      // Start the new copy first; if that fails the window stays open so the
+      // user is never left with nothing.
+      await restartApp();
+    } catch (e) {
+      onNotice('清理完成，但软件没能自动重新打开，请手动关闭后重新打开（$e）');
+    }
   }
 }
 
+/// Opens a fresh copy of the app and closes this window. Replaceable in tests,
+/// which must not launch real processes. `SystemNavigator.pop` does nothing
+/// on Windows, so the native window close is used.
+Future<void> Function() restartApp = () async {
+  await Process.start(Platform.resolvedExecutable, const [],
+      mode: ProcessStartMode.detached);
+  await DesktopWindow.action('close');
+};
 // ---------------------------------------------------------------- 高德
 
 class _AmapPage extends StatefulWidget {
@@ -640,10 +689,10 @@ class _AboutPageState extends State<_AboutPage> {
 
   static Future<String> _readVersion() async {
     try {
-      final file = FilePlatform.readVersionFile();
-      final text = await file.readAsString();
-      final match = RegExp(r'^version:\s*(\S+)', multiLine: true).firstMatch(text);
-      if (match != null) return match.group(1)!.split('+').first;
+      // Read from the executable's own version resource, so a copied or
+      // zipped build still shows the right number.
+      final info = await PackageInfo.fromPlatform();
+      if (info.version.isNotEmpty) return info.version;
     } catch (_) {}
     return '';
   }
@@ -675,7 +724,7 @@ class _AboutPageState extends State<_AboutPage> {
       FutureBuilder<String>(
           future: version,
           builder: (context, snap) => Text(
-              snap.hasData && snap.data!.isNotEmpty ? '版本 ${snap.data}' : '版本未知',
+              snap.hasData && snap.data!.isNotEmpty ? '版本 ${snap.data} Beta' : '版本未知',
               style: EditorTypography.hint(context).copyWith(fontSize: 12))),
       const SizedBox(height: 18),
       _section('关于本软件', [

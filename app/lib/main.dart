@@ -1,3 +1,4 @@
+import 'usage_data.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'dart:async';
@@ -195,14 +196,28 @@ class _WorkshopState extends State<Workshop> {
                     title: const Text('上次导出没有完成'),
                     content: SizedBox(
                         width: 560,
-                        child: Text(exportRecoveryMessage(pending,
-                            closedByUser: closed))),
+                        child: Builder(builder: (c) {
+                          final parts = exportRecoveryMessage(pending,
+                                  closedByUser: closed)
+                              .split('\n\n');
+                          return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(parts.first),
+                                if (parts.length > 1) ...[
+                                  const SizedBox(height: 14),
+                                  Text(parts.sublist(1).join('\n\n'),
+                                      style: EditorTypography.hint(c)),
+                                ],
+                              ]);
+                        })),
                     actions: [
                       WorkspaceActionButton(
                           label: '暂不导出',
                           onPressed: () => Navigator.pop(ctx, false)),
                       WorkspaceActionButton(
-                          label: '继续导出剩下的 ${pending.pending.length} 张',
+                          label: '继续导出剩下的 ${pending.resumeCount} 张',
                           onPressed: () => Navigator.pop(ctx, true))
                     ]))
         : null;
@@ -222,23 +237,38 @@ class _WorkshopState extends State<Workshop> {
     final noteStore = ExportRecoveryStore.standard();
     final rest = resumableJobs(note,
         exists: (path) => File(path).existsSync());
+    // Never write over an original: same protection as a fresh export.
+    final protectedKeys = <String>{
+      for (final f in files) exportPathKey(f.path),
+      for (final j in note.pending) exportPathKey(j.source),
+    };
     final jobs = <ExportJob>[];
+    var blocked = 0;
     for (final job in rest) {
-      final state = store.state(job.source);
-      jobs.add(ExportJob(File(job.source), state.style?.copy(), state.film,
-          Map.of(state.fields), job.stem, job.target));
+      if (protectedKeys.contains(exportPathKey(job.target))) {
+        blocked++;
+        continue;
+      }
+      // Style, shooting fields, name and replace permission all come from
+      // the record of the original batch, not from what is on screen now.
+      jobs.add(job.toExportJob(fallback: presetStore.defaultStyle()));
     }
-    await noteStore.clear();
     if (jobs.isEmpty) {
+      await noteStore.clear();
       if (mounted)
-        setState(() => status = '上次中断的那张已跳过，剩下没有需要继续导出的照片');
+        setState(() => status = blocked > 0
+            ? '剩下的照片输出位置会覆盖原照片，已停止续导'
+            : '上次中断的那张已跳过，剩下没有需要继续导出的照片');
       return;
     }
     if (!mounted) return;
     exportOptions = options.copy();
-    await runExportJobs(jobs, options);
+    // The old record stays until the new batch is written and the first
+    // progress note points at it (see runExportJobs).
+    await runExportJobs(jobs, options, replace: note.replace);
+    if (blocked > 0 && mounted)
+      setState(() => status = '$status · $blocked 张会覆盖原照片，已跳过');
   }
-
   Future<void> browseDirectory(String path) => browseDirectories({path});
   Future<void> browseDirectories(Set<String> paths) async {
     if (busy || !ready) return;
@@ -253,6 +283,7 @@ class _WorkshopState extends State<Workshop> {
       currentDirectory = selectedDirectories.firstOrNull;
       workspaceSettings.lastDirectory = currentDirectory;
       generation++;
+      _folderEpoch++;
       current = null;
       for (final image in previews.values) {
         image.dispose();
@@ -286,6 +317,11 @@ class _WorkshopState extends State<Workshop> {
       if (!finished.isCompleted) finished.complete();
       unawaited(relinkAfterScan());
       startFolderWatch();
+      // A change noticed during the first scan is picked up now.
+      if (_rescanAgain) {
+        _rescanAgain = false;
+        unawaited(rescanCurrentDirectories());
+      }
     });
     await finished.future;
   }
@@ -356,12 +392,37 @@ class _WorkshopState extends State<Workshop> {
   /// line says how many disappeared, instead of silently showing a gap.
   Future<void> rescanCurrentDirectories() async {
     if (selectedDirectories.isEmpty) return;
+    // One refresh at a time, and never while the first scan of a folder is
+    // still running; a request that arrives meanwhile is replayed afterwards.
+    if (_rescanning || scanning) {
+      _rescanAgain = true;
+      return;
+    }
+    _rescanning = true;
+    try {
+      await _rescanOnce();
+    } finally {
+      _rescanning = false;
+    }
+    if (_rescanAgain && mounted) {
+      _rescanAgain = false;
+      await rescanCurrentDirectories();
+    }
+  }
+
+  bool _rescanning = false, _rescanAgain = false;
+
+  /// Bumped when another folder is opened; slow background work for the old
+  /// folder checks it and drops its result.
+  int _folderEpoch = 0;
+
+  Future<void> _rescanOnce() async {
     final previous = files.map((f) => f.path).toList();
     final previousCurrent = files.isEmpty ? null : files[index].path;
     final previousSelected = {...selected};
     final result = await scanner.collect(selectedDirectories,
         recursive: workspaceSettings.includeChildren);
-    if (!mounted) return;
+    if (!mounted || result.cancelled) return;
     final found = result.files;
     if (found.isEmpty && result.skipped > 0) return;
     // Compare the actual set of paths, not just the count: deleting one photo
@@ -411,12 +472,11 @@ class _WorkshopState extends State<Workshop> {
     final current = files.map((f) => f.path).toSet();
     // Fingerprints first: a renamed or swapped file must be noticed before
     // anything else, otherwise its record stays with the wrong picture.
-    final fingerprints = <String, String>{};
-    for (final file in List<File>.of(files)) {
-      try {
-        fingerprints[file.path] = photoFingerprint(file.path);
-      } catch (_) {}
-    }
+    // Read in a background isolate, a slice at a time: doing it here froze the
+    // window for seconds on a large folder.
+    final folderGeneration = _folderEpoch;
+    final fingerprints = await fingerprintPaths([for (final f in files) f.path]);
+    if (!mounted || folderGeneration != _folderEpoch) return;
     var changed = false;
     final followed = followContent(
         records: store.photos, fingerprintsByPath: fingerprints);
@@ -1081,6 +1141,7 @@ class _WorkshopState extends State<Workshop> {
     final errors = <String>[], missing = <String>[];
     final jobs = <ExportJob>[];
     var done = 0, wasCancelled = false;
+    UsageData.exportsRunning++;
     setState(() {
       busy = true;
       cancel = false;
@@ -1169,7 +1230,7 @@ class _WorkshopState extends State<Workshop> {
         final target = File(job.target);
         job.replacedStat = null;
         if (await target.exists()) {
-          job.replacedStat = await target.stat();
+          job.replacedStat = FileSnapshot.of(await target.stat());
           collisions.add(target.uri.pathSegments.last);
         }
         if (duplicates.contains(key))
@@ -1239,6 +1300,7 @@ class _WorkshopState extends State<Workshop> {
     } catch (error) {
       errors.add('$error');
     } finally {
+      UsageData.exportsRunning--;
       if (mounted)
         setState(() {
           busy = false;
@@ -1259,12 +1321,48 @@ class _WorkshopState extends State<Workshop> {
     var done = 0;
     var cancelled = false;
     final skipped = <String>{};
+    UsageData.exportsRunning++;
     setState(() {
       busy = true;
       cancel = false;
       total = jobs.length;
       completed = 0;
     });
+    // The batch is fixed once, up front: style, fields, names and replace
+    // permission of every photo. The progress record written per photo only
+    // says how far it got.
+    String? batchId;
+    try {
+      batchId = await noteStore.writeBatch(ExportBatch(
+          options.copy(), [for (final j in jobs) RecoveryJob.fromExportJob(j)],
+          replace: replace));
+    } catch (e) {
+      debugPrint('保存导出批次失败：$e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('无法保存导出断点记录，导出可以继续，但中断后不能续导：$e')));
+      }
+    }
+    var pruned = false;
+    ExportRecovery progress(int index, String name, int done, {int? w, int? h}) =>
+        batchId != null
+            ? ExportRecovery(name,
+                width: w,
+                height: h,
+                completed: done,
+                skipped: skipped.toList(),
+                batchId: batchId,
+                index: index,
+                replace: replace)
+            : ExportRecovery(name,
+                width: w,
+                height: h,
+                pending: [
+                  for (final j in jobs.skip(index)) RecoveryJob.fromExportJob(j)
+                ],
+                completed: done,
+                skipped: skipped.toList(),
+                options: options);
     try {
       for (var index = 0; index < jobs.length; index++) {
         final job = jobs[index];
@@ -1274,34 +1372,25 @@ class _WorkshopState extends State<Workshop> {
         }
         setState(() => status = '正在导出 ${index + 1}/${jobs.length}');
         final noteName = job.source.uri.pathSegments.last;
-        final rest = [
-          for (final later in jobs.skip(index + 1))
-            RecoveryJob(later.source.path, later.target, later.stem)
-        ];
         try {
-          await noteStore.write(ExportRecovery(noteName,
-              pending: [
-                RecoveryJob(job.source.path, job.target, job.stem),
-                ...rest
-              ],
-              completed: done,
-              skipped: skipped.toList(),
-              options: options));
-        } catch (_) {}
+          await noteStore.write(progress(index, noteName, done));
+          // The new progress record now points at the new batch; only then
+          // is the previous batch no longer needed.
+          if (!pruned && batchId != null) {
+            pruned = true;
+            await noteStore.pruneBatches(keep: batchId);
+          }
+        } catch (e) {
+          debugPrint('写导出进度失败：$e');
+        }
         try {
           final managed = await openForExport(job.source.path, options);
           try {
-            await noteStore.write(ExportRecovery(noteName,
-                width: managed.width,
-                height: managed.height,
-                pending: [
-                  RecoveryJob(job.source.path, job.target, job.stem),
-                  ...rest
-                ],
-                completed: done,
-                skipped: skipped.toList(),
-                options: options));
-          } catch (_) {}
+            await noteStore.write(progress(index, noteName, done,
+                w: managed.width, h: managed.height));
+          } catch (e) {
+            debugPrint('写导出进度失败：$e');
+          }
           if (cancel) {
             cancelled = true;
             break;
@@ -1375,6 +1464,7 @@ class _WorkshopState extends State<Workshop> {
       try {
         await noteStore.clear();
       } catch (_) {}
+      UsageData.exportsRunning--;
       if (mounted)
         setState(() {
           busy = false;

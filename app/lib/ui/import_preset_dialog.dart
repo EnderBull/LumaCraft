@@ -104,14 +104,21 @@ class _ImportPresetDialogState extends State<_ImportPresetDialog> {
         if (mounted) setState(() => busy = false);
         return;
       }
+      if (await File(file.path).length() > qrImageMaxBytes) {
+        _fail('图片文件过大，请换一张分享图');
+        return;
+      }
       final bytes = await File(file.path).readAsBytes();
       if (!mounted) return;
-      final text = scanQrCode(bytes);
+      final text = await scanQrCodeAsync(bytes);
+      if (!mounted) return;
       if (text == null) {
         _fail('这张图片里没有找到可以识别的二维码，请确认是分享出来的图片');
         return;
       }
-      _applyCode(text, fromImage: true);
+      await _applyCode(text, fromImage: true);
+    } on FormatException catch (e) {
+      _fail(e.message);
     } catch (e) {
       _fail('读取图片失败：$e');
     }
@@ -125,14 +132,14 @@ class _ImportPresetDialogState extends State<_ImportPresetDialog> {
     _applyCode(input.text);
   }
 
-  void _applyCode(String text, {bool fromImage = false}) {
+  Future<void> _applyCode(String text, {bool fromImage = false}) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) {
       _fail('请先粘贴文本代码');
       return;
     }
     try {
-      _done(decodePresetCode(trimmed),
+      _done(await decodePresetCodeAsync(trimmed),
           fromImage ? ImportSource.image : ImportSource.code);
     } catch (e) {
       _fail(e is FormatException ? e.message : '这段代码无法识别：$e');

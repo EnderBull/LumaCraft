@@ -119,6 +119,11 @@ class _PresetEditorState extends State<PresetEditor> {
   final editorScanner = PhotoScanner();
   final folderWatch = PhotoFolderWatch();
   Timer? watchTimer;
+  Timer? verifyTimer;
+  bool verifying = false;
+  bool syncing = false;
+  bool syncAgain = false;
+  int watchGeneration = 0;
   String? directory;
   List<String> directoryRoots = [];
   bool directoryTab = false, scanning = false;
@@ -585,6 +590,8 @@ class _PresetEditorState extends State<PresetEditor> {
     editorScanner.cancel();
     folderWatch.stop();
     watchTimer?.cancel();
+    verifyTimer?.cancel();
+    watchGeneration++;
     dragTimer?.cancel();
     saveTimer?.cancel();
     placeTimer?.cancel();
@@ -674,40 +681,60 @@ class _PresetEditorState extends State<PresetEditor> {
         ? [if (directory != null) directory!]
         : directoryRoots;
     if (roots.isEmpty) return;
+    final generation = ++watchGeneration;
     unawaited(folderWatch.start(roots,
         recursive: widget.settings.includeChildren, onChanged: () {
-      if (!mounted || applying) return;
+      if (!mounted || applying || generation != watchGeneration) return;
       watchTimer?.cancel();
       watchTimer = Timer(const Duration(milliseconds: 300), () {
-        if (mounted && !applying) syncWithDisk();
+        if (mounted && !applying && generation == watchGeneration) {
+          unawaited(syncWithDisk().catchError(
+              (Object e) => debugPrint('编辑器目录刷新失败：$e')));
+        }
       });
     }));
     // Deletions do not always raise a watcher event on Windows, so check the
-    // folder on a timer as well. The check is a directory listing, and a full
-    // re-read only happens when the set of files actually changed.
-    watchTimer?.cancel();
-    watchTimer = Timer.periodic(verifyInterval, (_) async {
-      if (!mounted || applying || scanning) return;
-      final roots2 = directoryRoots.isEmpty
-          ? [if (directory != null) directory!]
-          : directoryRoots;
-      if (roots2.isEmpty) return;
+    // folder on a timer as well. This timer is separate from the 300 ms
+    // debounce above: a notification must never cancel the periodic check.
+    verifyTimer?.cancel();
+    verifyTimer = Timer.periodic(verifyInterval, (_) {
+      if (!mounted || applying || scanning || verifying || syncing) return;
+      if (generation != watchGeneration) return;
+      unawaited(verifyDisk(generation).catchError(
+          (Object e) => debugPrint('编辑器目录核对失败：$e')));
+    });
+  }
+
+  /// Lists the folder and only re-reads it when the set of files differs.
+  /// A result for a folder that has since been replaced is discarded.
+  Future<void> verifyDisk(int generation) async {
+    final roots = directoryRoots.isEmpty
+        ? [if (directory != null) directory!]
+        : directoryRoots;
+    if (roots.isEmpty) return;
+    verifying = true;
+    try {
       final here = <String>{};
-      for (final root in roots2) {
+      for (final root in roots) {
         try {
           await for (final entity in Directory(root).list(
               recursive: widget.settings.includeChildren,
               followLinks: false)) {
-            if (entity is File && photoFilePattern.hasMatch(entity.path))
+            if (entity is File && photoFilePattern.hasMatch(entity.path)) {
               here.add(entity.path);
+            }
           }
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('编辑器目录列表失败：$e');
+        }
       }
-      if (!mounted) return;
+      if (!mounted || generation != watchGeneration) return;
       final mine = files.map((f) => f.path).toSet();
       if (here.length == mine.length && here.every(mine.contains)) return;
       await syncWithDisk();
-    });
+    } finally {
+      verifying = false;
+    }
   }
 
   /// Drops photos that are gone and picks up new ones, keeping the photo
@@ -717,16 +744,31 @@ class _PresetEditorState extends State<PresetEditor> {
         ? [if (directory != null) directory!]
         : directoryRoots;
     if (roots.isEmpty) return;
-    final current = scanning;
-    scanning = true;
+    // One sync at a time; a request that arrives meanwhile is replayed after.
+    if (syncing) {
+      syncAgain = true;
+      return;
+    }
+    syncing = true;
+    try {
+      await syncOnce(roots);
+    } finally {
+      syncing = false;
+    }
+    if (syncAgain && mounted) {
+      syncAgain = false;
+      await syncWithDisk();
+    }
+  }
+
+  Future<void> syncOnce(List<String> roots) async {
     final result = await editorScanner.collect(roots,
         recursive: widget.settings.includeChildren);
-    if (!mounted) return;
+    if (!mounted || result.cancelled) return;
     final found = result.files;
     // A cancelled scan can come back empty; never treat that as "every photo
     // was deleted" unless the photos on screen really are gone.
     if (found.isEmpty && files.isNotEmpty && files.any((f) => f.existsSync())) {
-      update(() => scanning = current);
       return;
     }
     final here = found.map((f) => f.path).toSet();
@@ -734,7 +776,6 @@ class _PresetEditorState extends State<PresetEditor> {
     final known = files.map((f) => f.path).toSet();
     final added = found.where((f) => !known.contains(f.path)).toList();
     if (missing.isEmpty && added.isEmpty) {
-      update(() => scanning = current);
       return;
     }
     final editingPath = files.isEmpty ? null : files[index].path;
@@ -763,7 +804,6 @@ class _PresetEditorState extends State<PresetEditor> {
           files[index].path != editingPath) {
         loadTicket++;
       }
-      scanning = current;
       if (missing.isNotEmpty) {
         status =
             '共 ${files.length} 张照片 · ${missing.length} 张已不在文件夹里，已从列表移除';
