@@ -102,7 +102,39 @@ Map<String, String> readCapture(String path) {
     }
   }
   add('iso', exif.exifIfd[0x8827]);
+  // Coordinates stay out of the info fields on purpose: they are only used to
+  // look up a place name, and are never written into the exported file.
+  final gps = readGpsCoordinates(exif);
+  if (gps != null) values[gpsField] = gps;
   return values;
+}
+
+/// Key under which the raw coordinates travel, so the place lookup can find
+/// them without another file read. Not part of [infoFields], so it never shows
+/// up as an editable field.
+const gpsField = '_gps';
+
+/// "longitude,latitude" with 6 decimals, which is what the map service wants.
+String? readGpsCoordinates(img.ExifData exif) {
+  try {
+    final gps = exif.gpsIfd;
+    final latitude = gps.gpsLatitude;
+    final longitude = gps.gpsLongitude;
+    if (latitude == null || longitude == null) return null;
+    if (!latitude.isFinite || !longitude.isFinite) return null;
+    // Both zero means the camera had no fix, not a real place.
+    if (latitude.abs() < 1e-6 && longitude.abs() < 1e-6) return null;
+    if (latitude.abs() > 90 || longitude.abs() > 180) return null;
+    // The reference tag says which hemisphere: S and W are negative.
+    final latRef = (gps.gpsLatitudeRef ?? 'N').toUpperCase();
+    final lonRef = (gps.gpsLongitudeRef ?? 'E').toUpperCase();
+    final lat = latRef.startsWith('S') ? -latitude : latitude;
+    final lon = lonRef.startsWith('W') ? -longitude : longitude;
+    return '${lon.toStringAsFixed(6)},${lat.toStringAsFixed(6)}';
+  } catch (_) {
+    // A GPS block that cannot be read is the same as no coordinates.
+    return null;
+  }
 }
 
 /// Cheap identity of a photo's content.

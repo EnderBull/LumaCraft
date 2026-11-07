@@ -29,13 +29,17 @@ class PhotoInfoForm extends StatefulWidget {
 
   /// Called with the new text; an empty string means "no override".
   final void Function(String key, String value) onChanged;
+
+  /// When given, the place field gets a pin button that opens the map picker.
+  final VoidCallback? onPickPlace;
   const PhotoInfoForm(
       {super.key,
       required this.existing,
       required this.manual,
       required this.onChanged,
       this.keys,
-      this.compact = false});
+      this.compact = false,
+      this.onPickPlace});
   @override
   State<PhotoInfoForm> createState() => _PhotoInfoFormState();
 }
@@ -75,11 +79,20 @@ class _PhotoInfoFormState extends State<PhotoInfoForm> {
   @override
   void didUpdateWidget(covariant PhotoInfoForm old) {
     super.didUpdateWidget(old);
-    // Another photo is shown: refill the boxes from that photo.
-    if (widget.existing != old.existing || widget.manual != old.manual) {
-      for (final key in keys) {
-        controllers.putIfAbsent(key, () => TextEditingController())
-            .text = _initial(key);
+    // Sync the boxes on every rebuild.
+    //
+    // Comparing the previous widget's maps cannot work here: the record's map
+    // is edited in place, so `old.manual` is the same object as `widget.manual`
+    // and already holds the new value. There is no "before" left to compare
+    // against. Copying the values in unconditionally is the only reliable way.
+    for (final key in keys) {
+      final controller =
+          controllers.putIfAbsent(key, () => TextEditingController());
+      final wanted = _initial(key);
+      if (controller.text != wanted) {
+        controller.value = TextEditingValue(
+            text: wanted,
+            selection: TextSelection.collapsed(offset: wanted.length));
       }
     }
   }
@@ -140,6 +153,21 @@ class _PhotoInfoFormState extends State<PhotoInfoForm> {
                           fontSize: 11.5,
                           color: EditorTypography.dimOn(context))),
                   const Spacer(),
+                  // A pin only for the place field: it opens the map so a
+                  // photo without coordinates can still get a location.
+                  if (key == 'place' && widget.onPickPlace != null)
+                    SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: IconButton(
+                            padding: EdgeInsets.zero,
+                            tooltip: '在地图上选择地点',
+                            onPressed: widget.onPickPlace,
+                            icon: Icon(Icons.place_outlined,
+                                size: 14,
+                                color: scheme.primary.withValues(alpha: .85)))),
+                  if (key == 'place' && widget.onPickPlace != null)
+                    const SizedBox(width: 4),
                   if (locked)
                     Icon(Icons.lock_outline,
                         size: 11,
@@ -216,8 +244,11 @@ class _PhotoInfoFormState extends State<PhotoInfoForm> {
   Widget _heading(String title, String icon) => Padding(
       padding: EdgeInsets.only(top: widget.compact ? 16 : 22, bottom: 9),
       child: Row(children: [
-        PrototypeIcon(icon, size: 16),
-        const SizedBox(width: 8),
+        // Larger than before: at 16 px the thin strokes landed on half pixels
+        // and read as jagged. 19 px gives the outline room to render cleanly
+        // and matches the weight of the section title next to it.
+        PrototypeIcon(icon, size: 19),
+        const SizedBox(width: 9),
         Text(title, style: EditorTypography.title(context))
       ]));
 

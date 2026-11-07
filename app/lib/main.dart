@@ -32,6 +32,10 @@ import 'ui/relink_dialog.dart';
 import 'ui/export/export_conflict_dialog.dart';
 import 'ui/workspace_dialog.dart';
 import 'ui/app_theme.dart';
+import 'ui/settings_dialog.dart';
+import 'ui/place_picker.dart';
+import 'settings/app_settings_singleton.dart';
+import 'settings/place_lookup.dart';
 import 'ui/workspace_layout.dart';
 import 'ui/directory_panel.dart';
 import 'ui/smooth_scroll.dart';
@@ -151,6 +155,11 @@ class _WorkshopState extends State<Workshop> {
         await workspaceSettings.load();
       } catch (e) {
         status = '布局设置读取失败：$e';
+      }
+      try {
+        await appSettings.load();
+      } catch (e) {
+        status = '软件设置读取失败：$e';
       }
       if (!mounted) return;
       workspaceSettings.changed();
@@ -703,6 +712,9 @@ class _WorkshopState extends State<Workshop> {
       state.fields[key] = text;
     }
     await store.save();
+    // The record changed, so anything showing it has to be rebuilt: without
+    // this the info panel kept showing the old value after a place was picked.
+    if (mounted) setState(() {});
   }
 
   Future<void> savePhotoPlace(String path, String value) =>
@@ -874,8 +886,9 @@ class _WorkshopState extends State<Workshop> {
                     existing: fromFile,
                     manual: state.fields,
                     compact: true,
-                    onChanged: (key, value) => savePhotoField(
-                        file.path, key, value)),
+                    onPickPlace: () => pickPlaceFor(file.path),
+                    onChanged: (key, value) =>
+                        savePhotoField(file.path, key, value)),
                 const SizedBox(height: 12),
                 Text(
                     selected.length > 1
@@ -904,6 +917,34 @@ class _WorkshopState extends State<Workshop> {
     current = files.isEmpty ? null : previews[files[index].path];
     previewError = null;
     if (!loading && current == null && files.isNotEmpty) loadLatest();
+    unawaited(autoFillPlaceForCurrent());
+  }
+
+  /// Looks up the place for the photo on screen when it needs one.
+  ///
+  /// Runs only when the preset really shows a place, the photo carries
+  /// coordinates, and nothing was typed by hand — see [PlaceLookup.fill].
+  Future<void> autoFillPlaceForCurrent() async {
+    final lookup = PlaceLookup(settings: appSettings);
+    while (mounted && files.isNotEmpty) {
+      final path = files[index].path;
+      final state = store.state(path);
+      final style = state.style ?? presetStore.defaultStyle();
+      final info = await capture(files[index]);
+      if (!mounted || files.isEmpty || files[index].path != path) return;
+      final place = await lookup.fill(
+          info: info,
+          nodeTypes: style.nodes.map((n) => n.type),
+          existing: state.fields['place'] ?? '');
+      if (place == null || !mounted) return;
+      if (files.isEmpty || files[index].path != path) return;
+      final current = store.state(path);
+      if ((current.fields['place'] ?? '').trim().isNotEmpty) return;
+      await savePhotoField(path, 'place', place);
+      if (!mounted) return;
+      setState(() => status = '已根据照片坐标填入地点：$place');
+      return;
+    }
   }
 
   Future<void> loadLatest() async {
@@ -1349,11 +1390,31 @@ class _WorkshopState extends State<Workshop> {
       onPressed: action,
       child: Text(text, style: const TextStyle(fontSize: 13)));
 
+  /// Opens the map for one photo and stores whatever place is chosen.
+  Future<void> pickPlaceFor(String path) async {
+    final place = await showPlacePicker(context, app: appSettings);
+    if (place == null || place.trim().isEmpty || !mounted) return;
+    await savePhotoField(path, 'place', place.trim());
+    if (mounted) {
+      setState(() => status = '已填入地点：${place.trim()}');
+      store.state(path);
+    }
+  }
+
+  Future<void> openSettingsPanel() async {
+    await showSettings(
+        context: context, workspace: workspaceSettings, app: appSettings);
+    if (!mounted) return;
+    // The clear-records action may have wiped what is on screen.
+    setState(() {});
+  }
+
   Widget header() => WorkspaceHeader(
       settings: workspaceSettings,
       editing: false,
       onBrowse: () {},
       onEdit: busy || files.isEmpty ? null : openEditor,
+      onOpenSettings: openSettingsPanel,
       beforeClose: () async {
         await workspaceSettings.save();
         return persist();

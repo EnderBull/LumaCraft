@@ -22,7 +22,8 @@ enum WorkspaceIcon {
   bottomLayout,
   sideLayout,
   moon,
-  sun
+  sun,
+  settings
 }
 
 class AppIcon extends StatelessWidget {
@@ -254,6 +255,10 @@ class _IconPainter extends CustomPainter {
           segment(pair[0].toDouble(), pair[1].toDouble(), pair[2].toDouble(),
               pair[3].toDouble(), detail);
         }
+      case WorkspaceIcon.settings:
+        // Drawn by `ui-settings.svg` instead; this case only keeps the switch
+        // exhaustive for callers that still reference the enum value.
+        break;
     }
   }
 

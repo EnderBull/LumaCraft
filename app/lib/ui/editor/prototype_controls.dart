@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -181,6 +183,22 @@ class PrototypeTabs extends StatelessWidget {
       required this.onSelect,
       this.expand = false,
       this.trailing});
+
+  /// One tab's width: the label's own length plus padding, never below 56.
+  ///
+  /// Measured from the characters rather than laid out, because a Row cannot
+  /// size a child from its content without a Flexible wrapper, and wrapping
+  /// each tab in a Flexible would let a long label squeeze the others.
+  static double _tabSlotWidth(String label) {
+    // Chinese characters are about one font-size wide, Latin about half.
+    var units = 0.0;
+    for (final rune in label.runes) {
+      units += rune < 0x2e80 ? 0.56 : 1.0;
+    }
+    // 13 px text, 11 px padding either side, plus a little slack.
+    return math.max(56, units * 13 * 0.92 + 22);
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -193,8 +211,10 @@ class PrototypeTabs extends StatelessWidget {
                           selected == i ? scheme.primary : scheme.onSurface,
                       shape: const RoundedRectangleBorder()),
                   onPressed: () => onSelect(i),
-                  child:
-                      Text(labels[i], style: const TextStyle(fontSize: 13)))),
+                  child: Text(labels[i],
+                      maxLines: 1,
+                      softWrap: false,
+                      style: const TextStyle(fontSize: 13)))),
           if (i == selected)
             Positioned(
                 bottom: 0,
@@ -213,7 +233,9 @@ class PrototypeTabs extends StatelessWidget {
                 if (expand)
                   Expanded(child: item(i))
                 else
-                  SizedBox(width: 56, child: item(i)),
+                  // Wide enough for a two-word label like "高德 API" on one
+                  // line; the old 56 px slot forced it to wrap.
+                  SizedBox(width: _tabSlotWidth(labels[i]), child: item(i)),
               if (!expand) const Spacer(),
               if (trailing != null)
                 Center(child: SizedBox.square(dimension: 28, child: trailing!))

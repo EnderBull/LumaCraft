@@ -15,6 +15,9 @@ class WorkspaceHeader extends StatelessWidget {
   final VoidCallback? onEdit;
   final Future<bool> Function() beforeClose;
   final String? documentName;
+
+  /// Opened from the gear button; null hides the button's action.
+  final VoidCallback? onOpenSettings;
   const WorkspaceHeader(
       {super.key,
       required this.settings,
@@ -22,6 +25,7 @@ class WorkspaceHeader extends StatelessWidget {
       required this.onBrowse,
       required this.onEdit,
       required this.beforeClose,
+      this.onOpenSettings,
       this.documentName});
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -101,17 +105,11 @@ class WorkspaceHeader extends StatelessWidget {
                   ])),
               const SizedBox(width: 8),
               Tooltip(
-                  message: '切换明暗外观',
+                  message: '设置',
                   child: IconButton(
-                      onPressed: () {
-                        settings.dark = !settings.dark;
-                        settings.changed();
-                      },
-                      icon: AppIcon(
-                          settings.dark
-                              ? WorkspaceIcon.moon
-                              : WorkspaceIcon.sun,
-                          size: 20))),
+                      onPressed: onOpenSettings,
+                      icon: const PrototypeIcon('settings',
+                          ui: true, size: 23))),
               const SizedBox(width: 8),
               if (Platform.isWindows) ...[
                 windowButton(Icons.remove, '最小化', 'minimize'),

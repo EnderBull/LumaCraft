@@ -31,6 +31,8 @@ import '../workspace_layout.dart';
 import '../smooth_scroll.dart';
 import '../preset_panel.dart';
 import '../workspace_dialog.dart';
+import '../settings_dialog.dart';
+import '../../settings/app_settings_singleton.dart';
 import '../heif_store_buttons.dart';
 import '../folder_select.dart';
 import '../builtin_folder_select.dart';
@@ -1177,6 +1179,8 @@ class _PresetEditorState extends State<PresetEditor> {
       editing: true,
       onBrowse: leave,
       onEdit: () {},
+      onOpenSettings: () => showSettings(context: context,
+          workspace: widget.settings, app: appSettings),
       beforeClose: () async {
         finishInline();
         await widget.settings.save();
