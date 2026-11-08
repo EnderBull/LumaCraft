@@ -82,7 +82,7 @@
 
 ## 从源码运行
 
-需要 [Flutter](https://docs.flutter.dev/get-started/install/windows)（稳定版，Dart 3.4 及以上）以及 Windows 桌面开发环境。
+需要 [Flutter](https://docs.flutter.dev/get-started/install/windows)（稳定版，Dart 3.4 及以上）以及 Windows 桌面开发环境。构建前需要在 Windows 设置里打开「开发者模式」（插件需要创建符号链接）；只有构建的电脑需要，使用软件的电脑不需要。
 
 ```powershell
 cd app
@@ -99,11 +99,11 @@ flutter build windows --release
 
 > 构建时如果加上 `--dart-define=LUMACRAFT_AUTHORING=true`，会打开内置预设维护等开发用入口；默认不加，即为普通用户使用的版本。
 
-运行测试：
+运行测试（必须加 `-j 1` 让测试逐个运行：部分测试会真实读写同一个数据目录并等待定时器，同时运行会互相干扰而误报失败）：
 
 ```powershell
 cd app
-flutter test
+flutter test -j 1
 ```
 
 ## 路线

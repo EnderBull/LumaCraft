@@ -1,14 +1,16 @@
-# 测试基线（2026-11-07）
+# 测试基线（2026-11-08）
 
-源码版本 0.18.0+58，Git `main` / `63d20f8`。
+源码版本 0.20.0+65，Git `main` / `8976499`。
 
 ## 结论
 
 | 项目 | 结果 |
 |---|---|
-| `flutter analyze lib` | 无错误、无警告 |
-| `flutter test --no-pub -j 1`（**串行**） | **206 项通过，1 项跳过** |
-| `flutter test --no-pub`（并行，默认） | 201 通过 / 5 失败 —— 已知干扰，见下 |
+| `flutter analyze lib` | 无 error（2026-11-07，0.20.0 封包前） |
+| `flutter test --no-pub -j 1`（**串行**） | **236 项通过，1 项跳过** |
+| 同一次全量里的偶发 | `editor_core_test` 曾失败一次，单跑和随后两次全量都通过。原因未查清 |
+
+计数从 0.18.0 的 206 增加到 236，新增的是清理记录、续导批次、默认收藏、目录扫描基线这几组。
 
 ## 必须串行跑
 
@@ -28,35 +30,48 @@
 cd "D:\AI Agent\LumaCraft\app"
 $env:PUB_CACHE = "D:\AI Agent\LumaCraft\app\.toolchain\pub-cache"
 # 路径必须含 export-ui-check；每次换新目录，避免残留影响
-$env:LUMACRAFT_DATA_DIR = "D:\AI Agent\LumaCraft\app\build\export-ui-check-0308-seq"
+$env:LUMACRAFT_DATA_DIR = "D:\AI Agent\LumaCraft\app\build\export-ui-check-0000-seq"
 $env:LUMACRAFT_COLOR_TOOL = "D:\AI Agent\LumaCraft\app\build\windows\x64\runner\Release\lumacraft_color_tool.exe"
-flutter test --no-pub -j 1
+.\.toolchain\flutter\bin\flutter.bat test --no-pub -j 1
 ```
 
-预期结尾：`All tests passed!`，计数 `+206 ~1`。
+预期结尾：`All tests passed!`，计数 `+236 ~1`。
 
-## 测试文件清单（60 个）
+## 0.20.0 新增的测试
+
+| 文件 | 覆盖 |
+|---|---|
+| `clear_usage_records_test` | 清理时冻结写入、失败可重试、导出中拒绝清理 |
+| `export_batch_resume_test` | 批次记录样式和替换授权，续导沿用原批次 |
+| `default_favorites_test` | 全新安装收藏为空；已保存的收藏保持原样 |
+| `listing_baseline_probe_test` | 并发扫描不拿残缺结果；后台指纹不卡住界面 |
+
+原有 `preset_code_test`、`preset_image_import_test`、`live_delete_refresh_test`、`export_recovery_test` 也有扩充。
+
+## 测试文件
+
+`app/test/` 下有 64 个 `*_test.dart`。分组仍按 TEST 文件名：
 
 **核心功能**
-`editor_core_test`、`default_style_test`、`browse_controls_test`、`layout_adaptation_test`、`workspace_refinements_test`、`refinements_test`、`number_drag_test`、`hsb_picker_test`
+`editor_core_test`、`default_style_test`、`default_favorites_test`、`browse_controls_test`、`layout_adaptation_test`、`workspace_refinements_test`、`refinements_test`、`number_drag_test`、`hsb_picker_test`
 
 **预设与样式**
 `preset_library_test`、`palette_core_test`、`shape_test`、`stamp_test`、`texture_film_test`、`photo_stroke_test`、`image_background_test`、`photo_edge_test`、`builtin_fonts_test`、`phone_classics_test`、`apply_style_scope_test`
 
 **导出**
-`export_pipeline_test`、`export_workspace_flow_test`、`export_limit_test`、`export_resume_test`、`export_resume_drill_test`、`export_recovery_test`、`stress_export_test`、`wide_gamut_test`
+`export_pipeline_test`、`export_workspace_flow_test`、`export_limit_test`、`export_resume_test`、`export_resume_drill_test`、`export_recovery_test`、`export_batch_resume_test`、`stress_export_test`、`wide_gamut_test`
 
-**分享与导入（0.17.4）**
+**分享与导入**
 `preset_code_test`、`preset_qr_test`、`preset_image_import_test`、`real_share_image_test`、`share_availability_test`、`share_image_corners_test`、`dialog_contrast_test`
 
 **目录刷新与文件锁**
-`directory_watch_test`、`directory_rescan_test`、`live_delete_refresh_test`、`live_recycle_refresh_test`、`live_export_recovery_test`、`file_lock_probe_test`、`thumb_lock_test`、`preview_lock_probe_test`、`watch_coverage_probe_test`、`listing_perf_probe_test`
+`directory_watch_test`、`directory_rescan_test`、`live_delete_refresh_test`、`live_recycle_refresh_test`、`live_export_recovery_test`、`file_lock_probe_test`、`thumb_lock_test`、`preview_lock_probe_test`、`watch_coverage_probe_test`、`listing_perf_probe_test`、`listing_baseline_probe_test`
 
 **照片重新关联**
 `relink_test`、`relink_flow_test`、`relink_swap_test`、`relink_real_state_test`、`relink_notice_test`、`relink_ui_test`、`relink_shot_test`（skip，golden 渲染卡死）
 
-**设置与地点（0.18.0）**
-`gps_fixture_test`、`gps_reader_test`、`coords_test`、`settings_core_test`、`place_lookup_test`、`settings_ui_test`、`photo_info_refresh_test`
+**设置、地点、清理记录**
+`gps_fixture_test`、`gps_reader_test`、`coords_test`、`settings_core_test`、`place_lookup_test`、`settings_ui_test`、`photo_info_refresh_test`、`clear_usage_records_test`
 
 **HEIC 与杂项**
 `heif_import_test`、`widget_test`
@@ -80,18 +95,22 @@ flutter test --no-pub -j 1
 - 高德 API 真实调用（需要用户自己的 Key）
 - 深浅色模式下的实际观感与对比度
 - 不同 Windows 缩放比例下的界面清晰度
-- 导出中断在真实强杀下的行为（测试是模拟记录，真实场景需用户操作）
+- 安装包的实际安装、卸载和开始菜单快捷方式
+- 公开仓库上的下载是否能在另一台干净电脑运行
+
+用户已在 0.20.0 发布前实测过：窗口关闭、强制终止、空闲关闭三种续导场景，以及需要用户实测的其它项。
 
 ## 已知不稳定项
 
 | 现象 | 说明 |
 |---|---|
-| 并行时 5 项失败 | 数据目录与定时器竞争，`-j 1` 即通过。见台账 R12 |
+| 并行时若干项失败 | 数据目录与定时器竞争，`-j 1` 即通过。见台账 R12 |
 | `relink_shot_test` | golden 渲染卡死，已改为 skip |
+| `editor_core_test` 偶发一次 | 2026-11-07 全量串行失败一次，单跑和随后两次全量通过。未定位，不要据此改代码 |
 
 ## 建议
 
-1. **改完代码先跑 `-j 1` 全量**，约 3 分钟。
+1. **改完代码先跑 `-j 1` 全量**，大约 4 分钟。
 2. 只改某个模块时，跑相关测试 + `editor_core_test` 作为回归。
 3. 每次换新的 `LUMACRAFT_DATA_DIR`，不要复用上一次的，否则残留记录会导致误报。
 4. 涉及界面改动的功能，**必须再用真实软件看一遍**，尤其深浅色两种模式。
