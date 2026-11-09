@@ -87,7 +87,7 @@
 - **整张高亮度编码的 HDR**：已决定暂不支持，打不开时明确说明原因。
 - **RAW 输入**：不做。
 - **大图内存、安装包瘦身**：用户要求暂缓。
-- **`editor_core_test` 偶发失败**：全量串行里出现过一次，单跑和随后两次全量都通过。原因没查清，先按偶发处理。
+- **`editor_core_test` 偶发失败（已查明根因，代码未修）**：2026-11-09 已查明（证据见台账 R35）：不是编辑器逻辑问题，而是 Windows 下连续极快保存 JSON 时「`.pending` 改名覆盖原文件」偶发被系统拒绝。**修法已定，尚未改代码**，等恢复开发时做。 修法：把各处「写 `.pending` 再改名」收拢成 `usage_data.dart` 里的共用写入函数，改名失败时间隔 15 毫秒重试 3 次，仍失败则直接写入原文件并清理 `.pending`。涉及 `preset_store.dart`（2 处）、`photo_state.dart`、`workspace_settings.dart`、`export_preferences.dart`、`settings/app_settings.dart`、`export_recovery.dart` 的批次写入，并在 `editor_core_test.dart` 补一条高频保存验证。真实软件保存预设、照片记录、设置时也用同一写法，所以这是潜在的真实风险，不只是测试问题。
 
 ## 进行中及下一步
 
