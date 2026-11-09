@@ -363,12 +363,8 @@ class PhotoStore {
       'version': 1,
       'photos': photos.map((k, v) => MapEntry(k, v.toJson()))
     });
-    final next = _pending.then((_) => UsageData.write(() async {
-      await file.parent.create(recursive: true);
-      final temp = File('${file.path}.pending');
-      await temp.writeAsString(contents, flush: true);
-      await temp.rename(file.path);
-    }));
+    final next =
+        _pending.then((_) => UsageData.writeStringAtomic(file, contents));
     _pending = next.catchError((Object _) {});
     return next;
   }

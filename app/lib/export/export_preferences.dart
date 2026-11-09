@@ -62,10 +62,6 @@ class ExportPreferences {
           {'variable': part.variable, 'value': part.value}
       ]
     });
-    await UsageData.write(() async {
-      final pending = File('${file.path}.pending');
-      await pending.writeAsString(data, flush: true);
-      await pending.rename(file.path);
-    });
+    await UsageData.writeStringAtomic(file, data);
   }
 }

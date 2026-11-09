@@ -39,6 +39,55 @@ class UsageData {
     }
   }
 
+  /// Writes [contents] to a temporary file beside [target] and swaps it in.
+  ///
+  /// On Windows a back-to-back rename onto an existing file can transiently
+  /// fail with access denied when Defender or the search indexer holds the
+  /// target for a few milliseconds. Retry briefly, and if rename still fails,
+  /// fall back to writing the target directly and cleaning up the temp file.
+  static Future<void> writeStringAtomic(
+    File target,
+    String contents, {
+    String suffix = '.pending',
+    bool gated = true,
+  }) {
+    Future<void> op() async {
+      await target.parent.create(recursive: true);
+      final temp = File('${target.path}$suffix');
+      await temp.writeAsString(contents, flush: true);
+      await commitTempFile(temp, target, contents);
+    }
+
+    return gated ? write(op) : op();
+  }
+
+  /// Swaps [temp] onto [target] with Windows retry and direct-write fallback.
+  static Future<void> commitTempFile(
+    File temp,
+    File target,
+    String contents,
+  ) async {
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        await temp.rename(target.path);
+        return;
+      } catch (_) {
+        if (Zone.current == Zone.root) {
+          await Future<void>.delayed(const Duration(milliseconds: 15));
+        }
+      }
+    }
+    try {
+      await temp.rename(target.path);
+      return;
+    } catch (_) {
+      await target.writeAsString(contents, flush: true);
+      try {
+        if (await temp.exists()) await temp.delete();
+      } catch (_) {}
+    }
+  }
+
   /// Completes when no write is in flight.
   static Future<void> waitIdle() {
     if (_active == 0) return Future.value();

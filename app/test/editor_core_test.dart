@@ -85,6 +85,18 @@ void main() {
     await loaded.load();
     expect(loaded.draftFor('style-A')!.name, c.doc.name);
     expect(loaded.draftFor('style-B')!.name, '胶片档案');
+    expect(File('${store.file.path}.pending').existsSync(), false);
+
+    final rapid = PresetStore(File('${output.path}/rapid-presets.json'));
+    for (var i = 0; i < 12; i++) {
+      await rapid.save(
+          draft: StyleDocument.template(i.isEven)..name = '连续保存-$i',
+          sourceKey: 'rapid-$i');
+    }
+    final rapidLoaded = PresetStore(rapid.file);
+    await rapidLoaded.load();
+    expect(rapidLoaded.draftFor('rapid-11')!.name, '连续保存-11');
+    expect(File('${rapid.file.path}.pending').existsSync(), false);
 
     final state =
         PhotoState.fromJson({'film': true, 'edited': true, 'fields': {}});

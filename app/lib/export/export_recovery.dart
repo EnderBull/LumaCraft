@@ -395,13 +395,9 @@ class ExportRecoveryStore {
   /// new progress record replaces it.
   Future<String> writeBatch(ExportBatch batch) async {
     final id = DateTime.now().microsecondsSinceEpoch.toString();
-    await UsageData.write(() async {
-      await file.parent.create(recursive: true);
-      final target = batchFile(id);
-      final temp = File('${target.path}.writing');
-      await temp.writeAsString(jsonEncode(batch.toJson()), flush: true);
-      await temp.rename(target.path);
-    });
+    await UsageData.writeStringAtomic(
+        batchFile(id), jsonEncode(batch.toJson()),
+        suffix: '.writing');
     if (!await batchFile(id).exists()) {
       throw const FileSystemException('保存导出批次失败');
     }

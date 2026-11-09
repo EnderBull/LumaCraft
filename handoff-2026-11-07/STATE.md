@@ -1,6 +1,6 @@
-# STATE · 冻结状态（2026-11-08）
+# STATE · 冻结状态（2026-11-09）
 
-Git 锚点：`main` / `8976499`，标签 `v0.20.0-beta`，与 `origin/main` 已同步。源码版本 `app/pubspec.yaml`：0.20.0+65。
+源码版本 `app/pubspec.yaml`：0.20.1+66。最新本机发行版目录：`app/dist/LumaCraft-0.20.1-Beta/`（GitHub 预发布标签仍为 `v0.20.0-beta`）。
 
 仓库已公开：`https://github.com/EnderBull/LumaCraft`。预发布：`https://github.com/EnderBull/LumaCraft/releases/tag/v0.20.0-beta`。
 

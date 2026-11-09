@@ -67,13 +67,10 @@ class AppSettings extends ChangeNotifier {
       'amapSecret': _encode(amapSecret),
       'autoFillPlace': autoFillPlace,
     });
-    _pending = _pending.then((_) => UsageData.write(() async {
-      await file.parent.create(recursive: true);
-      final temp = File('${file.path}.pending');
-      await temp.writeAsString(data, flush: true);
-      await temp.rename(file.path);
+    _pending = _pending.then((_) async {
+      await UsageData.writeStringAtomic(file, data);
       saveError = null;
-    })).catchError((Object e) {
+    }).catchError((Object e) {
       saveError = '设置保存失败：$e';
     });
     return _pending;

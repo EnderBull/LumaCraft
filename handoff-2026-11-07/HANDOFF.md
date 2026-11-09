@@ -6,9 +6,9 @@
 |---|---|
 | 工程根目录 | `D:/AI Agent/LumaCraft` |
 | 分支 / HEAD | `main` / `8976499`，与 `origin/main` 已同步 |
-| 交接文档更新时间 | 2026-11-08 |
-| 当前源码版本 | `app/pubspec.yaml`：0.20.0+65 |
-| 最新交付 | `D:/AI Agent/LumaCraft/app/dist/LumaCraft-0.20.0-Beta/lumacraft.exe` |
+| 交接文档更新时间 | 2026-11-09 |
+| 当前源码版本 | `app/pubspec.yaml`：0.20.1+66 |
+| 最新交付 | `D:/AI Agent/LumaCraft/app/dist/LumaCraft-0.20.1-Beta/lumacraft.exe` |
 | 公开仓库 | GitHub 公开，`https://github.com/EnderBull/LumaCraft` |
 | 预发布 | `https://github.com/EnderBull/LumaCraft/releases/tag/v0.20.0-beta` |
 | 许可证 | 代码 GPL-3.0（根目录 `LICENSE`）；Logo 与 `app/assets/branding/` 保留所有权利，不在 GPL 授权范围内 |
@@ -87,7 +87,7 @@
 - **整张高亮度编码的 HDR**：已决定暂不支持，打不开时明确说明原因。
 - **RAW 输入**：不做。
 - **大图内存、安装包瘦身**：用户要求暂缓。
-- **`editor_core_test` 偶发失败（已查明根因，代码未修）**：2026-11-09 已查明（证据见台账 R35）：不是编辑器逻辑问题，而是 Windows 下连续极快保存 JSON 时「`.pending` 改名覆盖原文件」偶发被系统拒绝。**修法已定，尚未改代码**，等恢复开发时做。 修法：把各处「写 `.pending` 再改名」收拢成 `usage_data.dart` 里的共用写入函数，改名失败时间隔 15 毫秒重试 3 次，仍失败则直接写入原文件并清理 `.pending`。涉及 `preset_store.dart`（2 处）、`photo_state.dart`、`workspace_settings.dart`、`export_preferences.dart`、`settings/app_settings.dart`、`export_recovery.dart` 的批次写入，并在 `editor_core_test.dart` 补一条高频保存验证。真实软件保存预设、照片记录、设置时也用同一写法，所以这是潜在的真实风险，不只是测试问题。
+- **`editor_core_test` 偶发失败（已在 0.20.1 修复）**：2026-11-09 查明是 Windows 下连续极快保存 JSON 时「`.pending` 改名覆盖原文件」偶发被系统拒绝（见项目台账 R35）。已在 `usage_data.dart` 新增共用 `writeStringAtomic` / `commitTempFile`（改名失败重试 3 次后退回直接写入并清理临时文件），替换全部 6 处同类保存代码，全量 236 项串行测试通过。
 
 ## 进行中及下一步
 

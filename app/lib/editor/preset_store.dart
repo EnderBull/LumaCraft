@@ -57,10 +57,8 @@ class PresetStore extends ChangeNotifier {
         [for (final p in checked.entries) SharedPreset(p.style)]);
     // Serialize with existing writes. Never mutate the active library before durable save.
     final task = _queue.catchError((Object _) {}).then((_) async {
-      await builtinWorkingFile.parent.create(recursive: true);
-      final staged = File('${builtinWorkingFile.path}.pending');
-      await staged.writeAsString(checked.encode(), flush: true);
-      await staged.rename(builtinWorkingFile.path);
+      await UsageData.writeStringAtomic(builtinWorkingFile, checked.encode(),
+          gated: false);
       builtinLibrary = checked;
       notifyListeners();
     });
@@ -211,12 +209,7 @@ class PresetStore extends ChangeNotifier {
                 {'id': p.id, 'doc': p.style.toJson(), 'folder': p.folder})
             .toList()
       });
-      await UsageData.write(() async {
-        await file.parent.create(recursive: true);
-        final temp = File('${file.path}.pending');
-        await temp.writeAsString(data, flush: true);
-        await temp.rename(file.path);
-      });
+      await UsageData.writeStringAtomic(file, data);
       this.draft = nextDraft;
       drafts = nextDrafts;
       draftSource = sourceKey ?? draftSource;
