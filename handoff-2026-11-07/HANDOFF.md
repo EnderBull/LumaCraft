@@ -10,7 +10,7 @@
 | 当前源码版本 | `app/pubspec.yaml`：0.20.1+66 |
 | 最新交付 | `D:/AI Agent/LumaCraft/app/dist/LumaCraft-0.20.1-Beta/lumacraft.exe` |
 | 公开仓库 | GitHub 公开，`https://github.com/EnderBull/LumaCraft` |
-| 预发布 | `https://github.com/EnderBull/LumaCraft/releases/tag/v0.20.0-beta` |
+| 预发布 | `https://github.com/EnderBull/LumaCraft/releases/tag/v0.20.1-beta` |
 | 许可证 | 代码 GPL-3.0（根目录 `LICENSE`）；Logo 与 `app/assets/branding/` 保留所有权利，不在 GPL 授权范围内 |
 
 ## 目标、理念、范围
@@ -55,26 +55,26 @@
 | 全新安装默认不收藏任何预设 | ✅ 0.20.0 |
 | 8 款内置字体、发行版隐藏制作入口 | ✅ |
 
-## 0.20.0 Beta 已发布
+## 0.20.1 Beta 已发布
 
 这是第一个公开测试版，**不是 1.0.0 正式版**。构建时没有传 `LUMACRAFT_AUTHORING`，所以制作版入口默认隐藏。
 
 | 交付物 | 位置 |
 |---|---|
-| 绿色版文件夹 | `app/dist/LumaCraft-0.20.0-Beta/` |
-| 安装包 | `app/dist/LumaCraft-0.20.0-Beta-Setup.exe`（33.1 MB） |
-| 绿色版压缩包 | `app/dist/LumaCraft-0.20.0-Beta-Portable.zip`（40.6 MB） |
-| 安装脚本 | `packaging/windows/lumacraft.iss`，用本机 Inno Setup 6 编译 |
+| 绿色版文件夹 | `app/dist/LumaCraft-0.20.1-Beta/` |
+| 安装包 | `app/dist/LumaCraft-0.20.1-Beta-Setup.exe`（33.1 MB，支持简体中文向导） |
+| 绿色版压缩包 | `app/dist/LumaCraft-0.20.1-Beta-Portable.zip`（40.6 MB） |
+| 安装脚本 | `packaging/windows/lumacraft.iss` + `ChineseSimplified.isl`，用本机 Inno Setup 6 编译 |
 | 面向用户的说明 | 根目录 `README.md`；交付文件夹里有 `使用说明.md` |
 | 截图 | `docs/screenshots/`。风景照片是 AI 生成的演示图，相机信息是演示数据 |
 
 发行版核对过的事实：
 
-- 关于页显示「版本 0.20.0 Beta」。版本号从程序自带版本资源读取，不再依赖旁边的 `pubspec.yaml`。
+- 关于页显示「版本 0.20.1 Beta」。版本号从程序自带版本资源读取，不再依赖旁边的 `pubspec.yaml`。
 - 运行发行版后没有新建 `builtin-working.json`。
 - 打包进程序的内置库里，「模糊色卡」色卡描边不透明度是 50。
 - exe 属性：产品名 LumaCraft，公司名 LumaCraft，版权为 GPL-3.0。
-- 安装向导是英文。Inno Setup 自带语言没有简体中文，软件界面仍是中文。
+- 安装向导已支持简体中文（`packaging/windows/ChineseSimplified.isl`，保留英文备选）。
 
 0.18.5 和 0.18.6 两个文件夹缺少 `licenses`，构建时也没传制作版开关。以 0.20.0 Beta 为准，不要把那两版当成制作版。
 
@@ -83,7 +83,7 @@
 - **1.0.0 正式版**：未做。0.20.0 只是 Beta。关于页的 Beta 字样是写死的，做正式版时要拿掉。
 - **Android 版**：SDK 未安装，包名仍为 `com.example.lumacraft`、debug 签名，不能发布。地图功能在 Android 上需换方案（不能复用 Windows 的 WebView2）。
 - **macOS / iOS**：需要 Mac 环境。
-- **英文界面**：未开始。安装向导也还是英文模板。
+- **英文界面**：软件内英文界面未开始（安装向导已支持中英双语）。
 - **整张高亮度编码的 HDR**：已决定暂不支持，打不开时明确说明原因。
 - **RAW 输入**：不做。
 - **大图内存、安装包瘦身**：用户要求暂缓。

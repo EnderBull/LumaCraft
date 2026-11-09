@@ -1,8 +1,8 @@
 # STATE · 冻结状态（2026-11-09）
 
-源码版本 `app/pubspec.yaml`：0.20.1+66。最新本机发行版目录：`app/dist/LumaCraft-0.20.1-Beta/`（GitHub 预发布标签仍为 `v0.20.0-beta`）。
+源码版本 `app/pubspec.yaml`：0.20.1+66，标签 `v0.20.1-beta`。
 
-仓库已公开：`https://github.com/EnderBull/LumaCraft`。预发布：`https://github.com/EnderBull/LumaCraft/releases/tag/v0.20.0-beta`。
+仓库已公开：`https://github.com/EnderBull/LumaCraft`。预发布：`https://github.com/EnderBull/LumaCraft/releases/tag/v0.20.1-beta`。
 
 ## 目录与职责
 
@@ -33,7 +33,7 @@ D:/AI Agent/LumaCraft/
     assets/fonts/                   字体、OFL 许可、来源与哈希
     test/                           Flutter 测试
     docs/                           各版本交付说明
-    dist/                           各版本可运行目录，最新为 LumaCraft-0.20.0-Beta
+    dist/                           各版本可运行目录，最新为 LumaCraft-0.20.1-Beta
     local/                          开发期 JSON 记录（含用户路径与预设，不进版本库）
     .toolchain/                     Flutter/Dart SDK 与 pub-cache（不进版本库）
     .dart_tool/                     生成配置与编译缓存（不进版本库）
@@ -52,10 +52,10 @@ $env:LUMACRAFT_COLOR_TOOL = "D:\AI Agent\LumaCraft\app\build\windows\x64\runner\
 |---|---|---|
 | 分析 | `flutter analyze lib` | 无 error（2026-11-07，0.20.0 封包前） |
 | 测试 | `flutter test --no-pub -j 1` | 236 项通过、1 项跳过。见 TEST_BASELINE |
-| 发行版构建 | `flutter build windows --release --no-pub` | 成功，产物即 0.20.0 Beta |
+| 发行版构建 | `flutter build windows --release --no-pub` | 成功，产物即 0.20.1 Beta |
 | 制作版构建 | 上一条再加 `--dart-define=LUMACRAFT_AUTHORING=true` | 0.20.0 没有再出制作版 |
-| 运行 | 双击 `启动框印工坊.lnk` | 按版本号启动最新目录，即 `dist/LumaCraft-0.20.0-Beta` |
-| 安装包 | `ISCC.exe packaging\windows\lumacraft.iss` | `dist/LumaCraft-0.20.0-Beta-Setup.exe` |
+| 运行 | 双击 `启动框印工坊.lnk` | 按版本号启动最新目录，即 `dist/LumaCraft-0.20.1-Beta` |
+| 安装包 | `ISCC.exe packaging\windows\lumacraft.iss` | `dist/LumaCraft-0.20.1-Beta-Setup.exe`（含简体中文向导） |
 
 **构建前提**：需要 Windows「开发者模式」已开启（插件需要创建符号链接）。仅构建机需要，最终用户不需要。
 
@@ -117,7 +117,7 @@ Flutter 3.47.9 / Dart 3.13.7。直接依赖：
 
 | 任务 | 状态 | 下一步 |
 |---|---|---|
-| Windows 功能到 0.20.0 Beta | ✅ 已发布并公开 | Beta 期，保持暂停（2026-11-08 用户确认） |
+| Windows 功能到 0.20.1 Beta | ✅ 已发布并公开 | Beta 期，保持暂停 |
 | 1.0.0 正式版 | ⬜ 未开始 | 去掉 Beta 字样，按 HANDOFF 发行版清单再封一次 |
 | Android 版 | ⬜ 未开始 | 需装 SDK、重做界面适配、地图换方案、处理签名 |
 | macOS / iOS | ⬜ 无法进行 | 需 Mac 环境 |
