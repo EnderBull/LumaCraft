@@ -2,9 +2,8 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
-import '../../editor/photo_palette.dart';
+import 'preset_demo_preview.dart';
 import '../../editor/preset_package.dart';
 import '../../editor/style_render.dart';
 
@@ -27,20 +26,8 @@ class _ImportConfirmation extends StatefulWidget {
 }
 
 class _ImportConfirmationState extends State<_ImportConfirmation> {
-  static const _fields = {
-    'camera': 'LumaCraft',
-    'lens': '35mm F2.8',
-    'time': '2026:10:18 06:42:00',
-    'focal': '35',
-    'aperture': '2.8',
-    'shutter': '1/250',
-    'iso': '100',
-    'place': '山间日出',
-    photoPaletteField:
-        '4294958230,4290570479,4284666558,4284198846,4284199604,4291280041',
-  };
   ui.Image? _photo;
-  late final _preview = _loadLandscape().then((photo) {
+  late final _preview = loadPresetDemoLandscape().then((photo) {
     if (mounted) {
       _photo = photo;
     } else {
@@ -97,7 +84,7 @@ class _ImportConfirmationState extends State<_ImportConfirmation> {
                                 child: StylePreview(
                                     photo: photo,
                                     document: style,
-                                    fields: _fields))
+                                    fields: presetDemoFields))
                             : Center(
                                 child: snapshot.hasError
                                     ? const Text('示意预览暂不可用')
@@ -121,18 +108,5 @@ class _ImportConfirmationState extends State<_ImportConfirmation> {
             child: const Text('确认导入')),
       ],
     );
-  }
-}
-
-Future<ui.Image> _loadLandscape() async {
-  final bytes =
-      await rootBundle.load('assets/branding/preset-demo-landscape.png');
-  final codec = await ui.instantiateImageCodec(
-    bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
-  );
-  try {
-    return (await codec.getNextFrame()).image;
-  } finally {
-    codec.dispose();
   }
 }

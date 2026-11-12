@@ -615,7 +615,6 @@ class _AlphaPageState extends State<AlphaPage>
                               workspace: workspace,
                               selected: selected,
                               onSelected: _previewTap,
-                              onClose: _back,
                               onDragUpdate: update,
                               onDragEnd: end,
                               onDragCancel: cancel,

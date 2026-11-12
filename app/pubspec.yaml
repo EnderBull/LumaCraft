@@ -10,6 +10,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   image: ^4.2.0
+  crypto: ^3.0.7
   file_selector: ^1.0.3
   flutter_svg: ^2.2.3
   qr: ^4.0.1
@@ -23,6 +24,7 @@ flutter:
   assets:
     - assets/branding/lumacraft-icon-1024.png
     - assets/branding/preset-demo-landscape.png
+    - assets/android_preset_previews/
     - assets/ui/
     - assets/fonts/sources.json
     - assets/fonts/SourceHanSerifCN-Regular-OFL.txt

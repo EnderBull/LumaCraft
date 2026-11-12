@@ -20,7 +20,6 @@ class MobileEditorPanel extends StatefulWidget {
     required this.workspace,
     required this.selected,
     required this.onSelected,
-    required this.onClose,
     required this.onDragUpdate,
     required this.onDragEnd,
     required this.onDragCancel,
@@ -29,7 +28,6 @@ class MobileEditorPanel extends StatefulWidget {
   final AlphaWorkspace workspace;
   final String? selected;
   final ValueChanged<String> onSelected;
-  final VoidCallback onClose;
   final GestureDragUpdateCallback onDragUpdate;
   final GestureDragEndCallback onDragEnd;
   final GestureDragCancelCallback onDragCancel;
@@ -38,7 +36,26 @@ class MobileEditorPanel extends StatefulWidget {
   State<MobileEditorPanel> createState() => _MobileEditorPanelState();
 }
 
-class _MobileEditorPanelState extends State<MobileEditorPanel> {
+class _MobileEditorPanelState extends State<MobileEditorPanel>
+    with SingleTickerProviderStateMixin {
+  late final _tabs = TabController(length: 2, vsync: this);
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  void _selectTab(int index) {
+    if (index == _tabs.index) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    _tabs.animateTo(index,
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 180));
+  }
+
+  double _tabDrag = 0;
   final _selectedChip = GlobalKey();
   AlphaWorkspace get workspace => widget.workspace;
 
@@ -158,6 +175,57 @@ class _MobileEditorPanelState extends State<MobileEditorPanel> {
     );
   }
 
+  Widget _propertyPage(StyleNode? selected, int index) {
+    if (selected == null) {
+      return Center(
+        child: Text(workspace.style.nodes.isEmpty ? '此预设没有可编辑的组件。' : '请选择组件'),
+      );
+    }
+    final fields = captureFieldsForComponent(selected.type);
+    final override = workspace.caption(selected.id);
+    return ListView(
+      key: ValueKey((selected.id, index)),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 20),
+      children: [
+        if (index == 0)
+          if (workspace.style.locked(selected.id))
+            const Text('该组件已锁定。')
+          else
+            _MobileProperties(
+              node: selected,
+              workspace: workspace,
+              replaceImage: () => _replaceImage(selected.id),
+            )
+        else if (workspace.current == null)
+          const Text('请先选择照片。')
+        else if (fields.isNotEmpty)
+          MobileCaptureFields(workspace: workspace, keys: fields)
+        else if (selected.type == 'text' &&
+            !workspace.style.locked(selected.id)) ...[
+          MobileField(
+            label: '仅修改本张文字',
+            value: override ?? selected.text,
+            multiline: true,
+            onCommit: (value) {
+              workspace.editCaption(
+                  selected.id, value == selected.text ? null : value);
+              return null;
+            },
+          ),
+          if (override != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => workspace.editCaption(selected.id, null),
+                child: const Text('恢复共用文字'),
+              ),
+            ),
+        ] else
+          const Text('此组件没有可单独调整的照片属性。'),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -180,45 +248,24 @@ class _MobileEditorPanelState extends State<MobileEditorPanel> {
                       onVerticalDragUpdate: widget.onDragUpdate,
                       onVerticalDragEnd: widget.onDragEnd,
                       onVerticalDragCancel: widget.onDragCancel,
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            height: 24,
-                            child: Center(
-                              child: Container(
-                                width: theme.bottomSheetTheme.dragHandleSize
-                                        ?.width ??
+                      child: SizedBox(
+                        height: 24,
+                        width: double.infinity,
+                        child: Center(
+                          child: Container(
+                            width:
+                                theme.bottomSheetTheme.dragHandleSize?.width ??
                                     32,
-                                height: theme.bottomSheetTheme.dragHandleSize
-                                        ?.height ??
+                            height:
+                                theme.bottomSheetTheme.dragHandleSize?.height ??
                                     4,
-                                decoration: BoxDecoration(
-                                  color:
-                                      theme.bottomSheetTheme.dragHandleColor ??
-                                          colors.onSurfaceVariant
-                                              .withValues(alpha: .4),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
+                            decoration: BoxDecoration(
+                              color: theme.bottomSheetTheme.dragHandleColor ??
+                                  colors.onSurfaceVariant.withValues(alpha: .4),
+                              borderRadius: BorderRadius.circular(4),
                             ),
                           ),
-                          SizedBox(
-                            height: 44,
-                            child: Row(
-                              children: [
-                                const SizedBox(width: 14),
-                                Expanded(
-                                    child: Text('编辑样式',
-                                        style: theme.textTheme.titleSmall)),
-                                IconButton(
-                                    tooltip: '收起编辑',
-                                    onPressed: widget.onClose,
-                                    icon: const Icon(Icons.keyboard_arrow_down,
-                                        size: 23)),
-                              ],
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   if (nodes.isNotEmpty && bounds.maxHeight >= 100)
@@ -226,6 +273,7 @@ class _MobileEditorPanelState extends State<MobileEditorPanel> {
                       color: colors.surfaceContainer,
                       child: SizedBox(
                         height: 52,
+                        width: double.infinity,
                         child: SingleChildScrollView(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 6),
@@ -238,43 +286,45 @@ class _MobileEditorPanelState extends State<MobileEditorPanel> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               for (final node in nodes)
-                                _chip(theme, node, selected)
+                                _chip(theme, node, selected),
                             ],
                           ),
                         ),
                       ),
                     ),
+                  if (bounds.maxHeight >= 120)
+                    TabBar(
+                      controller: _tabs,
+                      labelColor: colors.primary,
+                      unselectedLabelColor: colors.onSurfaceVariant,
+                      indicatorColor: colors.primary,
+                      indicatorSize: TabBarIndicatorSize.label,
+                      dividerColor: Colors.transparent,
+                      onTap: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
+                      tabs: const [Tab(text: '批次样式'), Tab(text: '当前照片')],
+                    ),
                   Expanded(
-                    child: selected == null
-                        ? Center(
-                            child:
-                                Text(nodes.isEmpty ? '此预设没有可编辑的组件。' : '请选择组件'))
-                        : ListView(
-                            key: ValueKey(selected.id),
-                            padding: const EdgeInsets.fromLTRB(14, 10, 14, 20),
-                            children: [
-                              if (workspace.style.locked(selected.id))
-                                const Text('该组件已锁定。')
-                              else
-                                _MobileProperties(
-                                  node: selected,
-                                  workspace: workspace,
-                                  replaceImage: () =>
-                                      _replaceImage(selected.id),
-                                ),
-                              if (captureFieldsForComponent(selected.type)
-                                      .isNotEmpty &&
-                                  workspace.current != null) ...[
-                                const SizedBox(height: 12),
-                                Text('当前照片', style: theme.textTheme.titleSmall),
-                                MobileCaptureFields(
-                                  workspace: workspace,
-                                  keys:
-                                      captureFieldsForComponent(selected.type),
-                                ),
-                              ],
-                            ],
+                    child: TabBarView(
+                      controller: _tabs,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        for (var index = 0; index < 2; index++)
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onHorizontalDragStart: (_) => _tabDrag = 0,
+                            onHorizontalDragUpdate: (details) =>
+                                _tabDrag += details.delta.dx,
+                            onHorizontalDragEnd: (_) {
+                              if ((index == 0 && _tabDrag < -36) ||
+                                  (index == 1 && _tabDrag > 36)) {
+                                _selectTab(1 - index);
+                              }
+                            },
+                            child: _propertyPage(selected, index),
                           ),
+                      ],
+                    ),
                   ),
                 ],
               )),
@@ -289,7 +339,7 @@ Widget _pair(Widget a, Widget? b) => b == null
         children: [
           Expanded(child: a),
           const SizedBox(width: 10),
-          Expanded(child: b)
+          Expanded(child: b),
         ],
       );
 
@@ -423,12 +473,9 @@ class _MobileProperties extends StatelessWidget {
     }
 
     final palette = node.palette;
-    final override = workspace.caption(node.id);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('批次样式', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 6),
         if (node.type == 'image') ...[
           if (node.image.filename.isNotEmpty)
             Text(node.image.filename,
@@ -566,7 +613,9 @@ class _MobileProperties extends StatelessWidget {
                   edit((node) => node.text = value);
                   return null;
                 }),
-          select('字体', node.font, artworkFontOptions, (n, v) => n.font = v),
+          _FontField(
+              value: node.font,
+              onChanged: (value) => edit((n) => n.font = value)),
           _pair(
             number('字号 px', (n) => n.fontSize, 1, double.infinity,
                 (n, v) => n.fontSize = v),
@@ -587,26 +636,85 @@ class _MobileProperties extends StatelessWidget {
               node.id, value == null ? null : (n) => n.opacity = value),
           onChanged: (value) => edit((n) => n.opacity = value),
         ),
-        if (node.type == 'text' && workspace.current != null) ...[
-          const SizedBox(height: 14),
-          Text('当前照片', style: Theme.of(context).textTheme.titleMedium),
-          MobileField(
-              label: '仅修改本张文字',
-              value: override ?? node.text,
-              multiline: true,
-              onCommit: (value) {
-                workspace.editCaption(
-                    node.id, value == node.text ? null : value);
-                return null;
-              }),
-          if (override != null)
-            TextButton(
-                onPressed: () => workspace.editCaption(node.id, null),
-                child: const Text('恢复共用文字')),
-        ],
       ],
     );
   }
+}
+
+class _FontField extends StatelessWidget {
+  const _FontField({required this.value, required this.onChanged});
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: mobileFieldLayout(
+          context,
+          '字体',
+          InkWell(
+            key: const ValueKey('mobile-font-picker'),
+            borderRadius: BorderRadius.circular(8),
+            onTap: () async {
+              final next = await showModalBottomSheet<String>(
+                context: context,
+                showDragHandle: true,
+                useSafeArea: true,
+                isScrollControlled: true,
+                builder: (context) => SafeArea(
+                  top: false,
+                  child: FractionallySizedBox(
+                    heightFactor: .55,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                          child: Text('字体',
+                              style: Theme.of(context).textTheme.titleMedium),
+                        ),
+                        Expanded(
+                          child: ListView(
+                            physics: const BouncingScrollPhysics(
+                                parent: AlwaysScrollableScrollPhysics()),
+                            children: [
+                              for (final font in artworkFontOptions.entries)
+                                ListTile(
+                                  title: Text(font.value,
+                                      style: artworkTextStyle(font.key)),
+                                  selected: value == font.key,
+                                  trailing: value == font.key
+                                      ? const Icon(Icons.check)
+                                      : null,
+                                  onTap: () => Navigator.pop(context, font.key),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+              if (context.mounted && next != null && next != value)
+                onChanged(next);
+            },
+            child: InputDecorator(
+              decoration: mobileInputDecoration(context),
+              child: Row(
+                children: [
+                  Expanded(
+                      child: Text(artworkFontOptions[value] ?? value,
+                          style: artworkTextStyle(value),
+                          overflow: TextOverflow.ellipsis)),
+                  const Icon(Icons.arrow_drop_down),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class _OpacityControl extends StatefulWidget {

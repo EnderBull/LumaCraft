@@ -9,6 +9,7 @@ import 'package:flutter/widgets.dart';
 import '../../editor/preset_store.dart';
 import '../../editor/preset_package.dart';
 import 'mobile_edits.dart';
+import 'preset_demo_preview.dart';
 import '../../editor/style_document.dart';
 import '../../export/android_photo_io.dart';
 import '../../export/export_naming.dart';
@@ -68,6 +69,14 @@ class AlphaWorkspace extends ChangeNotifier {
   final photos = <AlphaPhoto>[];
   final _favoriteIds = <String>{};
   PresetStore? _store;
+  PresetDemoCache? presetDemoCache;
+
+  void _warmPresetDemos(Iterable<String> ids) {
+    final entryIds = ids.toSet();
+    presetDemoCache
+        ?.warm(presets.where((entry) => entryIds.contains(entry.id)));
+  }
+
   WorkspaceSettings? _preferences;
   PresetEntry? _chosen;
   final _edits = MobileEdits(StyleDocument.template());
@@ -292,12 +301,16 @@ class AlphaWorkspace extends ChangeNotifier {
       final store = PresetStore(File('${folder.path}/editor-presets.json'),
           authoring: false);
       _store = store;
+      presetDemoCache = PresetDemoCache(
+        Directory('${folder.path}/preset-demo-v1'),
+      );
       await store.load();
       if (_disposed) return;
       _chosen =
           store.entries.where((item) => item.id == 'gallery').firstOrNull ??
               store.entries.firstOrNull;
       if (_chosen case final chosen?) _edits.loadStyle(chosen.style);
+      presetDemoCache?.warm(store.entries);
       await _restoreSession(File('${folder.path}/android-session.json'));
       if (_disposed) return;
       final marker = File('${folder.path}/android-export-running');
@@ -448,6 +461,8 @@ class AlphaWorkspace extends ChangeNotifier {
     final first = store.presets.length;
     final imported = mergeLmp(store, incoming, {});
     await store.saveLibrary(imported.presets, imported.folders);
+    _warmPresetDemos(
+        imported.presets.skip(first).map((preset) => 'user:${preset.id}'));
     if (!_disposed && imported.count > 0 && activate) {
       final id = imported.presets[first].id;
       choosePreset(store.entries.firstWhere((p) => p.id == 'user:$id'));
@@ -480,6 +495,7 @@ class AlphaWorkspace extends ChangeNotifier {
       _drafts.remove('user:${saved.id}');
     }
     await store.saveLibrary(items, store.folders);
+    _warmPresetDemos(['user:${saved.id}']);
     if (_chosen?.id == 'user:${saved.id}') {
       _chosen = store.entries.firstWhere((entry) => entry.id == _chosen!.id);
     }
@@ -493,11 +509,12 @@ class AlphaWorkspace extends ChangeNotifier {
     final copy = entry.style.copy()
       ..name = uniquePresetName(entry.style.name + ' 副本',
           store.presets.map((item) => item.style.name));
+    final id = newObjectId();
     await store.saveLibrary([
       ...store.presets,
-      UserPreset(newObjectId(), copy,
-          folder: entry.builtIn ? '' : entry.folder),
+      UserPreset(id, copy, folder: entry.builtIn ? '' : entry.folder),
     ], store.folders);
+    _warmPresetDemos(['user:$id']);
     if (!_disposed) notifyListeners();
     return copy.name;
   }
@@ -737,6 +754,7 @@ class AlphaWorkspace extends ChangeNotifier {
     _disposed = true;
     preview?.dispose();
     _edits.dispose();
+    presetDemoCache?.dispose();
     _store?.dispose();
     _preferences?.dispose();
     for (final photo in [...photos, ..._removed.map((entry) => entry.$2)]) {

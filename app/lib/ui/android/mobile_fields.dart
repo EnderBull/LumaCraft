@@ -286,7 +286,11 @@ Widget mobileFieldLayout(BuildContext context, String label, Widget field) =>
         children: [
           Text(label, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 5),
-          field,
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragUpdate: (_) {},
+            child: field,
+          ),
         ],
       ),
     );

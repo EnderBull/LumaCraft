@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -10,12 +11,14 @@ import '../../editor/style_document.dart';
 import '../../editor/image_mark.dart';
 import '../../editor/photo_palette.dart';
 import '../../editor/style_render.dart';
+import '../../editor/texture_render.dart';
 import '../../export/export_options.dart';
 import '../app_icons.dart';
 import '../preset_thumbnail.dart';
 import 'alpha_workspace.dart';
 import 'mobile_fields.dart';
 import 'mobile_preset_page.dart';
+import 'preset_demo_preview.dart';
 
 Future<bool?> chooseAlphaSource(BuildContext context) =>
     showModalBottomSheet<bool>(
@@ -98,6 +101,39 @@ class _PresetSheetState extends State<_PresetSheet> {
   final _groups = MenuController();
   final _thumbnails = <(StyleDocument, AlphaPreview), Future<ui.Image?>>{};
   Future<void> _thumbnailQueue = Future.value();
+  final _demoThumbnails = <(String, StyleDocument), Future<Uint8List?>>{};
+
+  Widget _demoThumbnail(PresetEntry entry) {
+    final placeholder = ColoredBox(color: Color(entry.style.background));
+    if (entry.builtIn) {
+      return Image.asset(
+        '$builtinDemoDirectory/${entry.id}.png',
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.low,
+        errorBuilder: (context, error, stackTrace) => placeholder,
+      );
+    }
+    final cache = widget.workspace.presetDemoCache;
+    if (cache == null) return placeholder;
+    return FutureBuilder<Uint8List?>(
+      future: _demoThumbnails.putIfAbsent(
+        (entry.id, entry.style),
+        () => cache.read(entry),
+      ),
+      builder: (context, snapshot) {
+        final bytes = snapshot.data;
+        return bytes == null
+            ? placeholder
+            : Image.memory(
+                bytes,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.low,
+                errorBuilder: (context, error, stackTrace) => placeholder,
+              );
+      },
+    );
+  }
+
   Completer<void>? _scrollEnd;
   Animation<double>? _sheetAnimation;
   bool _showGrid = true;
@@ -167,6 +203,7 @@ class _PresetSheetState extends State<_PresetSheet> {
             (await photoPaletteForFile(preview.decoded.file.path)).join(',');
       }
       await prepareImageMarks(marks);
+      await ensureTexture(style.fill.texture);
       if (!mounted) return null;
       scene = StyleScene(style, original, fields);
       final size = scene.geometry.size;
@@ -367,7 +404,8 @@ class _PresetSheetState extends State<_PresetSheet> {
                                 final entry = entries[index];
                                 final selected = !widget.manage &&
                                     workspace.presetId == entry.id;
-                                final preview = workspace.preview;
+                                final preview =
+                                    widget.manage ? null : workspace.preview;
                                 return Material(
                                   color: colors.surfaceContainerHighest,
                                   shape: RoundedRectangleBorder(
@@ -390,9 +428,7 @@ class _PresetSheetState extends State<_PresetSheet> {
                                             child: Padding(
                                               padding: const EdgeInsets.all(8),
                                               child: preview == null
-                                                  ? ColoredBox(
-                                                      color: Color(entry
-                                                          .style.background))
+                                                  ? _demoThumbnail(entry)
                                                   : FutureBuilder<ui.Image?>(
                                                       future: _thumbnail(
                                                           entry.style, preview),

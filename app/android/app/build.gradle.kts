@@ -4,7 +4,12 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val p611 = providers.gradleProperty("lumacraftP611").isPresent
+val formalAndroid = providers.gradleProperty("lumacraftAndroidRelease").orNull == "true"
+val formalVersionName = providers.gradleProperty("lumacraftAndroidVersionName").orElse("0.21.0")
+val formalVersionCode = providers.gradleProperty("lumacraftAndroidVersionCode").orElse("84")
+
+val p612 = providers.gradleProperty("lumacraftP612").isPresent
+val p611 = p612 || providers.gradleProperty("lumacraftP611").isPresent
 val p610 = p611 || providers.gradleProperty("lumacraftP610").isPresent
 val p69 = p610 || providers.gradleProperty("lumacraftP69").isPresent
 val p68 = p69 || providers.gradleProperty("lumacraftP68").isPresent
@@ -33,11 +38,12 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.lumacraft"
+        applicationId = if (formalAndroid) "io.github.enderbull.lumacraft" else "com.example.lumacraft"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = if (alpha) 31 else flutter.minSdkVersion
+        minSdk = if (formalAndroid || alpha) 31 else flutter.minSdkVersion
         manifestPlaceholders["appLabel"] = when {
+            formalAndroid -> "框印工坊"
             beta -> "LumaCraft Beta"
             alpha -> "LumaCraft Alpha"
             else -> "lumacraft"
@@ -47,8 +53,8 @@ android {
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
         // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
         // flag during build.
-        versionCode = flutter.versionCode + (if (p611) 15 else if (p610) 14 else if (p69) 13 else if (p68) 12 else if (p67) 11 else if (p66) 10 else if (p65) 9 else if (p64) 8 else if (p63) 7 else if (p6Patch) 6 else if (p6Ui) 5 else if (p5Patch) 4 else if (p5) 3 else if (betaUi) 2 else if (beta) 1 else 0)
-        versionName = if (p611) "${flutter.versionName}-p6.11" else if (p610) "${flutter.versionName}-p6.10" else if (p69) "${flutter.versionName}-p6.9" else if (p68) "${flutter.versionName}-p6.8" else if (p67) "${flutter.versionName}-p6.7" else if (p66) "${flutter.versionName}-p6.6" else if (p65) "${flutter.versionName}-p6.5" else if (p64) "${flutter.versionName}-p6.4" else if (p63) "${flutter.versionName}-p6.3" else if (p6Patch) "${flutter.versionName}-p6.2" else if (p6Ui) "${flutter.versionName}-p6.1" else if (p5Patch) "${flutter.versionName}-p5.1" else if (p5) "${flutter.versionName}-p5" else if (betaUi) "${flutter.versionName}-p4.1" else if (beta) "${flutter.versionName}-p4" else flutter.versionName
+        versionCode = if (formalAndroid) formalVersionCode.get().toInt() else flutter.versionCode + (if (p612) 16 else if (p611) 15 else if (p610) 14 else if (p69) 13 else if (p68) 12 else if (p67) 11 else if (p66) 10 else if (p65) 9 else if (p64) 8 else if (p63) 7 else if (p6Patch) 6 else if (p6Ui) 5 else if (p5Patch) 4 else if (p5) 3 else if (betaUi) 2 else if (beta) 1 else 0)
+        versionName = if (formalAndroid) formalVersionName.get() else if (p612) "${flutter.versionName}-p6.12" else if (p611) "${flutter.versionName}-p6.11" else if (p610) "${flutter.versionName}-p6.10" else if (p69) "${flutter.versionName}-p6.9" else if (p68) "${flutter.versionName}-p6.8" else if (p67) "${flutter.versionName}-p6.7" else if (p66) "${flutter.versionName}-p6.6" else if (p65) "${flutter.versionName}-p6.5" else if (p64) "${flutter.versionName}-p6.4" else if (p63) "${flutter.versionName}-p6.3" else if (p6Patch) "${flutter.versionName}-p6.2" else if (p6Ui) "${flutter.versionName}-p6.1" else if (p5Patch) "${flutter.versionName}-p5.1" else if (p5) "${flutter.versionName}-p5" else if (betaUi) "${flutter.versionName}-p4.1" else if (beta) "${flutter.versionName}-p4" else flutter.versionName
     }
 
     buildTypes {
@@ -65,9 +71,8 @@ android {
             getByName("debug") { applicationIdSuffix = ".p1" }
         }
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Formal APKs are signed locally after Gradle finishes.
+            signingConfig = if (formalAndroid) null else signingConfigs.getByName("debug")
         }
     }
 }
