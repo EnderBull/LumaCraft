@@ -377,6 +377,13 @@ class PhotoStore {
     final dataDirectory = Platform.environment['LUMACRAFT_DATA_DIR'];
     if (dataDirectory != null && dataDirectory.isNotEmpty)
       return File('$dataDirectory/photo-state.json');
+    if (Platform.isMacOS) {
+      final home = Platform.environment['HOME'];
+      if (home == null || home.isEmpty) {
+        throw StateError('无法确定 Mac 用户目录');
+      }
+      return File('$home/Library/Application Support/LumaCraft/photo-state.json');
+    }
     var dir = File(Platform.resolvedExecutable).parent;
     while (dir.parent.path != dir.path) {
       if (File('${dir.path}/pubspec.yaml').existsSync())

@@ -17,6 +17,8 @@ class DesktopWindow {
   }
 
   static Future<void> action(String method, [String? edge]) async {
-    if (Platform.isWindows) await channel.invokeMethod<void>(method, edge);
+    if (Platform.isWindows || Platform.isMacOS) {
+      await channel.invokeMethod<void>(method, edge);
+    }
   }
 }

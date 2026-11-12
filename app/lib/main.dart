@@ -1130,6 +1130,8 @@ class _WorkshopState extends State<Workshop> {
     if (directory == null || !await Directory(directory).exists()) return;
     if (Platform.isWindows)
       await Process.run('explorer.exe', [Directory(directory).absolute.path]);
+    if (Platform.isMacOS)
+      await Process.run('open', [Directory(directory).absolute.path]);
   }
 
   Future<void> export({bool retry = false}) async {
@@ -1761,7 +1763,8 @@ class _WorkshopState extends State<Workshop> {
           return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.keyA &&
-            HardwareKeyboard.instance.isControlPressed) {
+            (HardwareKeyboard.instance.isControlPressed ||
+                (Platform.isMacOS && HardwareKeyboard.instance.isMetaPressed))) {
           setState(() => selected.addAll(files.map((file) => file.path)));
           return KeyEventResult.handled;
         }

@@ -23,7 +23,7 @@ class _Thumbs {
     final known = needsTool[path];
     if (known != null) return known;
     try {
-      return needsTool[path] = jpegUsesWideGamut(path);
+      return needsTool[path] = Platform.isMacOS || jpegUsesWideGamut(path);
     } catch (_) {
       return false;
     }

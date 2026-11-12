@@ -22,6 +22,14 @@ String directoryName(String path) =>
 const verifyInterval = Duration(seconds: 5);
 
 List<String> diskRoots() {
+  if (Platform.isMacOS) {
+    final home = Platform.environment['HOME'];
+    final volumes = Directory('/Volumes');
+    return [
+      if (home != null && home.isNotEmpty) home,
+      if (volumes.existsSync()) volumes.path,
+    ];
+  }
   if (!Platform.isWindows) return ['/'];
   final drives = DynamicLibrary.open('kernel32.dll')
       .lookupFunction<Uint32 Function(), int Function()>('GetLogicalDrives')();

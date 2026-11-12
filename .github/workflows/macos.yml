@@ -1,0 +1,67 @@
+name: macOS Apple Silicon
+
+on:
+  push:
+    branches: [codex/macos]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: app
+    env:
+      FLUTTER_REVISION: c197ca5199e9ee5661e865596c9c07294dfab51c
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Flutter
+        run: |
+          test "$(uname -m)" = arm64
+          git init "$RUNNER_TEMP/flutter"
+          git -C "$RUNNER_TEMP/flutter" fetch --depth 1 https://github.com/flutter/flutter.git "$FLUTTER_REVISION"
+          git -C "$RUNNER_TEMP/flutter" checkout --detach FETCH_HEAD
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Resolve dependencies
+        run: |
+          flutter --version
+          flutter config --enable-macos-desktop --enable-macos-arm64-only
+          flutter precache --macos
+          flutter pub get --enforce-lockfile
+      - name: Build and verify ImageIO helper
+        run: |
+          xcrun swiftc -O -target arm64-apple-macos13.0 macos/Tools/color_tool.swift -o "$RUNNER_TEMP/lumacraft_color_tool"
+          python3 macos/Tools/check_color_tool.py "$RUNNER_TEMP/lumacraft_color_tool"
+          echo "LUMACRAFT_COLOR_TOOL=$RUNNER_TEMP/lumacraft_color_tool" >> "$GITHUB_ENV"
+      - name: Test shared preset and Mac export paths
+        run: flutter test --no-pub -j 1 test/preset_library_test.dart test/p2_preset_roundtrip_test.dart test/macos_color_export_test.dart
+      - name: Build and package arm64 app
+        run: |
+          iconset=macos/Runner/Assets.xcassets/AppIcon.appiconset
+          for size in 16 32 64 128 256 512 1024; do
+            sips -z "$size" "$size" assets/branding/lumacraft-icon-1024.png --out "$iconset/app_icon_$size.png" >/dev/null
+          done
+          flutter build macos --release --no-pub --build-name=0.21.0 --build-number=1
+          bundle=build/macos/Build/Products/Release/LumaCraft.app
+          binary="$bundle/Contents/MacOS/LumaCraft"
+          test "$(lipo -archs "$binary")" = arm64
+          mkdir -p "$bundle/Contents/Helpers"
+          install -m 755 "$RUNNER_TEMP/lumacraft_color_tool" "$bundle/Contents/Helpers/lumacraft_color_tool"
+          codesign --force --sign - "$bundle/Contents/Helpers/lumacraft_color_tool"
+          codesign --force --sign - --entitlements macos/Runner/Release.entitlements "$bundle"
+          codesign --verify --deep --strict "$bundle"
+          ditto -c -k --keepParent "$bundle" "$RUNNER_TEMP/LumaCraft-macOS-arm64-CI.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LumaCraft-macOS-arm64-CI
+          path: ${{ runner.temp }}/LumaCraft-macOS-arm64-CI.zip
+          if-no-files-found: error

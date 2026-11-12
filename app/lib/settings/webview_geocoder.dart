@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:webview_flutter_windows/webview_flutter_windows.dart';
 
 import 'amap_service.dart';
@@ -41,6 +43,8 @@ class WebviewGeocoder implements Geocoder {
       throw const AmapException('照片里的坐标无效，无法查询地点');
     if (_pending != null)
       throw const AmapException('正在查询上一个地点，请稍等');
+
+    if (Platform.isMacOS) return _lookupMac(coordinates);
 
     await _ensureStarted();
     // EXIF holds WGS-84; Amap answers in its own offset system, so the
@@ -92,6 +96,39 @@ class WebviewGeocoder implements Geocoder {
     }
     if (completer.isCompleted) return completer.future;
     throw const AmapException('查询地点超时。请确认网络能访问高德，以及 Key 是「Web端(JS API)」类型');
+  }
+
+  bool _macLookupInProgress = false;
+
+  Future<PlaceResult> _lookupMac((double, double) coordinates) async {
+    if (_macLookupInProgress) throw const AmapException('正在查询上一个地点，请稍等');
+    _macLookupInProgress = true;
+    final server = MapPageServer();
+    try {
+      const path = '/geocode.html';
+      final port = await server.start(buildGeocodePage(key: key, secret: secret), path: path);
+      if (port == null) throw const AmapException('本地服务启动失败');
+      final (lng, lat) = wgs84ToGcj02(coordinates.$1, coordinates.$2);
+      final title = await const MethodChannel('lumacraft/macos_map')
+          .invokeMethod<String>('lookup', {
+        'url': 'http://127.0.0.1:$port$path',
+        'lng': lng,
+        'lat': lat,
+      });
+      if (title != null && title.startsWith(_okPrefix)) {
+        final address = title.substring(_okPrefix.length).trim();
+        if (address.isNotEmpty) return PlaceResult(address);
+      }
+      if (title != null && title.startsWith(_errorPrefix)) {
+        throw AmapException(title.substring(_errorPrefix.length).trim());
+      }
+      throw const AmapException('地图未返回地点');
+    } on PlatformException catch (error) {
+      throw AmapException(error.message ?? '地图查询失败');
+    } finally {
+      await server.stop();
+      _macLookupInProgress = false;
+    }
   }
 
   Future<String?> _readTitle() async {

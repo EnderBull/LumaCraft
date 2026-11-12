@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:webview_flutter_windows/webview_flutter_windows.dart';
 
 import '../settings/app_settings.dart';
@@ -25,11 +27,7 @@ enum MapPageKind {
 /// Showing the page also means a failure is visible instead of silent.
 Future<String?> showMapPage(BuildContext context,
     {required AppSettings app, required MapPageKind kind}) async {
-  final version = await WebviewController.getWebViewVersion();
-  if (version == null || version.isEmpty) {
-    if (context.mounted) await _showRuntimeMissing(context);
-    return null;
-  }
+
   if (app.amapKey.trim().isEmpty) {
     if (context.mounted)
       await showDialog<void>(
@@ -46,10 +44,54 @@ Future<String?> showMapPage(BuildContext context,
                   ]));
     return null;
   }
+  if (Platform.isMacOS) return _showMacMap(context, app, kind);
+  final version = await WebviewController.getWebViewVersion();
+  if (version == null || version.isEmpty) {
+    if (context.mounted) await _showRuntimeMissing(context);
+    return null;
+  }
+  if (!context.mounted) return null;
   return showDialog<String>(
       context: context,
       barrierDismissible: true,
       builder: (_) => _MapDialog(app: app, kind: kind));
+}
+
+Future<String?> _showMacMap(
+    BuildContext context, AppSettings app, MapPageKind kind) async {
+  final server = MapPageServer();
+  final diagnostic = kind == MapPageKind.connectionTest;
+  final path = diagnostic ? '/diagnose.html' : '/index.html';
+  try {
+    final page = diagnostic
+        ? buildDiagnosticPage(key: app.amapKey, secret: app.amapSecret)
+        : buildMapPage(key: app.amapKey, secret: app.amapSecret);
+    final port = await server.start(page, path: path);
+    if (port == null) throw StateError('本地地图服务启动失败');
+    if (!context.mounted) return null;
+    final title = await const MethodChannel('lumacraft/macos_map')
+        .invokeMethod<String>('show', {
+      'url': 'http://127.0.0.1:$port$path',
+      'diagnostic': diagnostic,
+    });
+    if (title == null || !title.startsWith('PICK:')) return null;
+    final fields = title.split('|');
+    if (fields.length < 3) return null;
+    return fields[1].trim().isEmpty ? fields[2].trim() : fields[1].trim();
+  } catch (_) {
+    if (context.mounted) {
+      await showDialog<void>(
+        context: context,
+        builder: (_) => const WorkspaceDialog(
+          title: Text('地图无法打开'),
+          content: Text('请检查网络和高德 API 设置，再重试。'),
+        ),
+      );
+    }
+    return null;
+  } finally {
+    await server.stop();
+  }
 }
 
 /// Backwards-compatible entry for picking a place.

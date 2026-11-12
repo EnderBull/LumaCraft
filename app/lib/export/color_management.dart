@@ -20,6 +20,12 @@ class ManagedPhoto {
 String colorToolPath() {
   final override = Platform.environment['LUMACRAFT_COLOR_TOOL'];
   if (override != null && File(override).existsSync()) return override;
+  if (Platform.isMacOS) {
+    final contents = File(Platform.resolvedExecutable).parent.parent;
+    final helper = File('${contents.path}/Helpers/lumacraft_color_tool');
+    if (helper.existsSync()) return helper.path;
+    throw StateError('缺少 Mac 色彩转换工具，请使用完整的应用包');
+  }
   final adjacent = File(
       '${File(Platform.resolvedExecutable).parent.path}/lumacraft_color_tool.exe');
   if (adjacent.existsSync()) return adjacent.path;
@@ -79,16 +85,13 @@ bool iccIsWideGamut(Uint8List profile) {
     final entry = 132 + i * 12;
     final tag = String.fromCharCodes(profile.sublist(entry, entry + 4));
     if (!['rXYZ', 'gXYZ', 'bXYZ'].contains(tag)) continue;
-    final offset = header.getUint32(entry + 4), size = header.getUint32(entry + 8);
+    final offset = header.getUint32(entry + 4),
+        size = header.getUint32(entry + 8);
     if (size < 20 || offset + 20 > profile.length) return false;
     if (String.fromCharCodes(profile.sublist(offset, offset + 4)) != 'XYZ ')
       return false;
     final data = ByteData.sublistView(profile, offset, offset + 20);
-    primaries[tag] = [
-      _fixed(data, 8),
-      _fixed(data, 12),
-      _fixed(data, 16)
-    ];
+    primaries[tag] = [_fixed(data, 8), _fixed(data, 12), _fixed(data, 16)];
   }
   if (primaries.length != 3) return false;
   final actual = [
@@ -126,8 +129,8 @@ bool jpegUsesWideGamut(String path) {
   }
   if (pieces.isEmpty) return false;
   final ordered = pieces.keys.toList()..sort();
-  final profile = Uint8List.fromList(
-      [for (final key in ordered) ...pieces[key]!]);
+  final profile =
+      Uint8List.fromList([for (final key in ordered) ...pieces[key]!]);
   return iccIsWideGamut(profile);
 }
 
@@ -153,8 +156,7 @@ class PhotoDecodeException implements Exception {
 String explainDecodeFailure(String detail, {required bool heif}) {
   final match = RegExp(r'0x([0-9A-Fa-f]+)').firstMatch(detail);
   final code = match == null ? '' : '0x${match.group(1)!.toUpperCase()}';
-  if (code == '0x88982F80')
-    return '这张照片按高亮度方式保存，当前无法打开。手机里常见的 HDR 仍可使用。';
+  if (code == '0x88982F80') return '这张照片按高亮度方式保存，当前无法打开。手机里常见的 HDR 仍可使用。';
   if (code == '0x88982F50' || code == '0x80040154')
     return heifCodecMissingMessage;
   if (code == '0x8007000E')
@@ -165,7 +167,24 @@ String explainDecodeFailure(String detail, {required bool heif}) {
 }
 
 Future<ManagedPhoto> decodeSrgbPhoto(String path, {int maxEdge = 0}) async {
-  if (!Platform.isWindows) throw UnsupportedError('此版本的受管理导出需要 Windows');
+  if (Platform.isMacOS) {
+    final result = await Process.run(
+      colorToolPath(),
+      [File(path).absolute.path, '$maxEdge'],
+      stdoutEncoding: null,
+    );
+    if (result.exitCode != 0) {
+      final tooLarge = result.stderr.toString().contains('TOO_LARGE');
+      throw PhotoDecodeException(
+        tooLarge
+            ? '这张照片超过可导出的尺寸上限，请缩小成片尺寸'
+            : explainDecodeFailure('', heif: heifPath(path)),
+        tooLarge: tooLarge,
+      );
+    }
+    return _readManagedPhoto(result.stdout as List<int>);
+  }
+  if (!Platform.isWindows) throw UnsupportedError('此平台没有受管理的照片解码器');
   // HEIF 的方向已由系统解码器转正。再按文件里的方向标记转一次，画面会转歪。
   var orientation = 1;
   if (!heifPath(path)) {
@@ -178,14 +197,17 @@ Future<ManagedPhoto> decodeSrgbPhoto(String path, {int maxEdge = 0}) async {
       stdoutEncoding: null, stderrEncoding: null);
   if (result.exitCode != 0) {
     final raw = result.stderr;
-    final detail = raw is List<int>
-        ? String.fromCharCodes(raw)
-        : raw?.toString() ?? '';
+    final detail =
+        raw is List<int> ? String.fromCharCodes(raw) : raw?.toString() ?? '';
     throw PhotoDecodeException(
         explainDecodeFailure(detail, heif: heifPath(path)),
         tooLarge: detail.toUpperCase().contains('0X8007000E'));
   }
-  final bytes = Uint8List.fromList(result.stdout as List<int>);
+  return _readManagedPhoto(result.stdout as List<int>);
+}
+
+ManagedPhoto _readManagedPhoto(List<int> output) {
+  final bytes = output is Uint8List ? output : Uint8List.fromList(output);
   if (bytes.length < 16) throw const FormatException('色彩工具返回数据不完整');
   final header = ByteData.sublistView(bytes);
   final width = header.getUint32(4, Endian.little),
@@ -206,8 +228,8 @@ Future<ui.Image> _decodeWithFlutter(String path, int maxEdge) async {
   final buffer = await ui.ImmutableBuffer.fromFilePath(path);
   // The codec owns the buffer and releases the file handle when it is
   // disposed; disposing the buffer here as well trips an assertion.
-  final codec = await ui.instantiateImageCodecWithSize(buffer,
-      getTargetSize: (w, h) {
+  final codec =
+      await ui.instantiateImageCodecWithSize(buffer, getTargetSize: (w, h) {
     final scale = math.min(1.0, maxEdge / math.max(w, h));
     return ui.TargetImageSize(
         width: math.max(1, (w * scale).round()),
@@ -224,7 +246,8 @@ Future<ui.Image> _decodeWithFlutter(String path, int maxEdge) async {
 /// JPG 交给 Windows，转成普通屏幕颜色，与导出结果一致。
 /// 预览传入最长边，避免把手机原图整张展开。
 Future<ui.Image> decodePhotoImage(String path, {required int maxEdge}) async {
-  if (!heifPath(path) && !jpegUsesWideGamut(path)) {
+  // ImageIO manages embedded profiles in PNG as well as HEIF and JPEG.
+  if (!Platform.isMacOS && !heifPath(path) && !jpegUsesWideGamut(path)) {
     try {
       return await _decodeWithFlutter(path, maxEdge);
     } catch (e) {

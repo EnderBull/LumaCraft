@@ -197,7 +197,9 @@ class _GeneralPage extends StatelessWidget {
                   onPressed: () async {
                     final dir = PhotoStore.defaultFile().parent;
                     if (!dir.existsSync()) await dir.create(recursive: true);
-                    await Process.run('explorer.exe', [dir.absolute.path]);
+                    await Process.run(
+                        Platform.isMacOS ? 'open' : 'explorer.exe',
+                        [dir.absolute.path]);
                   })),
           _Row(
               title: '重新加载缩略图',
