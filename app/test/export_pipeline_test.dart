@@ -170,4 +170,51 @@ void main() {
     photo.dispose();
     expect(captureExif(await source.readAsBytes())!.imageIfd.orientation, 6);
   });
+
+  test('成片写入补填 EXIF 并保留原片，地点文字不产生 GPS', () async {
+    final picture = img.Image(width: 12, height: 8);
+    picture.exif.imageIfd[0x010f] = 'ORIGINAL MAKE';
+    picture.exif.imageIfd[0x0110] = 'ORIGINAL MODEL';
+    picture.exif.exifIfd[0x829a] = img.IfdValueRational(10, 2999);
+    picture.exif.exifIfd[0x920a] = img.IfdValueRational(35, 1);
+    picture.exif.exifIfd[0x8833] = img.IfdValueLong(100);
+    picture.exif.gpsIfd[1] = img.IfdValueAscii('N');
+    final source = File('${output.path}/capture-overrides.jpg');
+    final input = img.encodeJpg(picture);
+    await source.writeAsBytes(input);
+    final managed = await decodeSrgbPhoto(source.path);
+    final photo = await managed.image();
+    addTearDown(photo.dispose);
+    final style = StyleDocument();
+    final fields = {
+      ...readCapture(source.path),
+      'camera': '补填相机',
+      'lens': '35mm F2',
+      'time': '2026:11:11 12:34:56',
+      'focal': '50',
+      'aperture': '2.8',
+      'iso': '800',
+      'place': '杭州 · 西湖',
+    };
+    for (final png in [false, true]) {
+      final options = ExportOptions()..format = png ? 'png' : 'jpg';
+      final bytes = await renderStyledPhoto(source.path, style, fields, png,
+          options: options, managedPhoto: photo, srgbProfile: managed.profile);
+      final exif = captureExif(bytes)!;
+      final metadata = readCaptureFields(exif);
+      expect(metadata, containsPair('camera', '补填相机'));
+      expect(metadata, containsPair('lens', '35mm F2'));
+      expect(metadata, containsPair('time', '2026:11:11 12:34:56'));
+      expect(metadata, containsPair('focal', '50.0'));
+      expect(metadata, containsPair('aperture', '2.8'));
+      expect(metadata, containsPair('iso', '800'));
+      expect(metadata, containsPair('place', '杭州 · 西湖'));
+      expect(exif.imageIfd[0x010f].toString(), 'ORIGINAL MAKE');
+      expect(exif.exifIfd[0x829a]!.toDouble(), closeTo(10 / 2999, 1e-12));
+      expect(exif.exifIfd[0x8833], isNull);
+      expect(exif.gpsIfd.isEmpty, isTrue);
+      print('${options.format}: $metadata');
+    }
+    expect(await source.readAsBytes(), input);
+  });
 }

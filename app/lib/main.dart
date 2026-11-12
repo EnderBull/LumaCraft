@@ -24,6 +24,7 @@ import 'export/export_options.dart';
 import 'export/export_naming.dart';
 import 'export/export_preferences.dart';
 import 'export/export_task.dart';
+import 'export/photo_export.dart';
 import 'export/export_recovery.dart';
 import 'export/color_management.dart';
 import 'ui/export/export_dialog.dart';
@@ -777,9 +778,6 @@ class _WorkshopState extends State<Workshop> {
     if (mounted) setState(() {});
   }
 
-  Future<void> savePhotoPlace(String path, String value) =>
-      savePhotoField(path, 'place', value);
-
   Future<void> openBuiltinEditor(PresetEntry entry) async {
     if (!presetStore.authoring || busy || openingEditor) return;
     openingEditor = true;
@@ -804,7 +802,8 @@ class _WorkshopState extends State<Workshop> {
               metadata: (file) async =>
                   store.state(file.path).effective(await capture(file)),
               apply: (doc, paths) => applyPhotoStyle(doc, paths),
-              onSavePlace: savePhotoPlace,
+              originalMetadata: capture,
+              onPickPlace: (context) => showPlacePicker(context, app: appSettings),
               onSaveField: savePhotoField,
               initialPhoto: current,
               initialFields: fields,
@@ -854,7 +853,8 @@ class _WorkshopState extends State<Workshop> {
                     initialDirectories: selectedDirectories.toList(),
                     initialScanning: wasScanning,
                     initialFields: fields,
-                    onSavePlace: savePhotoPlace,
+                    originalMetadata: capture,
+              onPickPlace: (context) => showPlacePicker(context, app: appSettings),
                     onSaveField: savePhotoField,
                     relinkCount: pendingRelink.length,
                     onRelink: openRelink,
@@ -1395,30 +1395,14 @@ class _WorkshopState extends State<Workshop> {
             cancelled = true;
             break;
           }
-          late List<int> data;
-          if (job.style == null) {
-            data = await compute(renderLegacyExport, (
-              managed.rgba,
-              managed.width,
-              managed.height,
-              job.film,
-              job.source.path,
-              job.fields,
-              options,
-              managed.profile
-            ));
-          } else {
-            final photo = await managed.image();
-            try {
-              data = await renderStyledPhoto(job.source.path, job.style!,
-                  job.fields, options.format == 'png',
-                  options: options,
-                  managedPhoto: photo,
-                  srgbProfile: managed.profile);
-            } finally {
-              photo.dispose();
-            }
-          }
+          final data = await encodeWindowsExport(
+            sourcePath: job.source.path,
+            style: job.style,
+            film: job.film,
+            fields: job.fields,
+            options: options,
+            managed: managed,
+          );
           if (cancel) {
             cancelled = true;
             break;

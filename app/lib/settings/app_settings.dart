@@ -27,6 +27,7 @@ class AppSettings extends ChangeNotifier {
 
   /// Whether a photo's coordinates are used to fill the place field.
   bool autoFillPlace = true;
+  String androidAppearance = 'system';
 
   Timer? _timer;
   Future<void> _pending = Future.value();
@@ -42,6 +43,10 @@ class AppSettings extends ChangeNotifier {
       amapKey = _decode(json['amapKey']);
       amapSecret = _decode(json['amapSecret']);
       autoFillPlace = json['autoFillPlace'] != false;
+      final appearance = json['androidAppearance'];
+      if (appearance == 'light' || appearance == 'dark') {
+        androidAppearance = appearance as String;
+      }
     } catch (_) {
       // A broken settings file must not stop the app from starting.
     }
@@ -66,6 +71,7 @@ class AppSettings extends ChangeNotifier {
       'amapKey': _encode(amapKey),
       'amapSecret': _encode(amapSecret),
       'autoFillPlace': autoFillPlace,
+      if (androidAppearance != 'system') 'androidAppearance': androidAppearance,
     });
     _pending = _pending.then((_) async {
       await UsageData.writeStringAtomic(file, data);

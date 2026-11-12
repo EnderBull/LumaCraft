@@ -162,6 +162,9 @@ class StylePreview extends StatefulWidget {
   final bool workspaceCanvas;
   final String? photoPath;
   final bool imagesPrepared;
+  final String? selectedComponent;
+  final ValueChanged<String?>? onComponentTap;
+  final VoidCallback? onArtworkDoubleTap;
   const StylePreview(
       {super.key,
       required this.photo,
@@ -169,7 +172,10 @@ class StylePreview extends StatefulWidget {
       this.fields = const {},
       this.workspaceCanvas = false,
       this.photoPath,
-      this.imagesPrepared = false});
+      this.imagesPrepared = false,
+      this.selectedComponent,
+      this.onComponentTap,
+      this.onArtworkDoubleTap});
   @override
   State<StylePreview> createState() => _StylePreviewState();
 }
@@ -215,7 +221,10 @@ class _StylePreviewState extends State<StylePreview> {
                 fields: fields,
                 workspaceCanvas: workspaceCanvas,
                 photoPath: photoPath,
-                imagesPrepared: true);
+                imagesPrepared: true,
+                selectedComponent: widget.selectedComponent,
+                onComponentTap: widget.onComponentTap,
+                onArtworkDoubleTap: widget.onArtworkDoubleTap);
           });
     }
     if (photoPath != null &&
@@ -234,7 +243,10 @@ class _StylePreviewState extends State<StylePreview> {
                         ...fields,
                         photoPaletteField: snapshot.data!.join(',')
                       },
-                      workspaceCanvas: workspaceCanvas)
+                      workspaceCanvas: workspaceCanvas,
+                      selectedComponent: widget.selectedComponent,
+                      onComponentTap: widget.onComponentTap,
+                      onArtworkDoubleTap: widget.onArtworkDoubleTap)
                   : const Center(
                       child: SizedBox(
                           width: 18,
@@ -243,13 +255,98 @@ class _StylePreviewState extends State<StylePreview> {
     }
     final resolved = document.forRatio(photo.width / photo.height);
     final g = StyleGeometry(resolved, photo.width / photo.height);
-    final artwork = SizedBox(
-        width: g.size.width,
-        height: g.size.height,
-        child: CustomPaint(painter: StylePainter(document, photo, fields)));
-    return FittedBox(
-        child: workspaceCanvas ? WorkspaceCanvas(child: artwork) : artwork);
+    if (widget.onComponentTap == null && widget.onArtworkDoubleTap == null) {
+      final artwork = SizedBox(
+          width: g.size.width,
+          height: g.size.height,
+          child: CustomPaint(painter: StylePainter(document, photo, fields)));
+      return FittedBox(
+          child: workspaceCanvas ? WorkspaceCanvas(child: artwork) : artwork);
+    }
+    final interactive = widget.onComponentTap != null;
+    final selected = widget.selectedComponent;
+    final selectionColor = Theme.of(context).colorScheme.primary;
+    Rect? selection;
+    if (selected != null) {
+      final scene = StyleScene(resolved, photo, fields,
+          resolveLayout: false, showMissingInfo: interactive);
+      try {
+        selection = scene.bounds[selected];
+      } finally {
+        scene.dispose();
+      }
+    }
+    // The panel animates the viewport, while the artwork keeps its original
+    // layout and paint layer. Only the outline uses a screen-pixel width.
+    final artwork = RepaintBoundary(
+      child: CustomPaint(
+        painter: StylePainter(resolved, photo, fields,
+            resolveLayout: false, showMissingInfo: interactive),
+        isComplex: true,
+      ),
+    );
+    return LayoutBuilder(builder: (context, constraints) {
+      final scale = math.min(constraints.maxWidth / g.size.width,
+          constraints.maxHeight / g.size.height);
+      return FittedBox(
+        child: SizedBox(
+          width: g.size.width,
+          height: g.size.height,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onDoubleTap: widget.onArtworkDoubleTap,
+            onTapUp: !interactive ? null : (event) {
+              final scene = StyleScene(resolved, photo, fields,
+                  resolveLayout: false, showMissingInfo: true);
+              try {
+                final point = event.localPosition;
+                final slop = 5 / math.max(scale, .01);
+                final ids = scene.bounds.keys.toList().reversed;
+                final hit = ids.where((id) => scene.bounds[id]!.contains(point)).firstOrNull ??
+                    ids.where((id) => scene.bounds[id]!.inflate(slop).contains(point)).firstOrNull;
+                widget.onComponentTap?.call(hit);
+              } finally {
+                scene.dispose();
+              }
+            },
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                artwork,
+                if (selection != null)
+                  IgnorePointer(child: CustomPaint(
+                    painter: _PreviewOutline(selection, selectionColor, scale),
+                  )),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
   }
+}
+
+class _PreviewOutline extends CustomPainter {
+  const _PreviewOutline(this.bounds, this.color, this.scale);
+  final Rect bounds;
+  final Color color;
+  final double scale;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final safeScale = math.max(scale, .01);
+    canvas.drawRect(
+      bounds.inflate(3 / safeScale),
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5 / safeScale,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_PreviewOutline oldDelegate) =>
+      oldDelegate.bounds != bounds || oldDelegate.color != color || oldDelegate.scale != scale;
 }
 
 class StylePainter extends CustomPainter {
@@ -259,11 +356,17 @@ class StylePainter extends CustomPainter {
   final Map<String, String> fields;
   final String? hiddenId;
   final double? ratioOverride;
+  final String? selectedId;
+  final Color? selectionColor;
+  final double selectionScale;
   StylePainter(this.document, this.photo, this.fields,
       {this.hiddenId,
       this.ratioOverride,
       this.resolveLayout = true,
-      this.showMissingInfo = false})
+      this.showMissingInfo = false,
+      this.selectedId,
+      this.selectionColor,
+      this.selectionScale = 1})
       : super(repaint: textureTiles);
   @override
   void paint(Canvas canvas, Size size) {
@@ -273,6 +376,17 @@ class StylePainter extends CustomPainter {
         resolveLayout: resolveLayout,
         showMissingInfo: showMissingInfo);
     scene.paint(canvas);
+    final bounds = selectedId == null ? null : scene.bounds[selectedId];
+    if (bounds != null) {
+      final scale = math.max(selectionScale, .01);
+      canvas.drawRect(
+        bounds.inflate(3 / scale),
+        Paint()
+          ..color = selectionColor ?? Colors.amber
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5 / scale,
+      );
+    }
     scene.dispose();
   }
 
@@ -284,7 +398,8 @@ Future<Uint8List> renderStyledPhoto(
     String path, StyleDocument style, Map<String, String> fields, bool png,
     {ExportOptions? options,
     ui.Image? managedPhoto,
-    Uint8List? srgbProfile}) async {
+    Uint8List? srgbProfile,
+    String? palettePhotoPath}) async {
   late ui.Image photo;
   if (managedPhoto != null) {
     photo = managedPhoto.clone();
@@ -309,7 +424,7 @@ Future<Uint8List> renderStyledPhoto(
     if (style.nodes.any((n) => n.type == 'palette')) {
       fields = {
         ...fields,
-        photoPaletteField: (await photoPaletteForFile(path)).join(',')
+        photoPaletteField: (await photoPaletteForFile(palettePhotoPath ?? path)).join(',')
       };
     }
     await prepareImageMarks(
@@ -326,15 +441,19 @@ Future<Uint8List> renderStyledPhoto(
               ? math.max(g.size.width, g.size.height)
               : math.min(g.size.width, g.size.height));
     }
-    if (options != null)
-      validateExportSize(
-          (g.size.width * scale).round(), (g.size.height * scale).round());
+    final width = (g.size.width * scale).round();
+    final height = (g.size.height * scale).round();
+    if (options != null) validateExportSize(width, height);
     final recorder = ui.PictureRecorder(),
         canvas = Canvas(recorder)..scale(scale);
     scene.paint(canvas);
     picture = recorder.endRecording();
-    rendered = await picture.toImage(
-        (g.size.width * scale).round(), (g.size.height * scale).round());
+    rendered = await picture.toImage(width, height);
+    if (options != null &&
+        (rendered.width != width || rendered.height != height)) {
+      throw StateError('原尺寸成片需要 $width×$height，'
+          '渲染器只返回 ${rendered.width}×${rendered.height}，未保存成片。');
+    }
     final data =
         await rendered.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
     if (data == null) throw StateError('导出像素读取失败');

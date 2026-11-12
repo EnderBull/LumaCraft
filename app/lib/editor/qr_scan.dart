@@ -2,7 +2,34 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
+import 'package:qr/qr.dart';
 import 'package:zxing2/qrcode.dart';
+
+/// Encodes a standalone QR image with a four-module quiet zone.
+Uint8List encodePresetQrPng(String code) {
+  final qr = QrImage(QrCode(
+    payload: QrPayload.fromString(code),
+    errorCorrectLevel: QrErrorCorrectLevel.medium,
+  ));
+  const cell = 6, quiet = 4;
+  final size = (qr.moduleCount + quiet * 2) * cell;
+  final image = img.Image(width: size, height: size);
+  final black = img.ColorRgb8(0, 0, 0);
+  img.fill(image, color: img.ColorRgb8(255, 255, 255));
+  for (var y = 0; y < qr.moduleCount; y++) {
+    for (var x = 0; x < qr.moduleCount; x++) {
+      if (!qr.isDark(y, x)) continue;
+      final left = (x + quiet) * cell, top = (y + quiet) * cell;
+      img.fillRect(image,
+          x1: left,
+          y1: top,
+          x2: left + cell - 1,
+          y2: top + cell - 1,
+          color: black);
+    }
+  }
+  return img.encodePng(image);
+}
 
 const qrImageMaxBytes = 30 * 1024 * 1024;
 const qrImageMaxPixels = 40 * 1000 * 1000;
@@ -32,7 +59,8 @@ Future<String?> scanQrCodeAsync(Uint8List bytes) => compute(scanQrCode, bytes);
 /// an integer module grid, which is what the decoder needs.
 String? scanQrCode(Uint8List bytes) {
   // Look at the header first: a small file can still declare a huge picture.
-  if (bytes.length > qrImageMaxBytes) throw const FormatException('图片文件过大，请换一张分享图');
+  if (bytes.length > qrImageMaxBytes)
+    throw const FormatException('图片文件过大，请换一张分享图');
   final decoder = img.findDecoderForData(bytes);
   if (decoder == null) return null;
   img.DecodeInfo? info;
@@ -49,6 +77,16 @@ String? scanQrCode(Uint8List bytes) {
   }
   final decoded = img.decodeImage(bytes);
   if (decoded == null) return null;
+
+  // Standalone QR images already have a quiet zone. Cropping them like a
+  // share card can cut into the outer modules of a dense code.
+  final aspect = decoded.width / decoded.height;
+  if (decoded.width * decoded.height <= 4 * 1000 * 1000 &&
+      aspect >= .9 &&
+      aspect <= 1.1) {
+    final text = _read(decoded);
+    if (text != null) return text;
+  }
 
   // The code's dark modules sit inside a light card. Their bounding box is the
   // code, without the rounded card corners that confuse the locator.
@@ -109,8 +147,8 @@ img.Image? _cropToCode(img.Image source) {
   final insetX = (source.width * .04).round();
   final insetY = (source.height * .06).round();
   for (final fromX in [source.width ~/ 2, 0]) {
-    final box = _darkBounds(source, fromX, source.width - insetX,
-        insetY, source.height - insetY);
+    final box = _darkBounds(
+        source, fromX, source.width - insetX, insetY, source.height - insetY);
     if (box != null) return box;
   }
   return null;
@@ -142,8 +180,8 @@ img.Image? _darkBounds(
 }
 
 img.Image _padWhite(img.Image src, int pad) {
-  final out = img.Image(
-      width: src.width + pad * 2, height: src.height + pad * 2);
+  final out =
+      img.Image(width: src.width + pad * 2, height: src.height + pad * 2);
   img.fill(out, color: img.ColorRgb8(255, 255, 255));
   img.compositeImage(out, src, dstX: pad, dstY: pad);
   return out;
@@ -163,10 +201,36 @@ String? _read(img.Image picture) {
     pixels[i++] =
         (pixel.r.toInt() << 16) | (pixel.g.toInt() << 8) | pixel.b.toInt();
   }
+  return _decodeQr(RGBLuminanceSource(picture.width, picture.height, pixels));
+}
+
+String? scanQrCameraFrame(({Uint8List bytes, int width, int height}) frame) {
+  if (frame.width <= 0 ||
+      frame.height <= 0 ||
+      frame.bytes.length != frame.width * frame.height) return null;
+  return _decodeQr(_CameraLuminance(frame.bytes, frame.width, frame.height));
+}
+
+class _CameraLuminance extends LuminanceSource {
+  _CameraLuminance(Uint8List bytes, super.width, super.height)
+      : _pixels =
+            Int8List.view(bytes.buffer, bytes.offsetInBytes, bytes.length);
+  final Int8List _pixels;
+
+  @override
+  Int8List getMatrix() => _pixels;
+
+  @override
+  Int8List getRow(int y, Int8List? row) {
+    final output = row != null && row.length >= width ? row : Int8List(width);
+    output.setRange(0, width, _pixels, y * width);
+    return output;
+  }
+}
+
+String? _decodeQr(LuminanceSource source) {
   for (final hybrid in [true, false]) {
     try {
-      final source =
-          RGBLuminanceSource(picture.width, picture.height, pixels);
       final binarizer =
           hybrid ? HybridBinarizer(source) : GlobalHistogramBinarizer(source);
       final text = QRCodeReader().decode(BinaryBitmap(binarizer)).text;

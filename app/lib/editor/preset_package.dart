@@ -64,7 +64,7 @@ String encodeLmp(List<SharedPreset> presets) {
         .toList(),
     'presets': [
       for (final p in presets)
-        {'folder': p.folder, 'style': _exportStyle(p.style)}
+        {'folder': p.folder, 'style': presetStyleForSharing(p.style)}
     ]
   });
   if (utf8.encode(data).length > lmpLimit)
@@ -399,7 +399,9 @@ PresetImportResult mergeLmp(
   return PresetImportResult(presets, folders, count);
 }
 
-Map<String, dynamic> _exportStyle(StyleDocument style) {
+/// Strips private image metadata and local paths from preset shares.
+Map<String, dynamic> presetStyleForSharing(StyleDocument style,
+    {bool allowMissingImages = false}) {
   final j = style.toJson();
   for (final n in j['nodes']) {
     if (n['type'] != 'text') n['text'] = '';
@@ -407,6 +409,7 @@ Map<String, dynamic> _exportStyle(StyleDocument style) {
       final image = n['image'];
       image['filename'] =
           (image['filename'] ?? '').toString().split(RegExp(r'[/\\]')).last;
+      if (allowMissingImages && image['data'] == '') continue;
       image['data'] =
           base64Encode(_withoutMetadata(base64Decode(image['data'])));
     }

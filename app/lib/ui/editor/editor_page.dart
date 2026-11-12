@@ -67,7 +67,8 @@ class PresetEditor extends StatefulWidget {
   final Map<String, String> initialFields;
   final double initialPhotoScrollOffset;
   final Future<void> Function(EditorBrowseState)? onReturn;
-  final Future<void> Function(String path, String value)? onSavePlace;
+  final Future<Map<String, String>> Function(File)? originalMetadata;
+  final Future<String?> Function(BuildContext)? onPickPlace;
   final Future<void> Function(String path, String key, String value)?
       onSaveField;
   final int relinkCount;
@@ -94,7 +95,8 @@ class PresetEditor extends StatefulWidget {
       this.initialFields = const {},
       this.initialPhotoScrollOffset = 0,
       this.onReturn,
-      this.onSavePlace,
+      this.originalMetadata,
+      this.onPickPlace,
       this.onSaveField,
       this.relinkCount = 0,
       this.onRelink,
@@ -142,12 +144,9 @@ class _PresetEditorState extends State<PresetEditor> {
       propertyScroll = SmoothScrollController();
   late final SmoothScrollController photoScroll;
   Timer? saveTimer;
-  Timer? placeTimer;
-  (String, String)? placePending;
   Timer? fieldTimer;
-  (String, String)? fieldPending;
-  final infoFieldControllers = <String, TextEditingController>{};
-  final placeOpen = <String, bool>{};
+  (String, String, String)? fieldPending;
+  final originalInformation = <String, Map<String, String>>{};
   String status = '草稿仅在应用后影响照片';
   int panel = 0, photoAnchor = 0;
   bool saving = false, dialogOpen = false, space = false, applying = false;
@@ -395,11 +394,11 @@ class _PresetEditorState extends State<PresetEditor> {
           images[path] = img;
         }
       }
-      information[path] = {
-        ...?information[path],
-        ...await widget.metadata(sourceFile)
-      };
+      final effective = await widget.metadata(sourceFile);
+      final original = await widget.originalMetadata?.call(sourceFile);
       if (!mounted) return;
+      originalInformation[path] = original ?? effective;
+      information[path] = {...?information[path], ...effective};
       if (ticket == loadTicket && c.doc.nodes.any((n) => n.type == 'palette')) {
         await ensurePhotoPalette();
       }
@@ -414,8 +413,8 @@ class _PresetEditorState extends State<PresetEditor> {
       }
     } catch (e) {
       if (mounted && ticket == loadTicket)
-        setState(() => loadError =
-            e is PhotoDecodeException ? e.message : '照片加载失败：$e');
+        setState(() =>
+            loadError = e is PhotoDecodeException ? e.message : '照片加载失败：$e');
     }
   }
 
@@ -594,21 +593,8 @@ class _PresetEditorState extends State<PresetEditor> {
     watchGeneration++;
     dragTimer?.cancel();
     saveTimer?.cancel();
-    placeTimer?.cancel();
-    final pending = placePending;
-    placePending = null;
-    if (pending != null) widget.onSavePlace?.call(pending.$1, pending.$2);
     fieldTimer?.cancel();
-    final fieldPendingNow = fieldPending;
-    fieldPending = null;
-    if (fieldPendingNow != null) {
-      final parts = fieldPendingNow.$1.split('@');
-      widget.onSaveField?.call(parts.first, parts.last, fieldPendingNow.$2);
-    }
-    for (final controller in infoFieldControllers.values) {
-      controller.dispose();
-    }
-    infoFieldControllers.clear();
+    flushPhotoField();
     inlineInput.dispose();
     inlineFocus.dispose();
     HardwareKeyboard.instance.removeHandler(keyboard);
@@ -688,8 +674,8 @@ class _PresetEditorState extends State<PresetEditor> {
       watchTimer?.cancel();
       watchTimer = Timer(const Duration(milliseconds: 300), () {
         if (mounted && !applying && generation == watchGeneration) {
-          unawaited(syncWithDisk().catchError(
-              (Object e) => debugPrint('编辑器目录刷新失败：$e')));
+          unawaited(syncWithDisk()
+              .catchError((Object e) => debugPrint('编辑器目录刷新失败：$e')));
         }
       });
     }));
@@ -700,8 +686,8 @@ class _PresetEditorState extends State<PresetEditor> {
     verifyTimer = Timer.periodic(verifyInterval, (_) {
       if (!mounted || applying || scanning || verifying || syncing) return;
       if (generation != watchGeneration) return;
-      unawaited(verifyDisk(generation).catchError(
-          (Object e) => debugPrint('编辑器目录核对失败：$e')));
+      unawaited(verifyDisk(generation)
+          .catchError((Object e) => debugPrint('编辑器目录核对失败：$e')));
     });
   }
 
@@ -718,8 +704,7 @@ class _PresetEditorState extends State<PresetEditor> {
       for (final root in roots) {
         try {
           await for (final entity in Directory(root).list(
-              recursive: widget.settings.includeChildren,
-              followLinks: false)) {
+              recursive: widget.settings.includeChildren, followLinks: false)) {
             if (entity is File && photoFilePattern.hasMatch(entity.path)) {
               here.add(entity.path);
             }
@@ -800,13 +785,13 @@ class _PresetEditorState extends State<PresetEditor> {
       index = next >= 0 && files.isNotEmpty ? next : 0;
       if (index >= files.length) index = files.isEmpty ? 0 : files.length - 1;
       photoAnchor = index;
-      if (missing.isNotEmpty && files.isNotEmpty &&
+      if (missing.isNotEmpty &&
+          files.isNotEmpty &&
           files[index].path != editingPath) {
         loadTicket++;
       }
       if (missing.isNotEmpty) {
-        status =
-            '共 ${files.length} 张照片 · ${missing.length} 张已不在文件夹里，已从列表移除';
+        status = '共 ${files.length} 张照片 · ${missing.length} 张已不在文件夹里，已从列表移除';
       } else if (added.isNotEmpty) {
         status = '共 ${files.length} 张照片 · 新增 ${added.length} 张';
       }
@@ -1165,9 +1150,7 @@ class _PresetEditorState extends State<PresetEditor> {
     try {
       await widget.apply(c.doc.copy(), targets);
       update(() {
-        status = targets.length > 1
-            ? '样式已应用到 ${targets.length} 张照片'
-            : '样式已应用';
+        status = targets.length > 1 ? '样式已应用到 ${targets.length} 张照片' : '样式已应用';
         for (final path in targets) {
           appliedSnapshots[path] = c.doc.copy();
         }
@@ -1219,8 +1202,8 @@ class _PresetEditorState extends State<PresetEditor> {
       editing: true,
       onBrowse: leave,
       onEdit: () {},
-      onOpenSettings: () => showSettings(context: context,
-          workspace: widget.settings, app: appSettings),
+      onOpenSettings: () => showSettings(
+          context: context, workspace: widget.settings, app: appSettings),
       beforeClose: () async {
         finishInline();
         await widget.settings.save();

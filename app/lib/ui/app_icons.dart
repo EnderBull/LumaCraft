@@ -23,6 +23,17 @@ enum WorkspaceIcon {
   sideLayout,
   moon,
   sun,
+  photoAdd,
+  resumeEditing,
+  presetLibrary,
+  presetImport,
+  textImport,
+  qrImage,
+  qrCamera,
+  presetCopy,
+  presetMove,
+  presetDelete,
+  presetFavorite,
   settings
 }
 
@@ -255,6 +266,130 @@ class _IconPainter extends CustomPainter {
           segment(pair[0].toDouble(), pair[1].toDouble(), pair[2].toDouble(),
               pair[3].toDouble(), detail);
         }
+      case WorkspaceIcon.photoAdd:
+        final frame = Path()
+          ..moveTo(14, 5)
+          ..lineTo(5.5, 5)
+          ..quadraticBezierTo(3, 5, 3, 7.5)
+          ..lineTo(3, 17.5)
+          ..quadraticBezierTo(3, 20, 5.5, 20)
+          ..lineTo(16.5, 20)
+          ..quadraticBezierTo(19, 20, 19, 17.5)
+          ..lineTo(19, 11);
+        canvas.drawPath(frame, line);
+        segment(4, 17, 8, 13);
+        segment(8, 13, 11, 16);
+        segment(11, 16, 15, 12);
+        canvas.drawCircle(const Offset(8, 9), 1, detail);
+        segment(17, 5, 23, 5, detail);
+        segment(20, 2, 20, 8, detail);
+      case WorkspaceIcon.resumeEditing:
+        rect(4, 4, 15, 16, 2.5, surface: false);
+        segment(7, 15, 10, 12);
+        segment(10, 12, 13, 15);
+        segment(13, 15, 16, 12);
+        segment(14, 19, 22, 11, detail);
+        segment(14, 19, 14, 21, detail);
+        segment(14, 21, 16, 21, detail);
+      case WorkspaceIcon.presetLibrary:
+        final top = Path()
+          ..moveTo(12, 3)
+          ..lineTo(21, 8)
+          ..lineTo(12, 13)
+          ..lineTo(3, 8)
+          ..close();
+        canvas.drawPath(top, line);
+        segment(3, 12, 12, 17);
+        segment(12, 17, 21, 12);
+        segment(3, 16, 12, 21, detail);
+        segment(12, 21, 21, 16, detail);
+      case WorkspaceIcon.presetImport:
+        final page = Path()
+          ..moveTo(5, 20)
+          ..lineTo(5, 4)
+          ..quadraticBezierTo(5, 3, 6, 3)
+          ..lineTo(13, 3)
+          ..lineTo(19, 9)
+          ..lineTo(19, 12)
+          ..moveTo(13, 3)
+          ..lineTo(13, 9)
+          ..lineTo(19, 9)
+          ..moveTo(5, 20)
+          ..lineTo(11, 20);
+        canvas.drawPath(page, line);
+        segment(16.5, 13, 16.5, 21, detail);
+        segment(13.5, 18, 16.5, 21, detail);
+        segment(16.5, 21, 19.5, 18, detail);
+      case WorkspaceIcon.textImport:
+        rect(5, 5, 14, 16, 2);
+        rect(9, 3, 6, 4, 1.2);
+        segment(8, 11, 16, 11);
+        segment(8, 14.5, 16, 14.5);
+        segment(8, 18, 13, 18, detail);
+      case WorkspaceIcon.qrImage:
+        rect(3, 3, 18, 18, 3);
+        rect(6, 6, 4, 4, .7, surface: false);
+        rect(14, 6, 4, 4, .7, surface: false);
+        rect(6, 14, 4, 4, .7, surface: false);
+        segment(14, 14, 14, 18, detail);
+        segment(17, 17, 18, 17, detail);
+      case WorkspaceIcon.qrCamera:
+        final corners = Path()
+          ..moveTo(3, 8)
+          ..lineTo(3, 5)
+          ..quadraticBezierTo(3, 3, 5, 3)
+          ..lineTo(8, 3)
+          ..moveTo(16, 3)
+          ..lineTo(19, 3)
+          ..quadraticBezierTo(21, 3, 21, 5)
+          ..lineTo(21, 8)
+          ..moveTo(21, 16)
+          ..lineTo(21, 19)
+          ..quadraticBezierTo(21, 21, 19, 21)
+          ..lineTo(16, 21)
+          ..moveTo(8, 21)
+          ..lineTo(5, 21)
+          ..quadraticBezierTo(3, 21, 3, 19)
+          ..lineTo(3, 16);
+        canvas.drawPath(corners, line);
+        segment(6, 12, 18, 12, detail);
+      case WorkspaceIcon.presetCopy:
+        rect(8, 8, 12, 13, 2);
+        canvas.drawPath(
+            Path()
+              ..moveTo(4, 16)
+              ..lineTo(4, 5)
+              ..quadraticBezierTo(4, 3, 6, 3)
+              ..lineTo(15, 3),
+            line);
+        segment(11, 16, 16, 16, detail);
+      case WorkspaceIcon.presetMove:
+        rect(3, 6, 18, 13, 2.5);
+        segment(8, 13, 16, 13, detail);
+        segment(13, 10, 16, 13, detail);
+        segment(16, 13, 13, 16, detail);
+      case WorkspaceIcon.presetDelete:
+        rect(6, 7, 12, 14, 2);
+        segment(4, 7, 20, 7);
+        segment(9, 4, 15, 4);
+        segment(10, 11, 10, 17, detail);
+        segment(14, 11, 14, 17, detail);
+      case WorkspaceIcon.presetFavorite:
+        canvas.drawPath(
+            Path()
+              ..moveTo(12, 3)
+              ..lineTo(14.8, 8.7)
+              ..lineTo(21.2, 9.6)
+              ..lineTo(16.6, 14.1)
+              ..lineTo(17.7, 20.5)
+              ..lineTo(12, 17.5)
+              ..lineTo(6.3, 20.5)
+              ..lineTo(7.4, 14.1)
+              ..lineTo(2.8, 9.6)
+              ..lineTo(9.2, 8.7)
+              ..close(),
+            line);
+        segment(10, 12, 14, 12, detail);
       case WorkspaceIcon.settings:
         // Drawn by `ui-settings.svg` instead; this case only keeps the switch
         // exhaustive for callers that still reference the enum value.

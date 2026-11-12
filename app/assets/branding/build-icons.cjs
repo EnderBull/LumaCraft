@@ -10,6 +10,17 @@ async function main() {
   const png = await sharp(svg).resize(1024, 1024).png().toBuffer();
   await fs.writeFile(path.join(directory, 'lumacraft-icon-1024.png'), png);
 
+  // Isolate the artwork from the icon, leaving the preset to draw the frame.
+  const source = svg.toString('utf8');
+  const defs = source.match(/<defs>[\s\S]*?<\/defs>/)?.[0];
+  const scene = source.match(/<g clip-path="url\(#photo-clip\)">([\s\S]*?)<\/g>/)?.[1];
+  if (!defs || !scene) throw new Error('缺少图标的风景矢量路径');
+  const landscape = '<svg xmlns="http://www.w3.org/2000/svg" width="656" height="552" viewBox="300 342 656 552">'
+    + defs + scene + '</svg>';
+  await sharp(Buffer.from(landscape)).png()
+    .toFile(path.join(directory, 'preset-demo-landscape.png'));
+
+
   const sizes = [16, 24, 32, 48, 64, 128, 256];
   const images = await Promise.all(sizes.map(size => sharp(svg).resize(size, size).png().toBuffer()));
   const header = Buffer.alloc(6 + sizes.length * 16);

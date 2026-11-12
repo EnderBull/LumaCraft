@@ -87,12 +87,13 @@ class MapPageServer {
 ///    never returns.
 ///  * Clicks are read from both the map's own event and a native DOM listener:
 ///    only one of them proves reliable here, and both give the same answer.
-String buildMapPage({required String key, required String secret}) => '''
+String buildMapPage({required String key, required String secret, bool mobile = false, bool testConnection = false}) => '''
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <title>map</title>
+${mobile ? '<meta name="viewport" content="width=device-width, initial-scale=1">' : ''}
 <style>
   html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
                font-family: "Microsoft YaHei UI", "Microsoft YaHei", sans-serif; }
@@ -101,7 +102,7 @@ String buildMapPage({required String key, required String secret}) => '''
   #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #f2f2f2; }
   #search { position: absolute; top: 12px; left: 12px; right: 12px; z-index: 20;
             display: flex; gap: 8px; }
-  #q { flex: 1; height: 38px; box-sizing: border-box; padding: 0 12px; font-size: 13px;
+  #q { flex: 1; min-width: 0; height: 38px; box-sizing: border-box; padding: 0 12px; font-size: 13px;
        border: 1px solid #ddd; border-radius: 6px; background: #fff; color: #333;
        box-shadow: 0 2px 8px rgba(0,0,0,.12); outline: none; }
   #go { height: 38px; padding: 0 16px; border-radius: 6px; border: none; cursor: pointer;
@@ -134,6 +135,35 @@ String buildMapPage({required String key, required String secret}) => '''
   // document title: "STATE:<text>" for progress, "PICK:<counter>|<address>|
   // <lng>,<lat>" once a point is chosen. A counter keeps repeated picks of the
   // same place distinguishable, since an unchanged title raises no event.
+  var testing = ${testConnection ? 'true' : 'false'};
+  var testPhase = '高德脚本';
+  var testFinished = false;
+  function finishTest(ok, text) {
+    if (testFinished) return;
+    testFinished = true;
+    document.title = (ok ? 'TEST_OK:' : 'TEST_FAIL:') + text;
+  }
+  function fail(text) {
+    if (testing) finishTest(false, text);
+    else state(text);
+  }
+  function testGeocode() {
+    if (testFinished) return;
+    testPhase = '地址解析';
+    try {
+      var probe = new AMap.Geocoder({ radius: 1000, extensions: 'base' });
+      probe.getAddress([116.397428, 39.90923], function (status, result) {
+        if (status === 'complete' && result && result.regeocode &&
+            result.regeocode.formattedAddress) {
+          finishTest(true, '连接成功，地址解析正常。');
+        } else {
+          fail('地址解析失败，请检查高德 Key、安全密钥和域名白名单。');
+        }
+      });
+    } catch (e) {
+      fail('地址解析组件未能启动，请检查高德配置。');
+    }
+  }
   var seq = 0;
   function state(text) { document.title = 'STATE:' + text; }
   function report(lng, lat, address) {
@@ -148,25 +178,31 @@ String buildMapPage({required String key, required String secret}) => '''
   var script = document.createElement('script');
   script.src = 'https://webapi.amap.com/maps?v=1.4.15&key=' + __KEY__;
   script.onload = function () {
-    if (!window.AMap) { state('脚本已返回，但地图组件未创建，请检查 Key'); return; }
+    if (!window.AMap) { fail('脚本已返回，但地图组件未创建，请检查 Key'); return; }
     state('地图脚本已加载，正在创建地图…');
     // Plugins are loaded explicitly. Passing them in the URL alone did not
     // reliably register them, and a missing AMap.PlaceSearch threw inside
     // createMap — which aborted the rest of the setup, so the search box and
     // the map click ended up with no handlers at all while the map still drew.
     try {
+      if (testing) testPhase = '地址解析组件';
       AMap.plugin(['AMap.Geocoder', 'AMap.PlaceSearch'], function () {
-        setTimeout(createMap, 50);
+        if (testing) testGeocode();
+        else setTimeout(createMap, 50);
       });
     } catch (e) {
-      state('加载地图组件失败：' + (e && e.message ? e.message : e));
+      fail('加载地图组件失败，请检查高德配置。');
     }
   };
-  script.onerror = function () { state('地图脚本请求失败，请检查网络'); };
+  script.onerror = function () { fail('地图脚本请求失败，请检查网络'); };
   document.head.appendChild(script);
 
   var settled = false;
   setTimeout(function () {
+    if (testing) {
+      fail(testPhase + '请求超时，请检查网络和高德配置。');
+      return;
+    }
     if (settled) return;
     var box = document.getElementById('map');
     if (box.querySelector('canvas, img, .amap-layer, .amap-tile')) {

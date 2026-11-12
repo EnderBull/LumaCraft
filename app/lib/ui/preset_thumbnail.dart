@@ -35,6 +35,7 @@ class _CompositionBadge extends StatelessWidget {
       'portrait' => ['portraitMark'],
       _ => ['landscapeMark', 'portraitMark']
     };
+    final android = Theme.of(context).platform == TargetPlatform.android;
     return Tooltip(
         message: label,
         child: Semantics(
@@ -45,15 +46,17 @@ class _CompositionBadge extends StatelessWidget {
                 clipBehavior: Clip.none,
                 children: [
                   Positioned.fill(
-                      child: ImageFiltered(
-                          imageFilter:
-                              ui.ImageFilter.blur(sigmaX: 2.5, sigmaY: 2.5),
-                          child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                  color: const Color(0xff181817)
-                                      .withValues(alpha: .55),
-                                  borderRadius:
-                                      BorderRadius.circular(5 * scale))))),
+                      child: android
+                          ? CustomPaint(painter: _BadgeShadow(5 * scale))
+                          : ImageFiltered(
+                              imageFilter:
+                                  ui.ImageFilter.blur(sigmaX: 2.5, sigmaY: 2.5),
+                              child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                      color: const Color(0xff181817)
+                                          .withValues(alpha: .55),
+                                      borderRadius:
+                                          BorderRadius.circular(5 * scale))))),
                   Padding(
                       padding: EdgeInsets.symmetric(
                           horizontal: 5 * scale, vertical: 4 * scale),
@@ -66,4 +69,22 @@ class _CompositionBadge extends StatelessWidget {
                       ]))
                 ])));
   }
+}
+
+class _BadgeShadow extends CustomPainter {
+  const _BadgeShadow(this.radius);
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+      Paint()
+        ..color = const Color(0x8c181817)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_BadgeShadow oldDelegate) => radius != oldDelegate.radius;
 }

@@ -8,6 +8,7 @@ const exportSizeLimitMessage =
 /// Export settings are separate from the dialog so the task runner can snapshot them.
 class ExportOptions {
   String scope = 'selected', format = 'jpg', sizeEdge = 'long';
+  bool replaceAndroidExports = false;
   String directory = '';
   int quality = 92;
   int? edgePixels;
@@ -16,6 +17,7 @@ class ExportOptions {
     ..scope = scope
     ..format = format
     ..sizeEdge = sizeEdge
+    ..replaceAndroidExports = replaceAndroidExports
     ..directory = directory
     ..quality = quality
     ..edgePixels = edgePixels

@@ -89,8 +89,8 @@ extension EditorPanels on _PresetEditorState {
           trailing: directoryTab
               ? null
               : Builder(
-                  builder: (button) => action(Icons.add_box_outlined, '添加组件',
-                      () => addMenu(button)))),
+                  builder: (button) => action(
+                      Icons.add_box_outlined, '添加组件', () => addMenu(button)))),
       if (directoryTab)
         Expanded(child: directoryContents())
       else ...[
@@ -184,92 +184,95 @@ extension EditorPanels on _PresetEditorState {
           update(() => panel = 2);
         },
         child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 3),
-        padding: EdgeInsets.only(
-            left: 5 + depth * 12.0, right: 3, top: 7, bottom: 7),
-        decoration: BoxDecoration(
-            color: c.selection.contains(id)
-                ? scheme.primary.withValues(alpha: .1)
-                : g != null
-                    ? scheme.onSurface.withValues(alpha: .025)
-                    : null,
-            borderRadius: BorderRadius.circular(6),
-            border: c.selection.contains(id)
-                ? Border(left: BorderSide(color: scheme.primary, width: 2))
-                : null),
-        child: Row(children: [
-          const SizedBox(
-              width: 12,
-              child: PrototypeIcon('grip', size: 24, color: Colors.grey)),
-          if (g != null)
-            layerButton(SizedBox(
-                width: 18,
-                child: IconButton(
-                    padding: EdgeInsets.zero,
-                    iconSize: 15,
-                    onPressed: () => update(() => c.collapsed.contains(id)
-                        ? c.collapsed.remove(id)
-                        : c.collapsed.add(id)),
-                    icon: PrototypeIcon(
-                        c.collapsed.contains(id) ? 'arrowRight' : 'chevronDown',
-                        size: 14)))),
-          componentIcon(id),
-          const SizedBox(width: 7),
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                _LayerName(
-                    key: ValueKey('layer-name:$id'),
-                    id: id,
-                    name: n?.name ?? g!.name,
-                    onEditing: (active) =>
-                        update(() => layerRenameId = active ? id : null),
-                    onRename: (value) => c.edit(() {
-                          final node = c.doc.node(id), group = c.doc.group(id);
-                          if (node != null) {
-                            node.name = value;
-                          } else if (group != null) {
-                            group.name = value;
-                          }
-                        })),
-                Text(
-                    n == null
-                        ? '${c.doc.leaves(id).length} 个组件'
-                        : componentNames[n.type]!,
-                    style: TextStyle(
-                        fontSize: 12, color: Theme.of(context).hintColor))
-              ])),
-          layerButton(SizedBox(
-              width: 27,
-              child: IconButton(
-                  padding: EdgeInsets.zero,
-                  tooltip: c.doc.visible(id) ? '隐藏' : '显示',
-                  onPressed: () => c.edit(() {
-                        if (n != null) {
-                          n.visible = !n.visible;
-                        } else {
-                          g!.visible = !g.visible;
-                        }
-                      }),
-                  icon: PrototypeIcon(c.doc.visible(id) ? 'eye' : 'eyeOff',
-                      size: 18)))),
-          layerButton(SizedBox(
-              width: 26,
-              child: IconButton(
-                  padding: EdgeInsets.zero,
-                  tooltip: c.doc.locked(id) ? '解锁' : '锁定',
-                  onPressed: () => c.edit(() {
-                        if (n != null) {
-                          n.locked = !n.locked;
-                        } else {
-                          g!.locked = !g.locked;
-                        }
-                      }),
-                  icon: PrototypeIcon(
-                      (n?.locked ?? g!.locked) ? 'lock' : 'unlock',
-                      size: 18))))
-        ])));
+            margin: const EdgeInsets.symmetric(vertical: 3),
+            padding: EdgeInsets.only(
+                left: 5 + depth * 12.0, right: 3, top: 7, bottom: 7),
+            decoration: BoxDecoration(
+                color: c.selection.contains(id)
+                    ? scheme.primary.withValues(alpha: .1)
+                    : g != null
+                        ? scheme.onSurface.withValues(alpha: .025)
+                        : null,
+                borderRadius: BorderRadius.circular(6),
+                border: c.selection.contains(id)
+                    ? Border(left: BorderSide(color: scheme.primary, width: 2))
+                    : null),
+            child: Row(children: [
+              const SizedBox(
+                  width: 12,
+                  child: PrototypeIcon('grip', size: 24, color: Colors.grey)),
+              if (g != null)
+                layerButton(SizedBox(
+                    width: 18,
+                    child: IconButton(
+                        padding: EdgeInsets.zero,
+                        iconSize: 15,
+                        onPressed: () => update(() => c.collapsed.contains(id)
+                            ? c.collapsed.remove(id)
+                            : c.collapsed.add(id)),
+                        icon: PrototypeIcon(
+                            c.collapsed.contains(id)
+                                ? 'arrowRight'
+                                : 'chevronDown',
+                            size: 14)))),
+              componentIcon(id),
+              const SizedBox(width: 7),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    _LayerName(
+                        key: ValueKey('layer-name:$id'),
+                        id: id,
+                        name: n?.name ?? g!.name,
+                        onEditing: (active) =>
+                            update(() => layerRenameId = active ? id : null),
+                        onRename: (value) => c.edit(() {
+                              final node = c.doc.node(id),
+                                  group = c.doc.group(id);
+                              if (node != null) {
+                                node.name = value;
+                              } else if (group != null) {
+                                group.name = value;
+                              }
+                            })),
+                    Text(
+                        n == null
+                            ? '${c.doc.leaves(id).length} 个组件'
+                            : componentNames[n.type]!,
+                        style: TextStyle(
+                            fontSize: 12, color: Theme.of(context).hintColor))
+                  ])),
+              layerButton(SizedBox(
+                  width: 27,
+                  child: IconButton(
+                      padding: EdgeInsets.zero,
+                      tooltip: c.doc.visible(id) ? '隐藏' : '显示',
+                      onPressed: () => c.edit(() {
+                            if (n != null) {
+                              n.visible = !n.visible;
+                            } else {
+                              g!.visible = !g.visible;
+                            }
+                          }),
+                      icon: PrototypeIcon(c.doc.visible(id) ? 'eye' : 'eyeOff',
+                          size: 18)))),
+              layerButton(SizedBox(
+                  width: 26,
+                  child: IconButton(
+                      padding: EdgeInsets.zero,
+                      tooltip: c.doc.locked(id) ? '解锁' : '锁定',
+                      onPressed: () => c.edit(() {
+                            if (n != null) {
+                              n.locked = !n.locked;
+                            } else {
+                              g!.locked = !g.locked;
+                            }
+                          }),
+                      icon: PrototypeIcon(
+                          (n?.locked ?? g!.locked) ? 'lock' : 'unlock',
+                          size: 18))))
+            ])));
     late BuildContext dropContext;
     (String?, int, bool, bool, int) destination(Offset global) {
       final box = dropContext.findRenderObject() as RenderBox,
@@ -612,10 +615,7 @@ extension EditorPanels on _PresetEditorState {
   }
 
   Widget numeric(String name, double value, ValueChanged<double> change,
-          {double min = 0,
-          double max = 100,
-          double step = 1,
-          double? reset}) =>
+          {double min = 0, double max = 100, double step = 1, double? reset}) =>
       valueField(name, numberInputText(value), (s) {
         final v = double.tryParse(s);
         if (v != null && v.isFinite) change(v.clamp(min, max));
@@ -815,132 +815,76 @@ extension EditorPanels on _PresetEditorState {
         photoStrokeProperties(),
         filmProperties(),
       ]);
-  void queuePlace(String path, String value) {
-    update(() => (information[path] ??= {})['place'] = value);
-    if (placePending != null && placePending!.$1 != path) {
-      final previous = placePending!;
-      placeTimer?.cancel();
-      widget.onSavePlace?.call(previous.$1, previous.$2);
-    }
-    placePending = (path, value);
-    placeTimer?.cancel();
-    placeTimer = Timer(const Duration(milliseconds: 400), () {
-      final pending = placePending;
-      placePending = null;
-      if (pending != null) widget.onSavePlace?.call(pending.$1, pending.$2);
-    });
-  }
-
-  /// Inline editor for one piece of the photo's shooting information.
-  ///
-  /// Whatever the photo already carries is shown as the value. A missing or
-  /// wrong value can be typed here; it is stored in the app's own record for
-  /// this photo, never written back into the file, and the component picks it
-  /// up straight away.
   Widget infoFieldEditor(StyleNode node) {
     if (files.isEmpty) {
-      return Text('请先选择一张照片，再填写${componentNames[node.type] ?? '信息'}。',
-          style: EditorTypography.hint(context));
+      return Text('请先选择一张照片，再填写拍摄信息。', style: EditorTypography.hint(context));
     }
-    final key = node.type;
-    if (!infoFields.containsKey(key)) {
-      final shown = node.content(fields);
-      return Text(shown.isEmpty ? '当前照片缺少该信息' : shown,
-          style: const TextStyle(fontSize: 13, height: 1.8));
-    }
-    // Camera and lens belong together, as do the exposure values, so one
-    // component shows its natural pair and the layout matches the panel.
-    const companions = {
-      'camera': 'lens',
-      'lens': 'camera',
-      'focal': 'aperture',
-      'aperture': 'focal',
-      'shutter': 'iso',
-      'iso': 'shutter'
-    };
-    final keys = [key, if (companions[key] != null) companions[key]!];
-    return photoInfoFields(keys);
+    final path = files[index].path;
+    final keys = captureFieldsForComponent(node.type);
+    final original = originalInformation[path];
+    if (original == null) return const SizedBox.shrink();
+    final pickPlace = widget.onPickPlace;
+    return PhotoInfoForm(
+      key: ValueKey('component-info-$path-${node.id}'),
+      existing: original,
+      manual: Map.of(information[path] ?? const {}),
+      keys: keys,
+      compact: true,
+      directEdit: true,
+      onChanged: (key, value) => queueField(path, key, value),
+      onPickPlace: !keys.contains('place') || pickPlace == null
+          ? null
+          : () async {
+              FocusScope.of(context).unfocus();
+              final place = await pickPlace(context);
+              if (mounted && place != null) queueField(path, 'place', place);
+            },
+    );
   }
 
-  /// The shooting-information form, limited to [keys], for the current photo.
-  Widget photoInfoFields(List<String> keys) {
+  Widget photoInfoPanel() {
+    if (files.isEmpty) {
+      return const Text('选择照片后可以查看和补填拍摄信息', style: TextStyle(height: 2));
+    }
     final path = files[index].path;
     return PhotoInfoForm(
-        key: ValueKey('info-form-$path-${keys.join("-")}'),
-        existing: information[path] ?? const {},
+        key: ValueKey('photo-info-panel-$path'),
+        existing: originalInformation[path] ?? const {},
         manual: information[path] ?? const {},
-        keys: keys,
         compact: true,
         onChanged: (key, value) => queueField(path, key, value));
   }
 
-  /// Panel shown when nothing is selected: the whole photo's information.
-  Widget photoInfoPanel() {
-    if (files.isEmpty) {
-      return const Text('选择照片后可以查看和补填拍摄信息',
-          style: TextStyle(height: 2));
+  void flushPhotoField() {
+    final pending = fieldPending;
+    fieldPending = null;
+    if (pending != null) {
+      final (path, key, value) = pending;
+      widget.onSaveField?.call(path, key, value);
     }
-    final path = files[index].path;
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      PhotoInfoForm(
-          key: ValueKey('photo-info-panel-$path'),
-          existing: information[path] ?? const {},
-          manual: information[path] ?? const {},
-          compact: true,
-          onChanged: (key, value) => queueField(path, key, value))
-    ]);
   }
 
   void queueField(String path, String key, String value) {
-    final info = information[path] ??= {};
-    if (value.trim().isEmpty) {
-      info.remove(key);
-    } else {
-      info[key] = value;
-    }
-    fields[key] = value.trim();
-    update(() {});
-    if (fieldPending != null && fieldPending!.$1 != '$path@$key') {
-      final previous = fieldPending!;
-      fieldTimer?.cancel();
-      final parts = previous.$1.split('@');
-      widget.onSaveField?.call(parts.first, parts.last, previous.$2);
-    }
-    fieldPending = ('$path@$key', value);
-    fieldTimer?.cancel();
-    fieldTimer = Timer(const Duration(milliseconds: 400), () {
-      final pending = fieldPending;
-      fieldPending = null;
-      if (pending == null) return;
-      final parts = pending.$1.split('@');
-      widget.onSaveField?.call(parts.first, parts.last, pending.$2);
+    final text = value.trim();
+    if (validateInfo(key, text) != null) return;
+    final original = originalInformation[path]?[key] ?? '';
+    final override = text == original ? '' : text;
+    update(() {
+      final info = information[path] ??= {};
+      final effective = override.isEmpty ? original : override;
+      if (effective.isEmpty) {
+        info.remove(key);
+      } else {
+        info[key] = effective;
+      }
     });
-  }
-
-  Widget placeEditor() {
-    if (files.isEmpty) {
-      return Text('请先选择一张照片，再填写拍摄地点。',
-          style: EditorTypography.hint(context));
+    final pending = fieldPending;
+    if (pending != null && (pending.$1 != path || pending.$2 != key)) {
+      flushPhotoField();
     }
-    final path = files[index].path;
-    final current = information[path]?['place'] ?? '';
-    placeOpen.putIfAbsent(path, () => current.trim().isEmpty);
-    if (placeOpen[path] != true) {
-      final text = fields['place'] ?? '';
-      return Text(text.isEmpty ? '当前照片缺少该信息' : text,
-          style: const TextStyle(fontSize: 13, height: 1.8));
-    }
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('这张照片没有拍摄地点。写在这里只记在这张照片上，不会写进预设。',
-          style: EditorTypography.hint(context)),
-      const SizedBox(height: 8),
-      Text('拍摄地点', style: EditorTypography.label(context)),
-      const SizedBox(height: 7),
-      _PlaceField(
-          key: ValueKey('place-$path'),
-          initial: current,
-          onChanged: (v) => queuePlace(path, v))
-    ]);
+    fieldPending = (path, key, override);
+    fieldTimer?.cancel();
+    fieldTimer = Timer(const Duration(milliseconds: 400), flushPhotoField);
   }
 
   Widget componentProperties() {
@@ -957,8 +901,11 @@ extension EditorPanels on _PresetEditorState {
 
     bool mixed(Object Function(StyleNode) get) =>
         nodes.map(get).toSet().length > 1;
-    String? restoreNumbers(double Function(StyleNode) get,
-        void Function(StyleNode, double) set, double min, double max,
+    String? restoreNumbers(
+        double Function(StyleNode) get,
+        void Function(StyleNode, double) set,
+        double min,
+        double max,
         double fallback) {
       c.edit(() {
         for (final n in List<StyleNode>.from(nodes)) {
@@ -1008,10 +955,8 @@ extension EditorPanels on _PresetEditorState {
                       if (single.type == 'text')
                         valueField('内容', single.text, (v) => single.text = v,
                             multiline: true)
-                      else if (single.type == 'place')
-                        placeEditor()
-                      else if (!['palette', 'image', 'shape']
-                          .contains(single.type))
+                      else if (captureFieldsForComponent(single.type)
+                          .isNotEmpty)
                         infoFieldEditor(single)
                     ])
                   else
@@ -1511,30 +1456,6 @@ class _LayerNameState extends State<_LayerName> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 13)));
-}
-
-class _PlaceField extends StatefulWidget {
-  final String initial;
-  final ValueChanged<String> onChanged;
-  const _PlaceField({super.key, required this.initial, required this.onChanged});
-  @override
-  State<_PlaceField> createState() => _PlaceFieldState();
-}
-
-class _PlaceFieldState extends State<_PlaceField> {
-  late final input = TextEditingController(text: widget.initial);
-  @override
-  void dispose() {
-    input.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => TextField(
-      controller: input,
-      style: EditorTypography.value(context),
-      decoration: const InputDecoration(hintText: '例如：杭州 · 西湖'),
-      onChanged: widget.onChanged);
 }
 
 /// 图层行按下后先只选中。挪开大约 20 像素才开始拖。

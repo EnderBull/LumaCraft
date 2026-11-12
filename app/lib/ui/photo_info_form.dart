@@ -26,6 +26,7 @@ class PhotoInfoForm extends StatefulWidget {
 
   /// Tighter spacing for use inside a narrow panel.
   final bool compact;
+  final bool directEdit;
 
   /// Called with the new text; an empty string means "no override".
   final void Function(String key, String value) onChanged;
@@ -39,13 +40,18 @@ class PhotoInfoForm extends StatefulWidget {
       required this.onChanged,
       this.keys,
       this.compact = false,
+      this.directEdit = false,
       this.onPickPlace});
+  String _valueFor(String key) =>
+      (manual[key] ?? '').isNotEmpty ? manual[key]! : (existing[key] ?? '');
+
   @override
   State<PhotoInfoForm> createState() => _PhotoInfoFormState();
 }
 
 class _PhotoInfoFormState extends State<PhotoInfoForm> {
   final controllers = <String, TextEditingController>{};
+  final focusNodes = <String, FocusNode>{};
   bool overwrite = false;
 
   List<String> get keys => widget.keys ?? infoFields.keys.toList();
@@ -61,20 +67,35 @@ class _PhotoInfoFormState extends State<PhotoInfoForm> {
     super.initState();
     for (final key in keys) {
       controllers[key] = TextEditingController(text: _initial(key));
+      if (widget.directEdit) {
+        final focus = FocusNode();
+        focus.addListener(() {
+          if (!focus.hasFocus) _commitDirect(key);
+        });
+        focusNodes[key] = focus;
+      }
     }
   }
 
   /// What the box shows when nothing has been typed yet: the saved override
   /// first, then what the file carries.
-  String _initial(String key) =>
-      (widget.manual[key] ?? '').isNotEmpty
-          ? widget.manual[key]!
-          : (widget.existing[key] ?? '');
+  String _initial(String key) => (widget.manual[key] ?? '').isNotEmpty
+      ? widget.manual[key]!
+      : (widget.existing[key] ?? '');
 
   bool _hasExisting(String key) =>
       (widget.existing[key] ?? '').trim().isNotEmpty;
 
-  bool _editable(String key) => overwrite || !_hasExisting(key);
+  bool _editable(String key) =>
+      widget.directEdit || overwrite || !_hasExisting(key);
+
+  void _commitDirect(String key) {
+    final controller = controllers[key]!;
+    final text = controller.text.trim();
+    if (validateInfo(key, text) != null) return;
+    if (text != _initial(key)) widget.onChanged(key, text);
+    if (text.isEmpty) controller.text = widget.existing[key] ?? '';
+  }
 
   @override
   void didUpdateWidget(covariant PhotoInfoForm old) {
@@ -89,7 +110,9 @@ class _PhotoInfoFormState extends State<PhotoInfoForm> {
       final controller =
           controllers.putIfAbsent(key, () => TextEditingController());
       final wanted = _initial(key);
-      if (controller.text != wanted) {
+      if (focusNodes[key]?.hasFocus == true) continue;
+      if (controller.text != wanted &&
+          (!widget.directEdit || old._valueFor(key) != wanted)) {
         controller.value = TextEditingValue(
             text: wanted,
             selection: TextSelection.collapsed(offset: wanted.length));
@@ -99,6 +122,9 @@ class _PhotoInfoFormState extends State<PhotoInfoForm> {
 
   @override
   void dispose() {
+    for (final focus in focusNodes.values) {
+      focus.dispose();
+    }
     for (final controller in controllers.values) {
       controller.dispose();
     }
@@ -144,62 +170,65 @@ class _PhotoInfoFormState extends State<PhotoInfoForm> {
                   color: editable && missing
                       ? scheme.primary.withValues(alpha: .45)
                       : Colors.transparent)),
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(children: [
-                  Text(infoFields[key]!,
-                      style: dialogBodyStyle.copyWith(
-                          fontSize: 11.5,
-                          color: EditorTypography.dimOn(context))),
-                  const Spacer(),
-                  // A pin only for the place field: it opens the map so a
-                  // photo without coordinates can still get a location.
-                  if (key == 'place' && widget.onPickPlace != null)
-                    SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: IconButton(
-                            padding: EdgeInsets.zero,
-                            tooltip: '在地图上选择地点',
-                            onPressed: widget.onPickPlace,
-                            icon: Icon(Icons.place_outlined,
-                                size: 14,
-                                color: scheme.primary.withValues(alpha: .85)))),
-                  if (key == 'place' && widget.onPickPlace != null)
-                    const SizedBox(width: 4),
-                  if (locked)
-                    Icon(Icons.lock_outline,
-                        size: 11,
-                        color: scheme.onSurface.withValues(alpha: .34))
-                ]),
-                const SizedBox(height: 6),
-                if (locked)
-                  Text(missing ? '照片没有这项信息' : _pretty(key, text),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: dialogBodyStyle.copyWith(
-                          fontSize: 14,
-                          color: scheme.onSurface.withValues(alpha: .72)))
-                else
-                  TextField(
-                      key: ValueKey('photo-info-$key'),
-                      controller: controller,
-                      style: dialogBodyStyle.copyWith(fontSize: 14),
-                      decoration: InputDecoration(
-                          isDense: true,
-                          filled: false,
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 2),
-                          hintText: '缺失，可在这里补上',
-                          hintStyle: dialogBodyStyle.copyWith(
-                              fontSize: 13.5,
-                              color: scheme.primary.withValues(alpha: .72))),
-                      onChanged: (value) => widget.onChanged(key, value))
-              ])),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              Text(infoFields[key]!,
+                  style: dialogBodyStyle.copyWith(
+                      fontSize: 11.5, color: EditorTypography.dimOn(context))),
+              const Spacer(),
+              // A pin only for the place field: it opens the map so a
+              // photo without coordinates can still get a location.
+              if (key == 'place' && widget.onPickPlace != null)
+                SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: IconButton(
+                        padding: EdgeInsets.zero,
+                        tooltip: '在地图上选择地点',
+                        onPressed: widget.onPickPlace,
+                        icon: Icon(Icons.place_outlined,
+                            size: 14,
+                            color: scheme.primary.withValues(alpha: .85)))),
+              if (key == 'place' && widget.onPickPlace != null)
+                const SizedBox(width: 4),
+              if (locked)
+                Icon(Icons.lock_outline,
+                    size: 11, color: scheme.onSurface.withValues(alpha: .34))
+            ]),
+            const SizedBox(height: 6),
+            if (locked)
+              Text(missing ? '照片没有这项信息' : _pretty(key, text),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: dialogBodyStyle.copyWith(
+                      fontSize: 14,
+                      color: scheme.onSurface.withValues(alpha: .72)))
+            else
+              TextField(
+                  key: ValueKey('photo-info-$key'),
+                  controller: controller,
+                  focusNode: focusNodes[key],
+                  style: dialogBodyStyle.copyWith(fontSize: 14),
+                  decoration: InputDecoration(
+                      isDense: true,
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 2),
+                      hintText: '缺失，可在这里补上',
+                      hintStyle: dialogBodyStyle.copyWith(
+                          fontSize: 13.5,
+                          color: scheme.primary.withValues(alpha: .72))),
+                  onChanged: (value) {
+                    if (widget.directEdit) {
+                      setState(() {});
+                    } else {
+                      widget.onChanged(key, value);
+                    }
+                  })
+          ])),
       // Validation is shown in both states: some photos carry a malformed
       // value in the file itself, and that is worth knowing before exporting.
       if (problem != null)
@@ -226,16 +255,14 @@ class _PhotoInfoFormState extends State<PhotoInfoForm> {
       'focal' => '$short mm',
       'aperture' => 'f/$short',
       'shutter' => '$text s',
-      'time' => text.replaceFirstMapped(
-          RegExp(r'^(\d{4}):(\d{2}):(\d{2})'),
+      'time' => text.replaceFirstMapped(RegExp(r'^(\d{4}):(\d{2}):(\d{2})'),
           (m) => '${m[1]}-${m[2]}-${m[3]}'),
       _ => text
     };
   }
 
-  Widget _row(List<String> pair) => Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+  Widget _row(List<String> pair) =>
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(child: _card(pair[0])),
         const SizedBox(width: 10),
         Expanded(child: _card(pair[1]))
@@ -264,16 +291,14 @@ class _PhotoInfoFormState extends State<PhotoInfoForm> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                Text('覆盖已有数据',
-                    style: dialogBodyStyle.copyWith(fontSize: 13)),
+                Text('覆盖已有数据', style: dialogBodyStyle.copyWith(fontSize: 13)),
                 const SizedBox(height: 4),
                 Text(
                     overwrite
                         ? '所有项都可以修改，保存后会覆盖照片原有的值'
                         : '照片已有的项锁定不可改；缺的项可以直接填',
                     style: dialogBodyStyle.copyWith(
-                        fontSize: 11.5,
-                        color: Theme.of(context).hintColor))
+                        fontSize: 11.5, color: Theme.of(context).hintColor))
               ])),
           const SizedBox(width: 14),
           Transform.scale(
@@ -296,7 +321,7 @@ class _PhotoInfoFormState extends State<PhotoInfoForm> {
           if (available.contains(key)) key
       ];
       if (present.isEmpty) continue;
-      widgets.add(_heading(title, icon));
+      if (!widget.directEdit) widgets.add(_heading(title, icon));
       // Two short values per row; long ones and singles take the full width.
       const pairs = [
         ['focal', 'aperture'],
@@ -320,17 +345,19 @@ class _PhotoInfoFormState extends State<PhotoInfoForm> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (hasAnyExisting) ...[
+          if (!widget.directEdit && hasAnyExisting) ...[
             _switchRow(),
             SizedBox(height: widget.compact ? 2 : 6)
           ],
           ...widgets,
           Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text('只保存在软件内，不会改动照片文件。',
+              child: Text(
+                  widget.directEdit
+                      ? '仅修改当前照片的记录。留空恢复原始信息。'
+                      : '只保存在软件内，不会改动照片文件。',
                   style: dialogBodyStyle.copyWith(
-                      fontSize: 11.5,
-                      color: Theme.of(context).hintColor)))
+                      fontSize: 11.5, color: Theme.of(context).hintColor)))
         ]);
   }
 }

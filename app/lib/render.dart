@@ -43,8 +43,7 @@ Uint8List renderPhoto((String, bool, int, bool, Map<String, String>) request) {
   img.compositeImage(frame, scaled,
       dstX: film ? side : (frame.width - scaled.width) ~/ 2,
       dstY: top + photo.height + (bottom - height) ~/ 2);
-  copyCaptureTags(decoded.exif, frame);
-  applyInfo(frame.exif, fields);
+  writeCaptureTags(decoded.exif, frame, fields);
   return png ? encodePhotoPng(frame) : img.encodeJpg(frame, quality: 92);
 }
 
@@ -67,10 +66,38 @@ img.Image captionImage(bool film) {
   );
 }
 
-void copyCaptureTags(img.ExifData source, img.Image frame) {
+void writeCaptureTags(
+    img.ExifData? source, img.Image frame, Map<String, String> fields) {
+  final original = readCaptureFields(source);
+  final supplied = {
+    for (final entry in fields.entries)
+      if (infoFields.containsKey(entry.key) &&
+          entry.value.isNotEmpty &&
+          validateInfo(entry.key, entry.value) == null &&
+          (entry.key == 'place' || original[entry.key] != entry.value))
+        entry.key: entry.value,
+  };
+  if (source != null) copyCaptureTags(source, frame, supplied.keys.toSet());
+  applyInfo(frame.exif, supplied);
+}
+
+void copyCaptureTags(
+    img.ExifData source, img.Image frame, Set<String> replaced) {
+  const tagsByField = <String, Set<int>>{
+    'camera': {0x0110},
+    'lens': {0xa432, 0xa433, 0xa434},
+    'time': {0x9003, 0x9291},
+    'shutter': {0x829a, 0x9201},
+    'aperture': {0x829d, 0x9202},
+    'iso': {0x8827, 0x8830, 0x8831, 0x8832, 0x8833},
+    'focal': {0x920a, 0xa405},
+  };
+  final excluded = {
+    for (final field in replaced) ...?tagsByField[field],
+  };
   final out = frame.exif;
   for (final tag in [0x010f, 0x0110, 0x0132]) {
-    out.imageIfd[tag] = source.imageIfd[tag];
+    if (!excluded.contains(tag)) out.imageIfd[tag] = source.imageIfd[tag];
   }
   // 拍摄时间、曝光、ISO、焦距、镜头及对应时区。只复制原有字段。
   for (final tag in [
@@ -101,7 +128,9 @@ void copyCaptureTags(img.ExifData source, img.Image frame) {
     0xa433,
     0xa434
   ]) {
-    out.exifIfd[tag] = source.exifIfd[tag] ?? source.imageIfd[tag];
+    if (!excluded.contains(tag)) {
+      out.exifIfd[tag] = source.exifIfd[tag] ?? source.imageIfd[tag];
+    }
   }
   out.imageIfd.orientation = 1;
   out.exifIfd[0xa002] = img.IfdValueLong(frame.width);
@@ -147,8 +176,7 @@ Uint8List encodeStyledPixels(
       order: img.ChannelOrder.rgba);
   final bytes = File(path).readAsBytesSync();
   final source = captureExif(bytes) ?? img.decodeImage(bytes)?.exif;
-  if (source != null) copyCaptureTags(source, frame);
-  applyInfo(frame.exif, fields);
+  writeCaptureTags(source, frame, fields);
   return png ? encodePhotoPng(frame) : img.encodeJpg(frame, quality: 92);
 }
 
@@ -177,8 +205,7 @@ Uint8List finishExport(img.Image frame, String path, Map<String, String> fields,
     ExportOptions options, Uint8List profile) {
   final source = captureExif(File(path).readAsBytesSync());
   if (options.retainCaptureInfo) {
-    if (source != null) copyCaptureTags(source, frame);
-    applyInfo(frame.exif, fields);
+    writeCaptureTags(source, frame, fields);
   }
   if (options.retainGps && source != null)
     frame.exif.gpsIfd.data.addAll(source.gpsIfd.data);

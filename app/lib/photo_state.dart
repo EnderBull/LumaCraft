@@ -78,8 +78,10 @@ img.ExifData? captureExif(Uint8List bytes) {
   return null;
 }
 
-Map<String, String> readCapture(String path) {
-  final exif = captureExif(File(path).readAsBytesSync());
+Map<String, String> readCapture(String path) =>
+    readCaptureFields(captureExif(File(path).readAsBytesSync()));
+
+Map<String, String> readCaptureFields(img.ExifData? exif) {
   if (exif == null) return {};
   final values = <String, String>{};
   void add(String key, Object? value) {
@@ -87,8 +89,9 @@ Map<String, String> readCapture(String path) {
     if (text.isNotEmpty) values[key] = text;
   }
 
-  add('camera', exif.imageIfd[0x0110]);
-  add('lens', exif.exifIfd[0xa434]);
+  add('camera', _decodeCaptureName(exif.imageIfd[0x0110]));
+  add('lens', _decodeCaptureName(exif.exifIfd[0xa434]));
+  add('place', _readPlaceComment(exif.exifIfd[0x9286]));
   add('time', exif.exifIfd[0x9003]);
   for (final pair
       in {'focal': 0x920a, 'aperture': 0x829d, 'shutter': 0x829a}.entries) {
@@ -235,12 +238,65 @@ String? validateInfo(String key, String value) {
   return null;
 }
 
+List<String> captureFieldsForComponent(String type) => switch (type) {
+      'params' => const ['focal', 'aperture', 'shutter', 'iso'],
+      'camera' => const ['camera'],
+      'lens' => const ['lens'],
+      'time' => const ['time'],
+      'place' => const ['place'],
+      _ => const [],
+    };
+
+const _placeCommentPrefix = '地点：';
+const _unicodeComment = [85, 78, 73, 67, 79, 68, 69, 0];
+
+String? _decodeCaptureName(img.IfdValue? value) {
+  final text = value?.toString();
+  if (text == null || text.codeUnits.any((unit) => unit > 255)) return text;
+  try {
+    return utf8.decode(text.codeUnits);
+  } on FormatException {
+    return text;
+  }
+}
+
+String? _readPlaceComment(img.IfdValue? value) {
+  if (value is! img.IfdValueUndefined) return null;
+  final bytes = value.value;
+  if (bytes.length <= _unicodeComment.length || bytes.length.isOdd) return null;
+  for (var i = 0; i < _unicodeComment.length; i++) {
+    if (bytes[i] != _unicodeComment[i]) return null;
+  }
+  final units = [
+    for (var i = _unicodeComment.length; i < bytes.length; i += 2)
+      (bytes[i] << 8) | bytes[i + 1],
+  ];
+  final text = String.fromCharCodes(units).split('\u0000').first;
+  return text.startsWith(_placeCommentPrefix)
+      ? text.substring(_placeCommentPrefix.length)
+      : null;
+}
+
 void applyInfo(img.ExifData exif, Map<String, String> fields) {
   for (final pair in fields.entries) {
     final key = pair.key, value = pair.value;
     if (value.isEmpty || validateInfo(key, value) != null) continue;
-    if (key == 'camera') exif.imageIfd[0x0110] = value;
-    if (key == 'lens') exif.exifIfd[0xa434] = value;
+    if (key == 'camera' || key == 'lens') {
+      final encoded = latin1.decode(utf8.encode(value));
+      if (key == 'camera') {
+        exif.imageIfd[0x0110] = encoded;
+      } else {
+        exif.exifIfd[0xa434] = encoded;
+      }
+    }
+    if (key == 'place') {
+      // UserComment stores a place name without creating GPS coordinates.
+      final units = '$_placeCommentPrefix$value'.codeUnits;
+      exif.exifIfd[0x9286] = img.IfdValueUndefined.list([
+        ..._unicodeComment,
+        for (final unit in units) ...[unit >> 8, unit & 0xff],
+      ]);
+    }
     if (key == 'time') exif.exifIfd[0x9003] = value;
     if (key == 'iso')
       exif.exifIfd[0x8827] = img.IfdValueShort(int.parse(value));
@@ -303,6 +359,7 @@ class PhotoState {
       }
     }
   }
+
   /// True when the record carries something the user would miss. Capture time
   /// is read automatically, so it alone does not make a record worth keeping:
   /// it is kept from the file itself.
@@ -357,6 +414,7 @@ class PhotoStore {
     photos[newPath] = record;
     return true;
   }
+
   Future<void> _pending = Future.value();
   Future<void> save() {
     final contents = jsonEncode({

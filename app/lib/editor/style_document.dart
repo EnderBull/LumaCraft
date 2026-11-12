@@ -20,7 +20,22 @@ const componentNames = {
   'shape': '形状'
 };
 
+/// Optional metadata owned by newer clients. The current renderer never
+/// interprets it, and each model copy owns its own JSON values.
+Map<String, dynamic>? _optionalExtensions(Object? value) {
+  if (value is! Map) return null;
+  Object? copy(Object? entry) => switch (entry) {
+        final Map values => <String, dynamic>{
+            for (final item in values.entries) item.key as String: copy(item.value)
+          },
+        final List values => [for (final item in values) copy(item)],
+        _ => entry,
+      };
+  return copy(value) as Map<String, dynamic>;
+}
+
 class StyleNode {
+  Map<String, dynamic>? _extensions;
   String id, type, name, text, anchor, font, align;
   double x, y, fontSize, spacing, opacity;
   int color;
@@ -69,7 +84,8 @@ class StyleNode {
         'locked': locked,
         if (type == 'image') 'image': image.toJson(),
         if (type == 'palette') 'palette': palette.toJson(),
-        if (type == 'shape') 'shape': shape.toJson()
+        if (type == 'shape') 'shape': shape.toJson(),
+        if (_extensions != null) 'extensions': _optionalExtensions(_extensions)
       };
   factory StyleNode.fromJson(Map<String, dynamic> j) => StyleNode(
       id: j['id'],
@@ -94,7 +110,8 @@ class StyleNode {
       image: ImageMark.fromJson(Map<String, dynamic>.from(j['image'] ?? {})),
       shape: ShapeStyle.fromJson(Map<String, dynamic>.from(j['shape'] ?? {})),
       palette:
-          PaletteStyle.fromJson(Map<String, dynamic>.from(j['palette'] ?? {})));
+          PaletteStyle.fromJson(Map<String, dynamic>.from(j['palette'] ?? {})))
+    .._extensions = _optionalExtensions(j['extensions']);
   StyleNode copy() => StyleNode.fromJson(toJson());
   String content(Map<String, String> fields) {
     if (type == 'text') return text;
@@ -110,6 +127,7 @@ class StyleNode {
 }
 
 class StyleGroup {
+  Map<String, dynamic>? _extensions;
   String id, name;
   List<String> children;
   bool visible, locked;
@@ -126,17 +144,20 @@ class StyleGroup {
         'name': name,
         'children': children,
         'visible': visible,
-        'locked': locked
+        'locked': locked,
+        if (_extensions != null) 'extensions': _optionalExtensions(_extensions)
       };
   factory StyleGroup.fromJson(Map<String, dynamic> j) => StyleGroup(
       id: j['id'],
       name: j['name'] ?? '组件组',
       children: List<String>.from(j['children'] ?? []),
       visible: j['visible'] != false,
-      locked: j['locked'] == true);
+      locked: j['locked'] == true)
+    .._extensions = _optionalExtensions(j['extensions']);
 }
 
 class StyleDocument {
+  Map<String, dynamic>? _extensions;
   bool adaptive = false;
   String suitability = 'universal';
   String editingLayout = 'general';
@@ -423,7 +444,8 @@ class StyleDocument {
                     'visible': (_generalLayout!['groups'] as Map)[g.id]
                 })
             .toList(),
-        'order': order
+        'order': order,
+        if (_extensions != null) 'extensions': _optionalExtensions(_extensions)
       };
   factory StyleDocument.fromJson(Map<String, dynamic> j) {
     final d = StyleDocument(
@@ -447,6 +469,7 @@ class StyleDocument {
             .map((g) => StyleGroup.fromJson(Map<String, dynamic>.from(g)))
             .toList(),
         order: List<String>.from(j['order'] ?? []));
+    d._extensions = _optionalExtensions(j['extensions']);
     d.adaptive = j['adaptive'] == true;
     d.suitability = suitabilityNames.containsKey(j['suitability'])
         ? j['suitability']
