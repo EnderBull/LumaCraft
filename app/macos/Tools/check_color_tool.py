@@ -21,7 +21,8 @@ def decode(filename, edge):
 
 normal = decode("orientation-1.heic", 0)
 rotated = decode("orientation-6.heic", 0)
-assert normal[0] == rotated[1] and normal[1] == rotated[0]
+# These fixtures encode the same upright frame with different orientations.
+assert normal[:2] == rotated[:2] == (1200, 800), (normal[:2], rotated[:2])
 p3 = decode("display-p3-10bit.heic", 128)
 assert max(p3[:2]) <= 128 and p3[2] == normal[2]
 print("ImageIO decoded HEIF orientation and returned sRGB ICC for Display P3")
