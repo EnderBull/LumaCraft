@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../photo_state.dart';
 import '../../settings/android_map_preview.dart';
+import '../../settings/place_lookup.dart';
 import '../amap_key_tutorial.dart';
 import 'alpha_workspace.dart';
 import 'mobile_fields.dart';
@@ -40,6 +41,14 @@ class _MobilePhotoInfoPageState extends State<MobilePhotoInfoPage> {
                 const SizedBox(height: 8),
                 const Text('修改仅应用到当前照片。留空可恢复原始信息。'),
                 const SizedBox(height: 10),
+                if (gpsDiagnosticsEnabled && workspace.preview != null) ...[
+                  Text(
+                    gpsDiagnosticText(workspace.preview!.fields,
+                        queryStatus: workspace.placeDiagnostic),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 MobileCaptureFields(
                   workspace: workspace,
                   keys: infoFields.keys.toList(),
@@ -256,20 +265,25 @@ class MobileAmapSettingsPane extends StatefulWidget {
 class _MobileAmapSettingsPaneState extends State<MobileAmapSettingsPane> {
   late final _initial = _read();
 
-  Future<(String, String)> _read() async {
+  Future<(String, String, bool)> _read() async {
     final settings = await loadAndroidSettings();
     try {
-      return (settings.amapKey, settings.amapSecret);
+      return (
+        settings.amapKey,
+        settings.amapSecret,
+        settings.androidAutoFillPlace
+      );
     } finally {
       settings.dispose();
     }
   }
 
-  Future<void> _save((String, String) values) async {
+  Future<void> _save((String, String, bool) values) async {
     final settings = await loadAndroidSettings();
     try {
       settings.amapKey = values.$1;
       settings.amapSecret = values.$2;
+      settings.androidAutoFillPlace = values.$3;
       await settings.flush();
       if (settings.saveError != null) throw StateError(settings.saveError!);
     } finally {
@@ -278,22 +292,25 @@ class _MobileAmapSettingsPaneState extends State<MobileAmapSettingsPane> {
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<(String, String)>(
+  Widget build(BuildContext context) => FutureBuilder<(String, String, bool)>(
         future: _initial,
         builder: (context, snapshot) {
           if (snapshot.hasError) return const Text('无法读取高德设置。');
           final values = snapshot.data;
           if (values == null)
             return const Center(child: CircularProgressIndicator());
-          return _MapSettingsDialog(values.$1, values.$2, saveInline: _save);
+          return _MapSettingsDialog(values.$1, values.$2,
+              autoFillPlace: values.$3, saveInline: _save);
         },
       );
 }
 
 class _MapSettingsDialog extends StatefulWidget {
   final String keyValue, secret;
-  const _MapSettingsDialog(this.keyValue, this.secret, {this.saveInline});
-  final Future<void> Function((String, String))? saveInline;
+  const _MapSettingsDialog(this.keyValue, this.secret,
+      {this.autoFillPlace = false, this.saveInline});
+  final bool autoFillPlace;
+  final Future<void> Function((String, String, bool))? saveInline;
 
   @override
   State<_MapSettingsDialog> createState() => _MapSettingsDialogState();
@@ -302,6 +319,7 @@ class _MapSettingsDialog extends StatefulWidget {
 class _MapSettingsDialogState extends State<_MapSettingsDialog> {
   late final _key = TextEditingController(text: widget.keyValue);
   late final _secret = TextEditingController(text: widget.secret);
+  late bool _autoFillPlace = widget.autoFillPlace;
   String? _error, _connectionStatus;
   bool _testing = false;
   bool _saving = false;
@@ -382,7 +400,7 @@ class _MapSettingsDialogState extends State<_MapSettingsDialog> {
     }
     setState(() => _saving = true);
     try {
-      await save((key, secret));
+      await save((key, secret, _autoFillPlace));
       if (mounted)
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('已保存高德设置')));
@@ -439,6 +457,19 @@ class _MapSettingsDialogState extends State<_MapSettingsDialog> {
         _field(context, '安全密钥', _secret, _showSecret,
             () => setState(() => _showSecret = !_showSecret),
             error: _error),
+        if (inline) ...[
+          const SizedBox(height: 12),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('有坐标时自动填地点'),
+            subtitle: const Text(
+                '选图时申请读取照片的拍摄坐标，用于自动填地点。预设使用地点时，才将坐标发送给高德查询。拒绝授权后仍可选图和手动填写。'),
+            value: _autoFillPlace,
+            onChanged: _busy
+                ? null
+                : (value) => setState(() => _autoFillPlace = value),
+          ),
+        ],
         if (_connectionStatus case final status?)
           Padding(
             padding: const EdgeInsets.only(top: 14),

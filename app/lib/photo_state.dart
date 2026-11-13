@@ -92,23 +92,31 @@ Map<String, String> readCaptureFields(img.ExifData? exif) {
   add('camera', _decodeCaptureName(exif.imageIfd[0x0110]));
   add('lens', _decodeCaptureName(exif.exifIfd[0xa434]));
   add('place', _readPlaceComment(exif.exifIfd[0x9286]));
-  add('time', exif.exifIfd[0x9003]);
+  add('time', _captureTime(exif.exifIfd[0x9003]?.toString()));
   for (final pair
       in {'focal': 0x920a, 'aperture': 0x829d, 'shutter': 0x829a}.entries) {
     final value = exif.exifIfd[pair.value];
     if (value != null) {
       final number = value.toDouble();
-      if (number > 0)
-        add(
-            pair.key,
-            pair.key == 'shutter' && number < 1
-                ? '1/${(1 / number).round()}'
-                : number.toString());
+      if (!number.isFinite || number <= 0) continue;
+      final shutter = pair.key == 'shutter';
+      final rounded = double.parse(!shutter && number >= 0.01
+          ? number.toStringAsFixed(2)
+          : number.toStringAsPrecision(7));
+      final inverse = 1 / number;
+      add(
+          pair.key,
+          shutter &&
+                  number < 1 &&
+                  inverse.isFinite &&
+                  (inverse - inverse.roundToDouble()).abs() < inverse * .001
+              ? '1/${inverse.round()}'
+              : rounded.toString());
     }
   }
   add('iso', exif.exifIfd[0x8827]);
-  // Coordinates stay out of the info fields on purpose: they are only used to
-  // look up a place name, and are never written into the exported file.
+  // The coordinate string is internal to place lookup. The export GPS option
+  // separately controls whether the original GPS tags are copied.
   final gps = readGpsCoordinates(exif);
   if (gps != null) values[gpsField] = gps;
   return values;
@@ -123,23 +131,42 @@ const gpsField = '_gps';
 String? readGpsCoordinates(img.ExifData exif) {
   try {
     final gps = exif.gpsIfd;
-    final latitude = gps.gpsLatitude;
-    final longitude = gps.gpsLongitude;
+    final latitude = _gpsDegrees(gps[0x0002], 90);
+    final longitude = _gpsDegrees(gps[0x0004], 180);
     if (latitude == null || longitude == null) return null;
-    if (!latitude.isFinite || !longitude.isFinite) return null;
     // Both zero means the camera had no fix, not a real place.
     if (latitude.abs() < 1e-6 && longitude.abs() < 1e-6) return null;
-    if (latitude.abs() > 90 || longitude.abs() > 180) return null;
     // The reference tag says which hemisphere: S and W are negative.
-    final latRef = (gps.gpsLatitudeRef ?? 'N').toUpperCase();
-    final lonRef = (gps.gpsLongitudeRef ?? 'E').toUpperCase();
-    final lat = latRef.startsWith('S') ? -latitude : latitude;
-    final lon = lonRef.startsWith('W') ? -longitude : longitude;
+    final latRef = _captureText(gps.gpsLatitudeRef)?.toUpperCase();
+    final lonRef = _captureText(gps.gpsLongitudeRef)?.toUpperCase();
+    if (latRef != 'N' && latRef != 'S') return null;
+    if (lonRef != 'E' && lonRef != 'W') return null;
+    final lat = latRef == 'S' && latitude != 0 ? -latitude : latitude;
+    final lon = lonRef == 'W' && longitude != 0 ? -longitude : longitude;
     return '${lon.toStringAsFixed(6)},${lat.toStringAsFixed(6)}';
   } catch (_) {
     // A GPS block that cannot be read is the same as no coordinates.
     return null;
   }
+}
+
+double? _gpsDegrees(img.IfdValue? value, int limit) {
+  if (value == null || (value.length != 3 && value.length != 1)) return null;
+  final degrees = value.toDouble();
+  final minutes = value.length == 3 ? value.toDouble(1) : 0.0;
+  final seconds = value.length == 3 ? value.toDouble(2) : 0.0;
+  if (!degrees.isFinite ||
+      !minutes.isFinite ||
+      !seconds.isFinite ||
+      degrees < 0 ||
+      minutes < 0 ||
+      minutes >= 60 ||
+      seconds < 0 ||
+      seconds >= 60) {
+    return null;
+  }
+  final result = degrees + minutes / 60 + seconds / 3600;
+  return result <= limit ? result : null;
 }
 
 /// Cheap identity of a photo's content.
@@ -251,13 +278,24 @@ const _placeCommentPrefix = '地点：';
 const _unicodeComment = [85, 78, 73, 67, 79, 68, 69, 0];
 
 String? _decodeCaptureName(img.IfdValue? value) {
-  final text = value?.toString();
+  final text = _captureText(value?.toString());
   if (text == null || text.codeUnits.any((unit) => unit > 255)) return text;
   try {
     return utf8.decode(text.codeUnits);
   } on FormatException {
     return text;
   }
+}
+
+String? _captureText(String? value) => value?.split('\u0000').first.trim();
+
+String? _captureTime(String? value) {
+  final time = _captureText(value);
+  if (time == null) return null;
+  final normalized = time.replaceFirstMapped(
+      RegExp(r'^(\d{4})-(\d{2})-(\d{2})(?= )'),
+      (match) => '${match[1]}:${match[2]}:${match[3]}');
+  return validateInfo('time', normalized) == null ? normalized : time;
 }
 
 String? _readPlaceComment(img.IfdValue? value) {
@@ -334,7 +372,7 @@ class PhotoState {
     if (json['style'] != null)
       style = StyleDocument.fromJson(Map<String, dynamic>.from(json['style']));
     edited = json['edited'] == true;
-    captureTime = json['captureTime'] as String?;
+    captureTime = _captureTime(json['captureTime'] as String?);
     fingerprint = json['fingerprint'] as String?;
     fields.addAll(Map<String, String>.from(json['fields'] as Map? ?? {}));
   }

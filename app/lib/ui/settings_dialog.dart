@@ -10,6 +10,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../photo_state.dart';
 import '../workspace_settings.dart';
 import '../settings/app_settings.dart';
+import '../settings/amap_service.dart';
+import '../settings/webview_geocoder.dart';
 import 'amap_key_tutorial.dart';
 import 'place_picker.dart';
 import 'editor/prototype_controls.dart';
@@ -390,22 +392,56 @@ class _AmapPageState extends State<_AmapPage> {
 
   Future<void> _test() async {
     _persist();
-    if (widget.app.amapKey.trim().isEmpty) {
+    if (!widget.app.hasAmapCredentials) {
       setState(() {
         testOk = false;
-        testResult = '请先填入 Key';
+        testResult = '请先填写高德 Key 和安全密钥。';
       });
       return;
     }
-    // The check opens a visible window: the map script needs a laid-out page
-    // to run, and a visible page also means a failure is seen rather than
-    // guessed at. Results are reported inside that window.
+    if (!Platform.isWindows) {
+      await showMapPage(context,
+          app: widget.app, kind: MapPageKind.connectionTest);
+      return;
+    }
+    final key = widget.app.amapKey, secret = widget.app.amapSecret;
+    final geocoder = WebviewGeocoder(key: key, secret: secret);
     setState(() {
       testResult = null;
       testOk = false;
+      testing = true;
     });
-    await showMapPage(context,
-        app: widget.app, kind: MapPageKind.connectionTest);
+    var message = '连接成功，可根据坐标查询地点。';
+    var success = false;
+    try {
+      await geocoder.testConnection();
+      success = true;
+    } on AmapException catch (error) {
+      message = error.message;
+    } on Object catch (error) {
+      debugPrint('Amap connection test failed: ${error.runtimeType}');
+      message = '连接失败，请检查 WebView2、网络和高德设置。';
+    } finally {
+      try {
+        await geocoder.dispose();
+      } on Object catch (error) {
+        debugPrint('Amap test cleanup failed: ${error.runtimeType}');
+      }
+      if (mounted) {
+        setState(() {
+          testing = false;
+          if (widget.app.amapKey == key && widget.app.amapSecret == secret) {
+            testResult = message;
+            testOk = success;
+          }
+        });
+      }
+    }
+  }
+
+  void _onCredentialChanged(String _) {
+    _persist();
+    if (testResult != null) setState(() => testResult = null);
   }
 
   @override
@@ -422,7 +458,7 @@ class _AmapPageState extends State<_AmapPage> {
           obscure: !showKey,
           onToggle: () => setState(() => showKey = !showKey),
           hint: '32 位字符，在控制台的 Key 列表里',
-          onChanged: (_) => _persist()),
+          onChanged: _onCredentialChanged),
       const SizedBox(height: 14),
       _Field(
           label: '安全密钥',
@@ -430,7 +466,7 @@ class _AmapPageState extends State<_AmapPage> {
           obscure: !showSecret,
           onToggle: () => setState(() => showSecret = !showSecret),
           hint: '和 Key 在同一个页面，申请时一起生成',
-          onChanged: (_) => _persist()),
+          onChanged: _onCredentialChanged),
       const SizedBox(height: 16),
       Row(children: [
         SizedBox(
@@ -455,18 +491,17 @@ class _AmapPageState extends State<_AmapPage> {
       ]),
       if (testResult != null) ...[
         const SizedBox(height: 10),
-        Row(children: [
-          Icon(testOk ? Icons.check_circle_outline : Icons.error_outline,
-              size: 15,
-              color: testOk ? const Color(0xff7fae74) : scheme.error),
-          const SizedBox(width: 7),
-          Expanded(
-              child: Text(testResult!,
-                  style: TextStyle(
-                      fontSize: 12,
-                      height: 1.5,
-                      color: testOk ? const Color(0xff7fae74) : scheme.error)))
-        ])
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Tooltip(
+            message: testResult!,
+            child: Text(testResult!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: EditorTypography.hint(context).copyWith(
+                    color: testOk ? scheme.onSurfaceVariant : scheme.error)),
+          ),
+        ),
       ],
       if (tutorialOpen) ...[const SizedBox(height: 16), const AmapKeyTutorial()],
       const SizedBox(height: 20),

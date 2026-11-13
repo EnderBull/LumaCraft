@@ -1,5 +1,6 @@
 package com.example.lumacraft
 
+import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.Dialog
@@ -7,9 +8,11 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.text.TextUtils
 import android.view.Gravity
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.content.ActivityNotFoundException
@@ -21,7 +24,11 @@ import android.graphics.ImageDecoder
 import android.os.Build
 import android.os.Debug
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.provider.MediaStore
+import android.content.pm.PackageManager
+import java.io.FileNotFoundException
+import java.io.InputStream
 import android.provider.OpenableColumns
 import android.webkit.WebView
 import android.webkit.WebChromeClient
@@ -40,9 +47,17 @@ internal class AndroidP1Bridge(private val activity: FlutterActivity) {
     private var picker: MethodChannel.Result? = null
     private var pickingPreset = false
     private var pickingPhotos = false
+    private var pickingPhotoLocation = false
+    private var pendingLocationPicker: (() -> Unit)? = null
+    private var locationPermissionPrompted = false
     private var presetOutput: File? = null
     private val incoming = ArrayDeque<Intent>()
     private var appChannel: MethodChannel? = null
+    private var finishPlaceLookup: ((String) -> Unit)? = null
+
+    fun cancelPlaceLookup() {
+        finishPlaceLookup?.invoke("GEOCODE_ERR:地图查询已取消")
+    }
 
     fun receive(intent: Intent?) {
         if (intent?.action !in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE, Intent.ACTION_VIEW)) return
@@ -63,36 +78,78 @@ internal class AndroidP1Bridge(private val activity: FlutterActivity) {
         }
     }
 
-    private fun sessionPhoto(uri: Uri): Map<String, String?> {
+    private fun hasPhotoLocationPermission() =
+        activity.checkSelfPermission(Manifest.permission.ACCESS_MEDIA_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+
+    fun onPermissionResult(request: Int) {
+        if (request != locationPermissionCode) return
+        val launch = pendingLocationPicker
+        pendingLocationPicker = null
+        launch?.invoke()
+    }
+
+    private fun openPhoto(uri: Uri, locationAccess: Boolean): InputStream? {
+        val resolver = activity.contentResolver
+        if (!locationAccess || !hasPhotoLocationPermission()) return resolver.openInputStream(uri)
+        // The system photo picker controls sharing for its own URIs. Read the
+        // stream it granted, so its location-sharing decision is respected.
+        if (uri.authority == MediaStore.AUTHORITY &&
+            uri.pathSegments.firstOrNull()?.startsWith("picker") == true) {
+            return resolver.openInputStream(uri)
+        }
+        try {
+            val mediaUri = when {
+                uri.authority == MediaStore.AUTHORITY -> uri
+                DocumentsContract.isDocumentUri(activity, uri) -> MediaStore.getMediaUri(activity, uri)
+                else -> null
+            }
+            if (mediaUri != null) {
+                resolver.openInputStream(MediaStore.setRequireOriginal(mediaUri))?.let { return it }
+            }
+        } catch (_: SecurityException) {
+            // The provider's original-media grant may be narrower than its file grant.
+        } catch (_: IllegalArgumentException) {
+            // This document provider does not expose a MediaStore equivalent.
+        } catch (_: UnsupportedOperationException) {
+            // This provider does not support the original-media request.
+        } catch (_: FileNotFoundException) {
+            // A provider can return an ordinary document stream only.
+        }
+        return resolver.openInputStream(uri)
+    }
+
+    private fun sessionPhoto(uri: Uri, locationAccess: Boolean = false): Map<String, Any?> {
         require(uri.scheme == "content") { "不支持的照片来源" }
         try {
             activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         } catch (_: SecurityException) {
             val folder = File(activity.filesDir, "session-photos").apply { mkdirs() }
-            return copyDocument(uri, false, folder)
+            return copyDocument(uri, false, folder, locationAccess) + ("locationAccess" to locationAccess)
         }
         val name = documentName(uri)
         val file = File.createTempFile("p1-source-", photoSuffix(name), activity.cacheDir)
         file.delete()
-        return mapOf("path" to file.path, "name" to name, "uri" to uri.toString())
+        return mapOf("path" to file.path, "name" to name, "uri" to uri.toString(),
+            "locationAccess" to locationAccess)
     }
 
-    private fun materializePhoto(uri: Uri, path: String): String {
+    private fun materializePhoto(uri: Uri, path: String, locationAccess: Boolean): String {
         val file = File(path)
         require(uri.scheme == "content" &&
             file.parentFile?.canonicalFile == activity.cacheDir.canonicalFile &&
             file.name.startsWith("p1-source-"))
         val resolver = activity.contentResolver
         check(resolver.persistedUriPermissions.any { it.uri == uri && it.isReadPermission })
-        requireNotNull(resolver.openInputStream(uri)).use { input ->
-            if (!file.exists()) {
-                val stage = File.createTempFile("p1-stage-", ".part", activity.cacheDir)
-                try {
+        if (!file.exists()) {
+            val stage = File.createTempFile("p1-stage-", ".part", activity.cacheDir)
+            try {
+                requireNotNull(openPhoto(uri, locationAccess)).use { input ->
                     stage.outputStream().use { input.copyTo(it) }
-                    check(stage.renameTo(file))
-                } finally {
-                    stage.delete()
                 }
+                check(stage.renameTo(file))
+            } finally {
+                stage.delete()
             }
         }
         return file.path
@@ -158,7 +215,7 @@ internal class AndroidP1Bridge(private val activity: FlutterActivity) {
                 }
                 "materializePhoto" -> background(result) {
                     materializePhoto(Uri.parse(requireNotNull(call.argument<String>("uri"))),
-                        requireNotNull(call.argument<String>("path")))
+                        requireNotNull(call.argument<String>("path")), call.argument<Boolean>("locationAccess") == true)
                 }
                 "pick" -> {
                     val preset = call.argument<Boolean>("preset") == true
@@ -169,25 +226,11 @@ internal class AndroidP1Bridge(private val activity: FlutterActivity) {
                         pickingPreset = preset
                     }
                 }
-                "pickPhotos" -> {
-                    val files = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                        addCategory(Intent.CATEGORY_OPENABLE)
-                        type = "image/*"
-                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                    }
-                    val primary = if (call.argument<Boolean>("album") == true) {
-                        Intent(MediaStore.ACTION_PICK_IMAGES).apply {
-                            type = "image/*"
-                            val limit = if (Build.VERSION.SDK_INT >= 33) {
-                                minOf(photoLimit, MediaStore.getPickImagesMaxLimit())
-                            } else photoLimit
-                            putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, limit)
-                        }
-                    } else files
-                    if (requestDocument(result, primary, requestCode, files)) {
-                        pickingPhotos = true
-                    }
-                }
+                "pickPhotos" -> pickPhotos(
+                    result,
+                    album = call.argument<Boolean>("album") == true,
+                    requestLocation = call.argument<Boolean>("requestLocationMetadata") == true,
+                )
                 "savePreset" -> {
                     val file = File(requireNotNull(call.argument<String>("path")))
                     val name = call.argument<String>("name") ?: "LumaCraft-P2.lmp"
@@ -211,6 +254,7 @@ internal class AndroidP1Bridge(private val activity: FlutterActivity) {
                         call.argument<Boolean>("replace") == true)
                 }
                 "pss" -> result.success(Debug.getPss())
+                "lookupPlace" -> lookupPlace(call.argument<String>("url"), result)
                 "map" -> showMap(
                     requireNotNull(call.argument<String>("url")), channel, result,
                     call.argument<Boolean>("select") == true,
@@ -222,13 +266,50 @@ internal class AndroidP1Bridge(private val activity: FlutterActivity) {
         }
     }
 
+    private fun pickPhotos(result: MethodChannel.Result, album: Boolean, requestLocation: Boolean) {
+        if (picker != null || pendingLocationPicker != null) {
+            result.error("PICK_BUSY", "A document operation is already open.", null)
+            return
+        }
+        val launch: () -> Unit = {
+            val files = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "image/*"
+                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            }
+            val primary = if (album) {
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    type = "image/*"
+                    val limit = if (Build.VERSION.SDK_INT >= 33) {
+                        minOf(photoLimit, MediaStore.getPickImagesMaxLimit())
+                    } else photoLimit
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, limit)
+                    if (requestLocation && hasPhotoLocationPermission()) {
+                        putExtra("android.provider.extra.REQUEST_LOCATION_METADATA_ACCESS", true)
+                    }
+                }
+            } else files
+            if (requestDocument(result, primary, requestCode, files)) {
+                pickingPhotos = true
+                pickingPhotoLocation = requestLocation && hasPhotoLocationPermission()
+            }
+        }
+        if (requestLocation && !hasPhotoLocationPermission() && !locationPermissionPrompted) {
+            locationPermissionPrompted = true
+            pendingLocationPicker = launch
+            activity.requestPermissions(arrayOf(Manifest.permission.ACCESS_MEDIA_LOCATION), locationPermissionCode)
+        } else {
+            launch()
+        }
+    }
+
     private fun requestDocument(
         result: MethodChannel.Result,
         intent: Intent,
         request: Int,
         fallback: Intent = intent,
     ): Boolean {
-        if (picker != null) {
+        if (picker != null || pendingLocationPicker != null) {
             result.error("PICK_BUSY", "A document operation is already open.", null)
             return false
         }
@@ -254,6 +335,8 @@ internal class AndroidP1Bridge(private val activity: FlutterActivity) {
         picker = null
         val photos = pickingPhotos
         pickingPhotos = false
+        val locationAccess = pickingPhotoLocation
+        pickingPhotoLocation = false
         val preset = pickingPreset
         pickingPreset = false
         val output = presetOutput
@@ -272,12 +355,12 @@ internal class AndroidP1Bridge(private val activity: FlutterActivity) {
                     for (i in 0 until clip.itemCount) uris.add(clip.getItemAt(i).uri)
                 }
                 require(uris.size <= photoLimit) { "一次最多导入 ${photoLimit} 张照片" }
-                val copies = mutableListOf<Map<String, String?>>()
+                val copies = mutableListOf<Map<String, Any?>>()
                 try {
-                    for (item in uris) copies.add(sessionPhoto(item))
+                    for (item in uris) copies.add(sessionPhoto(item, locationAccess))
                     return@background copies
                 } catch (error: Exception) {
-                    for (copy in copies) copy["path"]?.let { File(it).delete() }
+                    for (copy in copies) (copy["path"] as? String)?.let { File(it).delete() }
                     throw error
                 }
             }
@@ -306,12 +389,16 @@ internal class AndroidP1Bridge(private val activity: FlutterActivity) {
         return if (extension in setOf("jpg", "jpeg", "heic", "heif", "hif")) ".$extension" else ".image"
     }
 
-    private fun copyDocument(uri: Uri, preset: Boolean, folder: File = activity.cacheDir): Map<String, String?> {
+    private fun copyDocument(
+        uri: Uri, preset: Boolean, folder: File = activity.cacheDir,
+        locationAccess: Boolean = false,
+    ): Map<String, String?> {
         val resolver = activity.contentResolver
         val name = documentName(uri)
         val file = File.createTempFile("p1-source-", if (preset) ".lmp" else photoSuffix(name), folder)
         try {
-            requireNotNull(resolver.openInputStream(uri)).use { input ->
+            val stream = if (preset) resolver.openInputStream(uri) else openPhoto(uri, locationAccess)
+            requireNotNull(stream).use { input ->
                 file.outputStream().use { target ->
                     if (!preset) {
                         input.copyTo(target)
@@ -408,6 +495,58 @@ internal class AndroidP1Bridge(private val activity: FlutterActivity) {
         }
     }
 
+
+    private fun lookupPlace(url: String?, result: MethodChannel.Result) {
+        val page = Uri.parse(url.orEmpty())
+        if (page.scheme != "http" || page.host != "127.0.0.1" ||
+            page.path != "/geocode.html" || finishPlaceLookup != null) {
+            result.error("PLACE_LOOKUP", "无法启动本机地图查询", null)
+            return
+        }
+        val view = WebView(activity)
+        var finished = false
+        val timeout = Runnable {
+            if (!finished) finishPlaceLookup?.invoke("GEOCODE_ERR:地图查询超时，请检查网络和高德设置")
+        }
+        finishPlaceLookup = { title ->
+            finished = true
+            finishPlaceLookup = null
+            view.removeCallbacks(timeout)
+            (view.parent as? ViewGroup)?.removeView(view)
+            view.destroy()
+            result.success(title)
+        }
+        view.alpha = 0f
+        view.importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        view.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            allowFileAccess = false
+            allowContentAccess = false
+        }
+        view.webChromeClient = object : WebChromeClient() {
+            override fun onReceivedTitle(view: WebView, title: String) {
+                if (title.startsWith("GEOCODE:") || title.startsWith("GEOCODE_ERR:")) {
+                    view.post { if (!finished) finishPlaceLookup?.invoke(title.take(1024)) }
+                }
+            }
+        }
+        view.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+                request.url != page
+
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                if (request.isForMainFrame) {
+                    view.post {
+                        if (!finished) finishPlaceLookup?.invoke("GEOCODE_ERR:本机地图页面加载失败")
+                    }
+                }
+            }
+        }
+        activity.addContentView(view, FrameLayout.LayoutParams(1, 1))
+        view.postDelayed(timeout, 15000)
+        view.loadUrl(page.toString())
+    }
 
     private fun showMap(
         url: String, channel: MethodChannel, result: MethodChannel.Result,
@@ -610,5 +749,6 @@ internal class AndroidP1Bridge(private val activity: FlutterActivity) {
         private const val photoLimit = 30
         private const val requestCode = 6120
         private const val saveRequestCode = 6121
+        private const val locationPermissionCode = 6123
     }
 }

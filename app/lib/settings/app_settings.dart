@@ -27,6 +27,7 @@ class AppSettings extends ChangeNotifier {
 
   /// Whether a photo's coordinates are used to fill the place field.
   bool autoFillPlace = true;
+  bool androidAutoFillPlace = false;
   String androidAppearance = 'system';
 
   Timer? _timer;
@@ -43,6 +44,7 @@ class AppSettings extends ChangeNotifier {
       amapKey = _decode(json['amapKey']);
       amapSecret = _decode(json['amapSecret']);
       autoFillPlace = json['autoFillPlace'] != false;
+      androidAutoFillPlace = json['androidAutoFillPlace'] == true;
       final appearance = json['androidAppearance'];
       if (appearance == 'light' || appearance == 'dark') {
         androidAppearance = appearance as String;
@@ -71,6 +73,7 @@ class AppSettings extends ChangeNotifier {
       'amapKey': _encode(amapKey),
       'amapSecret': _encode(amapSecret),
       'autoFillPlace': autoFillPlace,
+      if (androidAutoFillPlace) 'androidAutoFillPlace': true,
       if (androidAppearance != 'system') 'androidAppearance': androidAppearance,
     });
     _pending = _pending.then((_) async {

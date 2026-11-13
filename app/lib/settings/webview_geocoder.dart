@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:webview_flutter_windows/webview_flutter_windows.dart';
 
+import '../export/android_photo_io.dart';
 import 'amap_service.dart';
 import 'coords.dart';
 import 'map_page_server.dart';
@@ -42,6 +45,8 @@ class WebviewGeocoder implements Geocoder {
     if (_pending != null)
       throw const AmapException('正在查询上一个地点，请稍等');
 
+    if (Platform.isAndroid) return _lookupNative(coordinates);
+
     await _ensureStarted();
     // EXIF holds WGS-84; Amap answers in its own offset system, so the
     // coordinate handed to the map has to be converted or the address comes
@@ -58,18 +63,13 @@ class WebviewGeocoder implements Geocoder {
     }
   }
 
-  /// Confirms the map script loads, which is what the key and whitelist gate.
-  ///
-  /// This is the same check the reference tool makes: it proves the key, the
-  /// whitelist and the network all work, without depending on a lookup
-  /// answering within a deadline.
+  /// Uses a public test point to check the same lookup used for photo GPS.
   Future<void> testConnection() async {
-    await _ensureStarted();
-    final value = await _safeType(_controller!);
-    if (!value.contains('function')) {
-      throw const AmapException(
-          '地图脚本没有加载完成。请确认 Key 是「Web端(JS API)」类型，且域名白名单填了 127.0.0.1');
+    final version = await WebviewController.getWebViewVersion();
+    if (version == null || version.isEmpty) {
+      throw const AmapException('缺少 WebView2，请先安装后重试。');
     }
+    await lookup('116.391230,39.907280');
   }
 
   /// Waits for the page to answer, checking the title as a fallback.
@@ -94,9 +94,43 @@ class WebviewGeocoder implements Geocoder {
     throw const AmapException('查询地点超时。请确认网络能访问高德，以及 Key 是「Web端(JS API)」类型');
   }
 
-  Future<String?> _readTitle() async {
+  bool _nativeLookupInProgress = false;
+
+  Future<PlaceResult> _lookupNative((double, double) coordinates) async {
+    if (_nativeLookupInProgress) throw const AmapException('正在查询上一个地点，请稍等');
+    _nativeLookupInProgress = true;
+    final server = MapPageServer();
     try {
-      final value = await _controller?.executeScript('document.title');
+      const path = '/geocode.html';
+      final (lng, lat) = wgs84ToGcj02(coordinates.$1, coordinates.$2);
+      final port = await server.start(
+        buildGeocodePage(key: key, secret: secret,
+            initial: (lng, lat)),
+        path: path,
+      );
+      if (port == null) throw const AmapException('本地服务启动失败');
+      final url = 'http://127.0.0.1:$port$path';
+      final title = await androidPlatform.invokeMethod<String>('lookupPlace', {'url': url});
+      if (title != null && title.startsWith(_okPrefix)) {
+        final address = title.substring(_okPrefix.length).trim();
+        if (address.isNotEmpty) return PlaceResult(address);
+      }
+      if (title != null && title.startsWith(_errorPrefix)) {
+        throw AmapException(title.substring(_errorPrefix.length).trim());
+      }
+      throw const AmapException('地图未返回地点');
+    } on PlatformException catch (error) {
+      throw AmapException(error.message ?? '地图查询失败');
+    } finally {
+      await server.stop();
+      _nativeLookupInProgress = false;
+    }
+  }
+
+  Future<String?> _readTitle([WebviewController? controller]) async {
+    try {
+      final value =
+          await (controller ?? _controller)?.executeScript('document.title');
       return value?.toString();
     } catch (_) {
       return null;
@@ -111,30 +145,45 @@ class WebviewGeocoder implements Geocoder {
       final port = await _server.start(
           buildGeocodePage(key: key, secret: secret),
           path: '/geocode.html');
-      if (port == null)
-        throw const AmapException('本地服务启动失败，请重启软件后重试');
+      if (port == null) throw const AmapException('本地服务启动失败，请重启软件后重试');
       final controller = WebviewController();
-      await controller.initialize();
-      // Headless controllers get no bounds from a widget, and a page with no
-      // size never lays out — its scripts simply do not run. This is the line
-      // whose absence made every lookup time out.
-      await controller.setSize(const Size(900, 700));
-      controller.webMessage.listen(_onMessage);
-      await controller.loadUrl('http://127.0.0.1:$port/geocode.html');
+      try {
+        await controller.initialize();
+        // Headless controllers get no bounds from a widget, and a page with no
+        // size never lays out — its scripts simply do not run. This is the line
+        // whose absence made every lookup time out.
+        await controller.setSize(const Size(900, 700));
+        controller.webMessage.listen(_onMessage);
+        await controller.loadUrl('http://127.0.0.1:$port/geocode.html');
 
-      // Wait until the page has defined its helper; a lookup before that would
-      // run against nothing.
-      var ready = false;
-      for (var i = 0; i < 60 && !ready; i++) {
-        final type = await _safeType(controller);
-        ready = type.contains('function');
-        if (!ready) await Future<void>.delayed(const Duration(milliseconds: 100));
+        // Wait until the page has defined its helper; a lookup before that would
+        // run against nothing.
+        var ready = false;
+        for (var i = 0; i < 60 && !ready; i++) {
+          final type = await _safeType(controller);
+          ready = type.contains('function');
+          if (!ready) {
+            final value = await _readTitle(controller) ?? '';
+            if (value.startsWith(_errorPrefix)) {
+              throw AmapException(value.substring(_errorPrefix.length).trim());
+            }
+          }
+          if (!ready)
+            await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+        if (!ready) {
+          throw const AmapException(
+              '地图脚本没有加载完成。请确认 Key 是「Web端(JS API)」类型，且域名白名单填了 127.0.0.1');
+        }
+        _controller = controller;
+      } catch (_) {
+        try {
+          await controller.dispose();
+        } finally {
+          await _server.stop();
+        }
+        rethrow;
       }
-      if (!ready) {
-        throw const AmapException(
-            '地图脚本没有加载完成。请确认 Key 是「Web端(JS API)」类型，且域名白名单填了 127.0.0.1');
-      }
-      _controller = controller;
     }();
     _starting = future;
     try {
