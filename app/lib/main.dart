@@ -76,6 +76,8 @@ class _WorkshopState extends State<Workshop> {
   final presetStore = PresetStore(
       File('${PhotoStore.defaultFile().parent.path}/editor-presets.json'));
   final metadata = <String, Future<Map<String, String>>>{};
+  late final placeLookup = PlaceLookup(settings: appSettings);
+  ({String path, String status})? placeDiagnostic;
   List<File> failed = [];
   String? outputDirectory;
   String exportScope = 'selected';
@@ -761,7 +763,12 @@ class _WorkshopState extends State<Workshop> {
       if (mounted) setState(() {});
       throw StateError('样式保存失败，已恢复原状态');
     }
-    if (mounted) setState(() => status = '已应用到 ${paths.length} 张照片');
+    if (mounted) {
+      setState(() => status = '已应用到 ${paths.length} 张照片');
+      if (files.isNotEmpty && paths.contains(files[index].path)) {
+        unawaited(autoFillPlaceForCurrent());
+      }
+    }
   }
 
   Future<void> savePhotoField(String path, String key, String value) async {
@@ -941,6 +948,16 @@ class _WorkshopState extends State<Workshop> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 16),
+                if (gpsDiagnosticsEnabled) ...[
+                  Text(
+                    gpsDiagnosticText(fromFile,
+                        queryStatus: placeDiagnostic?.path == file.path
+                            ? placeDiagnostic?.status
+                            : null),
+                    style: EditorTypography.hint(context),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 PhotoInfoForm(
                     key: ValueKey('browse-info-${file.path}'),
                     existing: fromFile,
@@ -974,6 +991,7 @@ class _WorkshopState extends State<Workshop> {
 
   void refresh() {
     generation++;
+    if (gpsDiagnosticsEnabled) placeDiagnostic = null;
     current = files.isEmpty ? null : previews[files[index].path];
     previewError = null;
     if (!loading && current == null && files.isNotEmpty) loadLatest();
@@ -985,25 +1003,57 @@ class _WorkshopState extends State<Workshop> {
   /// Runs only when the preset really shows a place, the photo carries
   /// coordinates, and nothing was typed by hand — see [PlaceLookup.fill].
   Future<void> autoFillPlaceForCurrent() async {
-    final lookup = PlaceLookup(settings: appSettings);
-    while (mounted && files.isNotEmpty) {
-      final path = files[index].path;
+    if (!mounted ||
+        files.isEmpty ||
+        !appSettings.autoFillPlace ||
+        !appSettings.hasAmapCredentials) {
+      return;
+    }
+    final file = files[index];
+    final path = file.path;
+    bool stillCurrent() => mounted &&
+        files.isNotEmpty &&
+        files[index].path == path &&
+        appSettings.autoFillPlace;
+    Iterable<String> types() {
+      final style = store.state(path).style ?? presetStore.defaultStyle();
+      return style.nodes
+          .where((node) => style.visible(node.id))
+          .map((node) => node.type);
+    }
+    if (!PlaceLookup.styleUsesPlace(types())) return;
+    var queried = false;
+    void report(String status) {
+      if (gpsDiagnosticsEnabled && stillCurrent()) {
+        setState(() => placeDiagnostic = (path: path, status: status));
+      }
+    }
+    try {
       final state = store.state(path);
-      final style = state.style ?? presetStore.defaultStyle();
-      final info = await capture(files[index]);
-      if (!mounted || files.isEmpty || files[index].path != path) return;
-      final place = await lookup.fill(
+      final info = await capture(file);
+      if (!stillCurrent()) return;
+      final place = await placeLookup.fill(
           info: info,
-          nodeTypes: style.nodes.map((n) => n.type),
-          existing: state.fields['place'] ?? '');
-      if (place == null || !mounted) return;
-      if (files.isEmpty || files[index].path != path) return;
+          nodeTypes: types(),
+          existing: state.fields['place'] ?? '',
+          onQuery: gpsDiagnosticsEnabled ? () {
+            queried = true;
+            report('正在查询高德');
+          } : null);
+      if (place == null && queried) report('高德查询失败');
+      if (place == null ||
+          !stillCurrent() ||
+          !PlaceLookup.styleUsesPlace(types())) {
+        return;
+      }
       final current = store.state(path);
       if ((current.fields['place'] ?? '').trim().isNotEmpty) return;
       await savePhotoField(path, 'place', place);
-      if (!mounted) return;
-      setState(() => status = '已根据照片坐标填入地点：$place');
-      return;
+      report('已填入地点');
+      if (stillCurrent()) setState(() => status = '已根据照片坐标填入地点：$place');
+    } on Object catch (error) {
+      if (queried) report('地点处理失败');
+      debugPrint('Automatic place lookup failed: ${error.runtimeType}');
     }
   }
 
@@ -1483,6 +1533,7 @@ class _WorkshopState extends State<Workshop> {
     if (!mounted) return;
     // The clear-records action may have wiped what is on screen.
     setState(() {});
+    unawaited(autoFillPlaceForCurrent());
   }
 
   Widget header() => WorkspaceHeader(

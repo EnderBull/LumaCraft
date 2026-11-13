@@ -7,9 +7,11 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.text.TextUtils
 import android.view.Gravity
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.content.ActivityNotFoundException
@@ -43,6 +45,11 @@ internal class AndroidP1Bridge(private val activity: FlutterActivity) {
     private var presetOutput: File? = null
     private val incoming = ArrayDeque<Intent>()
     private var appChannel: MethodChannel? = null
+    private var finishPlaceLookup: ((String) -> Unit)? = null
+
+    fun cancelPlaceLookup() {
+        finishPlaceLookup?.invoke("GEOCODE_ERR:地图查询已取消")
+    }
 
     fun receive(intent: Intent?) {
         if (intent?.action !in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE, Intent.ACTION_VIEW)) return
@@ -182,6 +189,9 @@ internal class AndroidP1Bridge(private val activity: FlutterActivity) {
                                 minOf(photoLimit, MediaStore.getPickImagesMaxLimit())
                             } else photoLimit
                             putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, limit)
+                            if (call.argument<Boolean>("requestLocationMetadata") == true) {
+                                putExtra("android.provider.extra.REQUEST_LOCATION_METADATA_ACCESS", true)
+                            }
                         }
                     } else files
                     if (requestDocument(result, primary, requestCode, files)) {
@@ -211,6 +221,7 @@ internal class AndroidP1Bridge(private val activity: FlutterActivity) {
                         call.argument<Boolean>("replace") == true)
                 }
                 "pss" -> result.success(Debug.getPss())
+                "lookupPlace" -> lookupPlace(call.argument<String>("url"), result)
                 "map" -> showMap(
                     requireNotNull(call.argument<String>("url")), channel, result,
                     call.argument<Boolean>("select") == true,
@@ -408,6 +419,58 @@ internal class AndroidP1Bridge(private val activity: FlutterActivity) {
         }
     }
 
+
+    private fun lookupPlace(url: String?, result: MethodChannel.Result) {
+        val page = Uri.parse(url.orEmpty())
+        if (page.scheme != "http" || page.host != "127.0.0.1" ||
+            page.path != "/geocode.html" || finishPlaceLookup != null) {
+            result.error("PLACE_LOOKUP", "无法启动本机地图查询", null)
+            return
+        }
+        val view = WebView(activity)
+        var finished = false
+        val timeout = Runnable {
+            if (!finished) finishPlaceLookup?.invoke("GEOCODE_ERR:地图查询超时，请检查网络和高德设置")
+        }
+        finishPlaceLookup = { title ->
+            finished = true
+            finishPlaceLookup = null
+            view.removeCallbacks(timeout)
+            (view.parent as? ViewGroup)?.removeView(view)
+            view.destroy()
+            result.success(title)
+        }
+        view.alpha = 0f
+        view.importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        view.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            allowFileAccess = false
+            allowContentAccess = false
+        }
+        view.webChromeClient = object : WebChromeClient() {
+            override fun onReceivedTitle(view: WebView, title: String) {
+                if (title.startsWith("GEOCODE:") || title.startsWith("GEOCODE_ERR:")) {
+                    view.post { if (!finished) finishPlaceLookup?.invoke(title.take(1024)) }
+                }
+            }
+        }
+        view.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+                request.url != page
+
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                if (request.isForMainFrame) {
+                    view.post {
+                        if (!finished) finishPlaceLookup?.invoke("GEOCODE_ERR:本机地图页面加载失败")
+                    }
+                }
+            }
+        }
+        activity.addContentView(view, FrameLayout.LayoutParams(1, 1))
+        view.postDelayed(timeout, 15000)
+        view.loadUrl(page.toString())
+    }
 
     private fun showMap(
         url: String, channel: MethodChannel, result: MethodChannel.Result,

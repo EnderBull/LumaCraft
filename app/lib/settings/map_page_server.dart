@@ -389,13 +389,18 @@ function shortAddress(regeo) {
 ///
 /// No map is drawn: only the geocoder is loaded, which keeps an automatic
 /// lookup cheap. Answers go back as a JSON message.
-String buildGeocodePage({required String key, required String secret}) => '''
+String buildGeocodePage({
+  required String key,
+  required String secret,
+  (double, double)? initial,
+}) => '''
 <!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8"><title>geocode</title></head>
 <body>
 <script>
 (function () {
   function post(payload) {
+    document.title = payload.ok ? 'GEOCODE:' + payload.ok : 'GEOCODE_ERR:' + payload.error;
     try { window.chrome.webview.postMessage(JSON.stringify(payload)); } catch (e) {}
   }
   __SHORT_ADDRESS__
@@ -405,21 +410,25 @@ String buildGeocodePage({required String key, required String secret}) => '''
   script.src = 'https://webapi.amap.com/maps?v=1.4.15&key=' + __KEY__;
   script.onload = function () {
     if (!window.AMap) { post({ error: '地图脚本返回了，但 AMap 未创建，请检查 Key' }); return; }
-    var geocoder = new AMap.Geocoder({ radius: 1000, extensions: 'base' });
-    window.__geocode = function (lon, lat) {
-      geocoder.getAddress([lon, lat], function (status, result) {
-        if (status === 'complete' && result.regeocode &&
-            result.regeocode.formattedAddress) {
-          post({ ok: shortAddress(result.regeocode) });
-        } else if (status === 'no_data') {
-          post({ error: '这个位置附近没有可用的地址' });
-        } else if (status === 'error') {
-          post({ error: '高德拒绝了这次查询，请检查 Key 是否为 Web端(JS API) 类型' });
-        } else {
-          post({ error: '查询失败，请稍后重试' });
-        }
-      });
-    };
+    AMap.plugin(['AMap.Geocoder'], function () {
+      var geocoder = new AMap.Geocoder({ radius: 1000, extensions: 'base' });
+      window.__geocode = function (lon, lat) {
+        document.title = 'geocode';
+        geocoder.getAddress([lon, lat], function (status, result) {
+          if (status === 'complete' && result.regeocode &&
+              result.regeocode.formattedAddress) {
+            post({ ok: shortAddress(result.regeocode) || result.regeocode.formattedAddress });
+          } else if (status === 'no_data') {
+            post({ error: '这个位置附近没有可用的地址' });
+          } else if (status === 'error') {
+            post({ error: '高德拒绝了这次查询，请检查 Key 是否为 Web端(JS API) 类型' });
+          } else {
+            post({ error: '查询失败，请稍后重试' });
+          }
+        });
+      };
+      __INITIAL_LOOKUP__
+    });
   };
   script.onerror = function () {
     post({ error: '地图脚本请求失败，请检查网络能否访问 webapi.amap.com' });
@@ -429,6 +438,8 @@ String buildGeocodePage({required String key, required String secret}) => '''
 </script>
 </body></html>
 '''
+    .replaceAll('__INITIAL_LOOKUP__',
+        initial == null ? '' : 'window.__geocode(${initial.$1}, ${initial.$2});')
     .replaceAll('__KEY__', "'${Uri.encodeQueryComponent(key.trim())}'")
     .replaceAll('__SECRET__',
         "'${secret.trim().replaceAll(r'\', r'\\').replaceAll("'", r"\'")}'")

@@ -28,9 +28,13 @@ class AndroidPhoto {
         .invokeMethod<String>('materializePhoto', {'uri': uri, 'path': path}))!;
   }
 
-  static Future<List<AndroidPhoto>> pickPhotos({required bool album}) async {
-    final results = await androidPlatform
-        .invokeListMethod<Object?>('pickPhotos', {'album': album});
+  static Future<List<AndroidPhoto>> pickPhotos(
+      {required bool album, bool requestLocationMetadata = false}) async {
+    final results = await androidPlatform.invokeListMethod<Object?>(
+        'pickPhotos', {
+      'album': album,
+      if (requestLocationMetadata) 'requestLocationMetadata': true,
+    });
     return [
       for (final item in results ?? const [])
         AndroidPhoto(

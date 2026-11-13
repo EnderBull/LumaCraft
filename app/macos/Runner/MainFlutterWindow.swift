@@ -171,7 +171,7 @@ private final class MapLookup {
       if self.evaluating { return }
       self.evaluating = true
       let script = self.requested ? "document.title" :
-        "typeof window.__geocode === 'function' && (window.__geocode(\(lng), \(lat)), true)"
+        "typeof window.__geocode === 'function' ? (window.__geocode(\(lng), \(lat)), true) : document.title"
       self.browser.evaluateJavaScript(script) { [weak self] value, _ in
         guard let self, self.timer != nil else { return }
         self.evaluating = false

@@ -458,7 +458,7 @@ class _AlphaPageState extends State<AlphaPage>
                               setAppearance: widget.setAppearance,
                               workspace: workspace,
                             ),
-                          ));
+                          )).then((_) => workspace.reloadPlaceSettings());
                       }
                     },
                     itemBuilder: (_) => [

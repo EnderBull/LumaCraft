@@ -45,14 +45,14 @@ jobs:
           python3 macos/Tools/check_color_tool.py "$RUNNER_TEMP/lumacraft_color_tool"
           echo "LUMACRAFT_COLOR_TOOL=$RUNNER_TEMP/lumacraft_color_tool" >> "$GITHUB_ENV"
       - name: Test shared preset and Mac export paths
-        run: flutter test --no-pub -j 1 test/preset_library_test.dart test/p2_preset_roundtrip_test.dart test/macos_color_export_test.dart
+        run: flutter test --no-pub -j 1 test/preset_library_test.dart test/p2_preset_roundtrip_test.dart test/macos_color_export_test.dart test/coords_test.dart test/photo_capture_test.dart test/place_lookup_test.dart
       - name: Build and package arm64 app
         run: |
           iconset=macos/Runner/Assets.xcassets/AppIcon.appiconset
           for size in 16 32 64 128 256 512 1024; do
             sips -z "$size" "$size" assets/branding/lumacraft-icon-1024.png --out "$iconset/app_icon_$size.png" >/dev/null
           done
-          flutter build macos --release --no-pub --build-name=0.21.0 --build-number=1
+          flutter build macos --release --no-pub --build-name=0.21.1 --build-number=2
           bundle=build/macos/Build/Products/Release/LumaCraft.app
           binary="$bundle/Contents/MacOS/LumaCraft"
           test "$(lipo -archs "$binary")" = arm64

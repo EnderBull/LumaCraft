@@ -59,6 +59,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         qrCamera?.dispose()
+        p1.cancelPlaceLookup()
         super.onDestroy()
     }
 

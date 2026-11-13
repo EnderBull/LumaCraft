@@ -16,6 +16,8 @@ import '../../export/export_naming.dart';
 import '../../export/export_options.dart';
 import '../../export/photo_export.dart';
 import '../../photo_state.dart';
+import '../../settings/app_settings.dart';
+import '../../settings/place_lookup.dart';
 import '../../workspace_settings.dart';
 import '../../usage_data.dart';
 
@@ -78,6 +80,8 @@ class AlphaWorkspace extends ChangeNotifier {
   }
 
   WorkspaceSettings? _preferences;
+  AppSettings? _mapSettings;
+  PlaceLookup? _placeLookup;
   PresetEntry? _chosen;
   final _edits = MobileEdits(StyleDocument.template());
   final _drafts = <String, StyleDocument>{};
@@ -189,6 +193,7 @@ class AlphaWorkspace extends ChangeNotifier {
   }
 
   AlphaPreview? preview;
+  String? placeDiagnostic;
   bool loading = false;
   String? busyMessage;
   String? previewError;
@@ -298,6 +303,10 @@ class AlphaWorkspace extends ChangeNotifier {
       final path = await androidPlatform.invokeMethod<String>('settingsPath');
       final folder = File(path!).parent;
       if (_disposed) return;
+      _mapSettings = AppSettings(File(path));
+      _placeLookup = PlaceLookup(settings: _mapSettings!);
+      await reloadPlaceSettings();
+      if (_disposed) return;
       final store = PresetStore(File('${folder.path}/editor-presets.json'),
           authoring: false);
       _store = store;
@@ -369,7 +378,9 @@ class AlphaWorkspace extends ChangeNotifier {
     busyMessage = '正在导入照片…';
     notifyListeners();
     try {
-      final selected = await AndroidPhoto.pickPhotos(album: album);
+      final selected = await AndroidPhoto.pickPhotos(
+          album: album,
+          requestLocationMetadata: _mapSettings?.androidAutoFillPlace == true);
       if (_disposed) {
         for (final photo in selected) {
           await _discard(File(photo.path));
@@ -396,6 +407,7 @@ class AlphaWorkspace extends ChangeNotifier {
       WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
     }
     preview = null;
+    if (gpsDiagnosticsEnabled) placeDiagnostic = null;
     index = value;
     loading = true;
     previewError = null;
@@ -428,6 +440,7 @@ class AlphaWorkspace extends ChangeNotifier {
       if (!_disposed && revision == _selectionRevision) {
         loading = false;
         notifyListeners();
+        unawaited(_autoFillCurrentPlace());
       }
     }
   }
@@ -439,6 +452,78 @@ class AlphaWorkspace extends ChangeNotifier {
     _edits.loadStyle(_drafts[preset.id] ?? preset.style);
     _saveSession();
     notifyListeners();
+    unawaited(_autoFillCurrentPlace());
+  }
+
+  Future<void> reloadPlaceSettings() async {
+    final settings = _mapSettings;
+    if (_disposed || settings == null) return;
+    await settings.load();
+    if (_disposed) return;
+    settings.autoFillPlace = settings.androidAutoFillPlace;
+    unawaited(_autoFillCurrentPlace());
+  }
+
+  Future<void> _autoFillCurrentPlace() async {
+    final photo = current;
+    final snapshot = preview;
+    final lookup = _placeLookup;
+    if (_disposed ||
+        photo == null ||
+        snapshot == null ||
+        lookup == null ||
+        _mapSettings?.autoFillPlace != true ||
+        _mapSettings?.hasAmapCredentials != true ||
+        snapshot.fields[gpsField] == null) {
+      return;
+    }
+    Iterable<String> visibleTypes() {
+      final layout = currentStyle.forRatio(
+          snapshot.decoded.sourceWidth / snapshot.decoded.sourceHeight);
+      return layout.nodes
+          .where((node) => layout.visible(node.id))
+          .map((node) => node.type);
+    }
+
+    var queried = false;
+    void report(String status) {
+      if (gpsDiagnosticsEnabled &&
+          !_disposed &&
+          identical(current, photo) &&
+          identical(preview, snapshot)) {
+        placeDiagnostic = status;
+        notifyListeners();
+      }
+    }
+
+    try {
+      final place = await lookup.fill(
+          info: snapshot.fields,
+          nodeTypes: visibleTypes(),
+          existing: fields['place'] ?? '',
+          onQuery: gpsDiagnosticsEnabled
+              ? () {
+                  queried = true;
+                  report('正在查询高德');
+                }
+              : null);
+      if (place == null && queried) report('高德查询失败');
+      if (place == null ||
+          _disposed ||
+          busy ||
+          !identical(current, photo) ||
+          !identical(preview, snapshot) ||
+          _mapSettings?.autoFillPlace != true ||
+          !PlaceLookup.styleUsesPlace(visibleTypes()) ||
+          (fields['place'] ?? '').trim().isNotEmpty) {
+        return;
+      }
+      editCapture('place', place, photoPath: photo.source.path);
+      report('已填入地点');
+    } on Object catch (error) {
+      if (queried) report('地点处理失败');
+      debugPrint('Automatic place lookup failed: ${error.runtimeType}');
+    }
   }
 
   SharedPreset sharePreset({PresetEntry? entry}) {
@@ -757,6 +842,7 @@ class AlphaWorkspace extends ChangeNotifier {
     presetDemoCache?.dispose();
     _store?.dispose();
     _preferences?.dispose();
+    _mapSettings?.dispose();
     for (final photo in [...photos, ..._removed.map((entry) => entry.$2)]) {
       unawaited(photo.dispose().catchError((Object _) {}));
     }
