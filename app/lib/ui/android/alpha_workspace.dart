@@ -472,6 +472,7 @@ class AlphaWorkspace extends ChangeNotifier {
         photo == null ||
         snapshot == null ||
         lookup == null ||
+        !photo.source.locationAccess ||
         _mapSettings?.autoFillPlace != true ||
         _mapSettings?.hasAmapCredentials != true ||
         snapshot.fields[gpsField] == null) {

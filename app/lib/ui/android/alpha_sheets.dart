@@ -32,6 +32,17 @@ Future<bool?> chooseAlphaSource(BuildContext context) =>
             mainAxisSize: MainAxisSize.min,
             children: [
               const _SheetTitle('选择照片'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '需要自动填写拍摄地点时，请使用「从文件选择」。开启该功能后，系统会按需请求读取照片里的拍摄位置。',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                ),
+              ),
               ListTile(
                 leading: const Icon(Icons.photo_library_outlined),
                 title: const Text('从相册选择'),

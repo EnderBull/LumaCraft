@@ -54,6 +54,7 @@ class MainActivity : FlutterActivity() {
     }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        p1.onPermissionResult(requestCode)
         qrCamera?.onPermissionResult(requestCode)
     }
 

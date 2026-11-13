@@ -14,34 +14,41 @@ final androidSrgbProfile = base64Decode(
 class AndroidPhoto {
   final String path, name;
   final String? uri;
-  const AndroidPhoto(this.path, this.name, {this.uri});
+  final bool locationAccess;
+  const AndroidPhoto(this.path, this.name,
+      {this.uri, this.locationAccess = false});
 
   factory AndroidPhoto.fromJson(Map<String, dynamic> json) =>
       AndroidPhoto(json['path'] as String, json['name'] as String,
-          uri: json['uri'] as String?);
+          uri: json['uri'] as String?,
+          locationAccess: json['locationAccess'] == true);
 
-  Map<String, Object?> toJson() => {'path': path, 'name': name, 'uri': uri};
+  Map<String, Object?> toJson() => {
+        'path': path,
+        'name': name,
+        'uri': uri,
+        if (locationAccess) 'locationAccess': true,
+      };
 
   Future<String> readablePath() async {
     if (uri == null) return path;
-    return (await androidPlatform
-        .invokeMethod<String>('materializePhoto', {'uri': uri, 'path': path}))!;
+    return (await androidPlatform.invokeMethod<String>('materializePhoto', {
+      'uri': uri,
+      'path': path,
+      if (locationAccess) 'locationAccess': true,
+    }))!;
   }
 
   static Future<List<AndroidPhoto>> pickPhotos(
       {required bool album, bool requestLocationMetadata = false}) async {
-    final results = await androidPlatform.invokeListMethod<Object?>(
-        'pickPhotos', {
+    final results =
+        await androidPlatform.invokeListMethod<Object?>('pickPhotos', {
       'album': album,
       if (requestLocationMetadata) 'requestLocationMetadata': true,
     });
     return [
       for (final item in results ?? const [])
-        AndroidPhoto(
-          (item as Map)['path'] as String,
-          item['name'] as String,
-          uri: item['uri'] as String?,
-        ),
+        AndroidPhoto.fromJson(Map<String, dynamic>.from(item as Map)),
     ];
   }
 

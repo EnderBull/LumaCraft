@@ -462,7 +462,8 @@ class _MapSettingsDialogState extends State<_MapSettingsDialog> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('有坐标时自动填地点'),
-            subtitle: const Text('预设显示地点时，将照片坐标发送给高德查询。相册未提供坐标时，可试用「从文件选择」。'),
+            subtitle: const Text(
+                '选图时申请读取照片的拍摄坐标，用于自动填地点。预设使用地点时，才将坐标发送给高德查询。拒绝授权后仍可选图和手动填写。'),
             value: _autoFillPlace,
             onChanged: _busy
                 ? null
