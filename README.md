@@ -4,12 +4,14 @@
 
 # 框印工坊 · LumaCraft
 
-**给照片加边框与信息水印的本地桌面工具**
+**给照片加边框与信息水印的本地工具**
 
 不联网、不上传，所有处理都在本机完成
 
 ![release](https://img.shields.io/github/v/release/EnderBull/LumaCraft?include_prereleases&label=release)
-![platform](https://img.shields.io/badge/platform-Windows-blue)
+![Windows](https://img.shields.io/badge/Windows-Beta-blue)
+![Android](https://img.shields.io/badge/Android-Beta-green)
+![macOS](https://img.shields.io/badge/macOS-Preview-orange)
 ![license](https://img.shields.io/badge/license-GPL--3.0-green)
 ![status](https://img.shields.io/badge/status-Beta-orange)
 
@@ -71,14 +73,15 @@
 
 ## 下载
 
-在 [Releases](https://github.com/EnderBull/LumaCraft/releases) 页面下载：
+前往 [Releases](https://github.com/EnderBull/LumaCraft/releases)，在所选版本的 Assets（附件）中下载对应文件。
 
-| 文件 | 说明 |
-|---|---|
-| 安装包 | 双击安装，适合日常使用 |
-| 绿色版压缩包 | 解压即用，不写注册表，适合随身携带 |
+| 平台 | 系统要求 | 下载文件 | 说明 |
+|---|---|---|---|
+| Windows（Beta） | Windows 10 / 11（x64） | `*-Setup.exe` 或 `*-Portable.zip` | 安装包适合日常使用；绿色版解压后运行 `lumacraft.exe` |
+| Android（Beta） | Android 12 及以上（ARM64） | `*-arm64-v8a.apk` | 移动精简版；需要自动填写拍摄地点时，请用「从文件选择」导入照片 |
+| macOS（预览） | macOS 13 及以上（Apple 芯片） | `*-arm64-Preview.zip` | 应用尚未经过 Apple 公证；地图及完整桌面流程待实机验证 |
 
-系统要求：Windows 10 / 11（64 位）。
+上面的截图和功能说明以 Windows 版为主。
 
 ## 从源码运行
 
@@ -108,8 +111,9 @@ flutter test -j 1
 
 ## 路线
 
-- 已完成：Windows 桌面版，JPG / HEIC 输入，边框编辑器，预设分享，批量导出
-- 计划中：Android，之后考虑 macOS / iOS
+- 已发布 Beta：Windows 桌面版、Android 精简版
+- 已发布预览：macOS（Apple 芯片），地图及完整桌面流程待实机验证
+- 后续考虑：iOS
 - 暂不支持：RAW 输入
 
 ## 许可证
